@@ -52,7 +52,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     return result
     
 
-def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10) -> (np.array, np.array, np.array):
+def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10 + 1) -> (np.array, np.array, np.array):
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
@@ -71,16 +71,9 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     Raises:
         ValueError: If both predictions and labels have mismatched shapes.
     """   
-    if (true_labels.shape[0] != model_output_positive.shape[0]):
-        raise ValueError(f'Mismatched shapes of the positive inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')
-    
-    if (true_labels.shape[0] != model_output_negative.shape[0]):
-        raise ValueError(f'Mismatched shapes of the negative inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_negative.shape[0]}')
-    
-    weights = weights if weights is not None else np.ones_like(model_output_positive)
-
-    if (weights.shape[0] != model_output_positive.shape[0]):
-        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')    
+    #Helper function
+    def Number_with_Poisson(array) -> Number:
+        return Number(np.sum(array), {"poisson": float(np.sqrt(array.sum()))})
     
     #Define Thresholds if None
     if thresholds is None:
@@ -90,27 +83,45 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     if model_output_negative is None:
         model_output_negative = 1- model_output_positive
 
+    #Define weights if None
+    if weights is None:
+        weights = np.ones_like(model_output_positive)
+    
+    #Cast trues labels
     trues = true_labels.astype(dtype=np.bool)
-    #inputs = np.stack((model_output_positive, negative, weights)) if is_weighted else np.stack((model_output_positive, negative, weights))
+
+    #Check the input on correctness
+    if (true_labels.shape[0] != model_output_positive.shape[0]):
+        raise ValueError(f'Mismatched shapes of the positive inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')
+    
+    if (true_labels.shape[0] != model_output_negative.shape[0]):
+        raise ValueError(f'Mismatched shapes of the negative inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_negative.shape[0]}')
+    
+    if (weights.shape[0] != model_output_positive.shape[0]):
+        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')    
+    
     
     tpr = []
     fpr = []
 
     for t in thresholds:
         positives = model_output_positive >= t
-        tp = np.sum(weights[np.logical_and(positives, trues)])
-        tn = np.sum(weights[np.logical_and(positives == False, trues == False)])
-        fp = np.sum(weights[np.logical_and(positives, trues == False)])
-        fn = np.sum(weights[np.logical_and(positives == False, trues)])
+        tp = Number_with_Poisson(weights[np.logical_and(positives, trues)])
+        tn = Number_with_Poisson(weights[np.logical_and(positives == False, trues == False)])
+        fp = Number_with_Poisson(weights[np.logical_and(positives, trues == False)])
+        fn = Number_with_Poisson(weights[np.logical_and(positives == False, trues)])
 
-        for entry in [tp, tn, fp, fn]:
-            entry = Number(entry, {"poisson": float(np.sqrt(entry))})
-        
         tpr.append(tp/(tp + fn))
         fpr.append(fp/(fp + tn))
 
     return fpr, tpr, thresholds
 
 if __name__ == '__main__':
-    print(calc_uncert([[1, 2], [3, 4]], lambda x: 1))
+    from sklearn.metrics import roc_curve
+
+    true = np.random.randint(0,2,size =1000)
+    pred = np.random.random(size = 1000)
+    weights = np.random.random(size = 1000)
+    x = get_roc_data(true, pred,weights=weights,output_length=13)
+    print(x)
 
