@@ -9,12 +9,8 @@ def calc_uncert(matrix : list or np.array , func):
     result = ((errors*np.sqrt((np.sum(matrix,axis = 1)- matrix.T).T)).T/np.power(row_sum, 3/2)).T
     return result
 
-test = np.random.randint(0,100, size=(100,5))
-trues = np.random.randint(1,5,size= 100)
-x = np.divide(test.T, np.sum(test, axis=1)).T
 
-
-def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None) -> np.array:
+def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None) -> np.array:
     """
     Generates the confusion matrix given the output of the nodes and a true labels array.
     The Cronfusion matrix can also be weighted and 
@@ -32,6 +28,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     """    
     if (true_labels.shape[0] != model_output.shape[0]):
         raise ValueError(f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output.shape[0]}')
+    
     is_weighted = type(weights) != type(None)
     if (is_weighted and weights.shape[0] != model_output.shape[0]):
         raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output.shape[0]}')
@@ -48,6 +45,15 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     #indecies = np.stack((true_labels, predictions), axis = 1)
     for ind, (true, pred) in enumerate(zip(true_labels, predictions)):
         result[true][pred] += weights[ind] if is_weighted else 1
+    
+    #Normalize Matrix if needed
+    if normalization is not None:
+        valid = {'row': 1, 'column': 0}
+        if normalization not in valid.keys():
+            raise ValueError(f'\'{normalization}\' is no valid argument for normalization. If givin, normalization should only take \'row\' or \'column\'')
+        
+        row_sums = result.sum(axis=valid.get(normalization))
+        result = result / row_sums[:, np.newaxis]
 
     return result
     
@@ -117,6 +123,11 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     return fpr, tpr, thresholds
 
 if __name__ == '__main__':
+
+    test = np.random.randint(0,100, size=(100,5))
+    trues = np.random.randint(1,5,size= 100)
+    x = np.divide(test.T, np.sum(test, axis=1)).T
+
     from sklearn.metrics import roc_curve
 
     true = np.random.randint(0,2,size =1000)
