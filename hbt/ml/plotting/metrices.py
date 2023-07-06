@@ -10,6 +10,7 @@ def calc_uncert(matrix : list or np.array , func):
     return result
 
 
+#TODO add uncertenties to Matrix
 def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None) -> np.array:
     """
     Generates the confusion matrix given the output of the nodes and a true labels array.
@@ -57,7 +58,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
 
     return result
     
-
+#TODO add function for multi-dim ROC curve
 def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
