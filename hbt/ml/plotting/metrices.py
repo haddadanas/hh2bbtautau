@@ -58,7 +58,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     return result
     
 
-def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10 + 1) -> (np.array, np.array, np.array):
+def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
