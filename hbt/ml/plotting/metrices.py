@@ -20,8 +20,8 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     The Cronfusion matrix can also be weighted and 
 
     Args:
-        model_output (np.array): output of the model with propability predictions for each event.
         true_labels (np.array): an `Array` with the true labels of the events
+        model_output (np.array): output of the model with propability predictions for each event.
         weights (np.array): weights of the events
 
     Returns:
@@ -52,8 +52,64 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     return result
     
 
+def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10) -> (np.array, np.array, np.array):
+    """
+    Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
+    Args:
+        true_labels (np.array): an `Array` with the true labels of the events. Entries should be of type true/flase or 1/0
+        model_output_positive (np.array): output of the model with propability predictions for positive events.
+        model_output_negative (np.array): output of the model with propability predictions for negative events. If not specified complementary propabilitues are chosen.
+        thresholds (np.array): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries.
+        weights (np.array): weights of the events
+        args (y): list of additional parameters.
+        output_length (int): number of points generated for the ROC curve
 
+    Returns:
+        An tuple of 1D `np.array` each with length `output_length` representing the FPR and TPR.
+
+    Raises:
+        ValueError: If both predictions and labels have mismatched shapes.
+    """   
+    if (true_labels.shape[0] != model_output_positive.shape[0]):
+        raise ValueError(f'Mismatched shapes of the positive inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')
+    
+    if (true_labels.shape[0] != model_output_negative.shape[0]):
+        raise ValueError(f'Mismatched shapes of the negative inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_negative.shape[0]}')
+    
+    weights = weights if weights is not None else np.ones_like(model_output_positive)
+
+    if (weights.shape[0] != model_output_positive.shape[0]):
+        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')    
+    
+    #Define Thresholds if None
+    if thresholds is None:
+        thresholds = np.linspace(0, 1, output_length)
+
+    #Define model_output_negatives if None
+    if model_output_negative is None:
+        model_output_negative = 1- model_output_positive
+
+    trues = true_labels.astype(dtype=np.bool)
+    #inputs = np.stack((model_output_positive, negative, weights)) if is_weighted else np.stack((model_output_positive, negative, weights))
+    
+    tpr = []
+    fpr = []
+
+    for t in thresholds:
+        positives = model_output_positive >= t
+        tp = np.sum(weights[np.logical_and(positives, trues)])
+        tn = np.sum(weights[np.logical_and(positives == False, trues == False)])
+        fp = np.sum(weights[np.logical_and(positives, trues == False)])
+        fn = np.sum(weights[np.logical_and(positives == False, trues)])
+
+        for entry in [tp, tn, fp, fn]:
+            entry = Number(entry, {"poisson": float(np.sqrt(entry))})
+        
+        tpr.append(tp/(tp + fn))
+        fpr.append(fp/(fp + tn))
+
+    return fpr, tpr, thresholds
 
 if __name__ == '__main__':
     print(calc_uncert([[1, 2], [3, 4]], lambda x: 1))
