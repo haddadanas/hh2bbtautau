@@ -1,7 +1,7 @@
 import numpy as np
 from scinum import Number, UP
 
-def calc_uncert(matrix : list or np.array , func):
+def calc_uncert(matrix , func):
     #result = np.zeros_like(matrix.size, dtype = np.float)
     matrix = np.array(matrix)
     errors = func(matrix)
@@ -11,7 +11,6 @@ def calc_uncert(matrix : list or np.array , func):
 
 
 
-#TODO add uncertenties to Matrix
 def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None, errors: bool = True) -> np.array:
     """
     Generates the confusion matrix given the output of the nodes and a true labels array.
@@ -92,7 +91,9 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     #Helper functions
     def cast_to_Number(array, get_errors) -> Number:
         if get_errors:
-            return Number(np.sum(array), float(np.divide(array.sum(), array.size)))
+            if array.size != 0:
+                return Number(np.sum(array), float(np.divide(array.sum(), np.sqrt(array.size))))
+            return Number(np.sum(array), 0.0)
         return Number(np.sum(array))
     
     #Define Thresholds if None
@@ -108,7 +109,7 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
         weights = np.ones_like(model_output_positive)
     
     #Cast trues labels
-    trues = true_labels.astype(dtype=np.bool)
+    trues = true_labels.astype(dtype=bool)
 
     #Check the input on correctness
     if (true_labels.shape[0] != model_output_positive.shape[0]):
