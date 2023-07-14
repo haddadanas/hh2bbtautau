@@ -58,6 +58,15 @@ class Test_Conf_Matrix(unittest.TestCase):
             my_matrix = get_conf_matrix(trues,pred, weights=weights)
             self.assertTrue((tf_matrix.numpy() == my_matrix).all())
             print(f'\t test_equals_no_weights: Iteration {ind} complete!')
+
+    
+    @terminal_decorator
+    def test_equals_with_errors(self):
+        for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
+            tf_matrix = confusion_matrix(trues, np.argmax(pred, axis = 1),weights=weights)
+            my_matrix = get_conf_matrix(trues,pred, weights=weights, errors=True)
+            self.assertTrue((tf_matrix.numpy() == my_matrix).all())
+            print(f'\t test_equals_no_errors: Iteration {ind} complete!')
     
     #TODO Add Tests for ROC
     

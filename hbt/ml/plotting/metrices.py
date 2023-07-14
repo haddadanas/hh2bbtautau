@@ -10,8 +10,9 @@ def calc_uncert(matrix : list or np.array , func):
     return result
 
 
+
 #TODO add uncertenties to Matrix
-def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None) -> np.array:
+def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None, errors: bool = True) -> np.array:
     """
     Generates the confusion matrix given the output of the nodes and a true labels array.
     The Cronfusion matrix can also be weighted and 
@@ -19,6 +20,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     Args:
         true_labels (np.array): an `Array` with the true labels of the events
         model_output (np.array): output of the model with propability predictions for each event.
+        errors (bool): calculate errors of the ROC entries
         weights (np.array): weights of the events
 
     Returns:
@@ -27,6 +29,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     Raises:
         ValueError: If both predictions and labels have mismatched shapes, or if `weights` is not `None` and its shape doesn't match `predictions`.
     """    
+
     if (true_labels.shape[0] != model_output.shape[0]):
         raise ValueError(f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output.shape[0]}')
     
@@ -42,11 +45,13 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
     predictions = np.argmax(model_output, axis = 1)
     
     result = np.zeros(shape = mat_shape, dtype = return_type)
+    counts = np.zeros(shape = mat_shape, dtype = return_type)
 
     #indecies = np.stack((true_labels, predictions), axis = 1)
     for ind, (true, pred) in enumerate(zip(true_labels, predictions)):
         result[true][pred] += weights[ind] if is_weighted else 1
-    
+        counts[true][pred] += 1
+
     #Normalize Matrix if needed
     if normalization is not None:
         valid = {'row': 1, 'column': 0}
@@ -56,10 +61,15 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
         row_sums = result.sum(axis=valid.get(normalization))
         result = result / row_sums[:, np.newaxis]
 
+    if errors:
+        vNumber = np.vectorize(lambda num, count: Number(num, float(np.divide(num, np.sqrt(count)))))
+        return vNumber(result, counts)
+        
+
     return result
     
 #TODO add function for multi-dim ROC curve
-def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, *args: list, output_length: int = 10 + 1) -> tuple:
+def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
@@ -69,6 +79,7 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
         model_output_negative (np.array): output of the model with propability predictions for negative events. If not specified complementary propabilitues are chosen.
         thresholds (np.array): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries.
         weights (np.array): weights of the events
+        errors (bool): calculate errors of the ROC entries
         args (y): list of additional parameters.
         output_length (int): number of points generated for the ROC curve
 
@@ -78,9 +89,11 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     Raises:
         ValueError: If both predictions and labels have mismatched shapes.
     """   
-    #Helper function
-    def Number_with_Poisson(array) -> Number:
-        return Number(np.sum(array), {"poisson": float(np.sqrt(array.sum()))})
+    #Helper functions
+    def cast_to_Number(array, get_errors) -> Number:
+        if get_errors:
+            return Number(np.sum(array), float(np.divide(array.sum(), array.size)))
+        return Number(np.sum(array))
     
     #Define Thresholds if None
     if thresholds is None:
@@ -113,15 +126,22 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
 
     for t in thresholds:
         positives = model_output_positive >= t
-        tp = Number_with_Poisson(weights[np.logical_and(positives, trues)])
-        tn = Number_with_Poisson(weights[np.logical_and(positives == False, trues == False)])
-        fp = Number_with_Poisson(weights[np.logical_and(positives, trues == False)])
-        fn = Number_with_Poisson(weights[np.logical_and(positives == False, trues)])
+        tp = cast_to_Number(weights[np.logical_and(positives, trues)], errors)
+        tn = cast_to_Number(weights[np.logical_and(positives == False, trues == False)], errors)
+        fp = cast_to_Number(weights[np.logical_and(positives, trues == False)], errors)
+        fn = cast_to_Number(weights[np.logical_and(positives == False, trues)], errors)
 
         tpr.append(tp/(tp + fn))
         fpr.append(fp/(fp + tn))
 
     return fpr, tpr, thresholds
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
 
