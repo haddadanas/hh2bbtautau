@@ -9,6 +9,21 @@ def calc_uncert(matrix , func):
     result = ((errors*np.sqrt((np.sum(matrix,axis = 1)- matrix.T).T)).T/np.power(row_sum, 3/2)).T
     return result
 
+#Helper functions
+
+def is_input_valid(true_labels, input):
+    if (true_labels.shape[0] != input.shape[0]):
+        raise ValueError(f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {input.shape[0]}')
+
+def is_weights_valid(input, weights) -> bool:
+    #Check if weights are givin
+    is_weighted = type(weights) != type(None)
+
+    #Check if shapes are valid
+    if (is_weighted and weights.shape[0] != input.shape[0]):
+        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {weights.shape[0]} and {input.shape[0]}')
+    
+    return is_weighted
 
 
 def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.array = None, normalization: str = None, errors: bool = True) -> np.array:
@@ -29,12 +44,9 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
         ValueError: If both predictions and labels have mismatched shapes, or if `weights` is not `None` and its shape doesn't match `predictions`.
     """    
 
-    if (true_labels.shape[0] != model_output.shape[0]):
-        raise ValueError(f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output.shape[0]}')
+    is_input_valid(true_labels, model_output)
     
-    is_weighted = type(weights) != type(None)
-    if (is_weighted and weights.shape[0] != model_output.shape[0]):
-        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output.shape[0]}')
+    is_weighted = is_weights_valid(model_output, weights)
     
     return_type = np.float32 if is_weighted else np.int32
 
@@ -66,6 +78,7 @@ def get_conf_matrix(true_labels: np.array, model_output: np.array, weights: np.a
         
 
     return result
+
     
 #TODO add function for multi-dim ROC curve
 def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_output_negative: np.array = None, thresholds: np.array = None, weights: np.array = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> tuple:
@@ -112,16 +125,10 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
     trues = true_labels.astype(dtype=bool)
 
     #Check the input on correctness
-    if (true_labels.shape[0] != model_output_positive.shape[0]):
-        raise ValueError(f'Mismatched shapes of the positive inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')
-    
-    if (true_labels.shape[0] != model_output_negative.shape[0]):
-        raise ValueError(f'Mismatched shapes of the negative inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {model_output_negative.shape[0]}')
-    
-    if (weights.shape[0] != model_output_positive.shape[0]):
-        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {true_labels.shape[0]} and {model_output_positive.shape[0]}')    
-    
-    
+    is_input_valid(true_labels, model_output_positive)
+    is_input_valid(true_labels, model_output_negative)
+    is_weights_valid(model_output_positive, weights)
+
     tpr = []
     fpr = []
 
@@ -136,25 +143,4 @@ def get_roc_data(true_labels: np.array, model_output_positive: np.array, model_o
         fpr.append(fp/(fp + tn))
 
     return fpr, tpr, thresholds
-
-
-
-
-
-
-
-
-if __name__ == '__main__':
-
-    test = np.random.randint(0,100, size=(100,5))
-    trues = np.random.randint(1,5,size= 100)
-    x = np.divide(test.T, np.sum(test, axis=1)).T
-
-    from sklearn.metrics import roc_curve
-
-    true = np.random.randint(0,2,size =1000)
-    pred = np.random.random(size = 1000)
-    weights = np.random.random(size = 1000)
-    x = get_roc_data(true, pred,weights=weights,output_length=13)
-    print(x)
 
