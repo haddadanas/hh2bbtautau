@@ -25,9 +25,9 @@ class Test_Conf_Matrix(unittest.TestCase):
     def test_unvalid_weights_conf(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             with self.assertRaises(ValueError):
-                get_conf_matrix(trues, pred, weights=weights[:100])
+                get_conf_matrix(trues, pred, sample_weights=weights[:100])
             with self.assertRaises(ValueError):
-                get_conf_matrix(trues, pred, weights=np.stack((weights, weights), axis = 0))
+                get_conf_matrix(trues, pred, sample_weights=np.stack((weights, weights), axis = 0))
 
     def test_equals_no_weights(self):
         for ind, (trues, pred) in enumerate(zip(self.trues, self.pred)):
@@ -38,13 +38,13 @@ class Test_Conf_Matrix(unittest.TestCase):
     def test_equals_with_weights(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             tf_matrix = confusion_matrix(trues, np.argmax(pred, axis = 1),weights=weights)
-            my_matrix = get_conf_matrix(trues,pred, weights=weights)
+            my_matrix = get_conf_matrix(trues,pred, sample_weights=weights)
             self.assertTrue((tf_matrix.numpy() == my_matrix).all())
     
     def test_equals_with_errors(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             tf_matrix = confusion_matrix(trues, np.argmax(pred, axis = 1),weights=weights)
-            my_matrix = get_conf_matrix(trues,pred, weights=weights, errors=True)
+            my_matrix = get_conf_matrix(trues,pred, sample_weights=weights, errors=True)
             self.assertTrue((tf_matrix.numpy() == my_matrix).all())
     
     def test_unvalid_inputs_roc(self):
@@ -52,40 +52,39 @@ class Test_Conf_Matrix(unittest.TestCase):
             trues = trues > 0
             pred = pred[:,0]
             with self.assertRaises(ValueError):
-                get_roc_data(np.array([1,0,1,1,0]), pred)
+                binary_roc_data(np.array([1,0,1,1,0]), pred)
             with self.assertRaises(ValueError):
-                get_roc_data(trues, pred[:100])
+                binary_roc_data(trues, pred[:100])
             with self.assertRaises(ValueError):
-                get_roc_data(trues, pred, (1-pred)[:10])
+                binary_roc_data(trues, pred, (1-pred)[:10])
     
     def test_unvalid_weights_roc(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             trues = trues > 0
             pred = pred[:,0]
             with self.assertRaises(ValueError):
-                get_roc_data(trues, pred, weights=weights[:100])
+                binary_roc_data(trues, pred, sample_weights=weights[:100])
             with self.assertRaises(ValueError):
-                get_roc_data(trues, pred, weights=np.stack((weights, weights), axis = 0))
+                binary_roc_data(trues, pred, sample_weights=np.stack((weights, weights), axis = 0))
   
     def test_equals_without_weights_roc(self):
         for ind, (trues, pred) in enumerate(zip(self.trues, self.pred)):
             trues = trues > 0
             pred = pred[:,0]
             sk_fpr, sk_tpr, sk_threshold = roc_curve(trues, pred)
-            my_fpr, my_tpr, _  = get_roc_data(trues,pred,thresholds=sk_threshold, errors = False)
+            my_fpr, my_tpr, _  = binary_roc_data(trues,pred,thresholds=sk_threshold, errors = False)
             self.assertTrue((sk_fpr == my_fpr).all())
             self.assertTrue((sk_tpr == my_tpr).all())
 
-'''
+    @unittest.skip('weights calculation inconsistent')
     def test_equals_with_weights_roc(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             trues = trues > 0
             pred = pred[:,0]
             sk_fpr, sk_tpr, sk_threshold = roc_curve(trues, pred, sample_weight=weights)
-            my_fpr, my_tpr, _  = get_roc_data(trues,pred,thresholds=sk_threshold, errors = False, weights=weights)
+            my_fpr, my_tpr, _  = binary_roc_data(trues,pred,thresholds=sk_threshold, errors = False, sample_weights=weights)
             self.assertTrue((sk_fpr == my_fpr).all())
             self.assertTrue((sk_tpr == my_tpr).all())
-'''
 
 if __name__ == '__main__':
     unittest.main()
