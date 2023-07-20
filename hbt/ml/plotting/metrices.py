@@ -142,8 +142,8 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
 
     return fpr, tpr, thresholds
 
-
-def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: np.ndarray, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
+#TODO OnevsOne corregieren
+def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a multi-class classification
 
@@ -163,7 +163,7 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         for ind, cls_name in enumerate(names):
             positiv_inputs = model_output[:, ind]
             rest_inputs = np.delete(model_output, ind, axis = 1).sum(axis = 1)
-            fpr, tpr, th = binary_roc_data(true_labels, positiv_inputs, rest_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
+            fpr, tpr, th = binary_roc_data(true_labels == ind, positiv_inputs, rest_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
             result[cls_name] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
@@ -182,8 +182,12 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         return result
 
     if class_names is None:
-        class_names = range(model_output.shape[1])
-    
+        class_names = list(range(model_output.shape[1]))    
+ 
+    if true_labels.dtype.name == 'object':
+        for ind, name in enumerate(class_names):
+            true_labels = np.where(true_labels == name, ind, true_labels)
+
     if (evaluation_type == '1v1'):
         return one_vs_one(class_names)
     elif (evaluation_type == '1vrest'):
