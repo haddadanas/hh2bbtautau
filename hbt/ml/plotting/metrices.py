@@ -26,7 +26,7 @@ def is_weights_valid(input, weights) -> bool:
     return is_weighted
 
 
-def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_weights: np.ndarray = None, normalization: str = None, errors: bool = True) -> np.ndarray:
+def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_weights: np.ndarray = None, *args, normalization: str = None, errors: bool = True) -> np.ndarray:
     """
     Generates the confusion matrix given the output of the nodes and a true labels array.
     The Cronfusion matrix can also be weighted and 
@@ -79,7 +79,7 @@ def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_we
 
     return result
 
-def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> tuple:
+def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, sample_weights: np.ndarray = None, *args, thresholds: np.ndarray = None,  errors: bool = True, output_length: int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
@@ -155,7 +155,7 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         result = {}
         for ind, cls_name in enumerate(names):
             positiv_inputs = model_output[:, ind]
-            fpr, tpr, th = binary_roc_data(true_labels == ind, positiv_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
+            fpr, tpr, th = binary_roc_data(true_labels=(true_labels == ind), model_output_positive= positiv_inputs, sample_weights=sample_weights, *args, thresholds= thresholds, errors=errors, output_length=output_length)
             result[cls_name] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
@@ -174,7 +174,7 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
                     select_weights = sample_weights[inputs_mask]
 
                 positiv_inputs = select_input[:, pos_ind]
-                fpr, tpr, th = binary_roc_data(select_labels == pos_ind, positiv_inputs, thresholds, select_weights, errors, output_length=output_length, *args)
+                fpr, tpr, th = binary_roc_data(true_labels=(select_labels == pos_ind), model_output_positive=positiv_inputs, sample_weights=select_weights, *args, thresholds=thresholds, errors=errors, output_length=output_length)
                 result[f'{cls_name}_vs_{cls_name2}'] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
