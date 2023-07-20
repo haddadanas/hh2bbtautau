@@ -79,15 +79,13 @@ def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_we
 
     return result
 
-    
-def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, model_output_negative: np.ndarray = None, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> tuple:
+def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
     Args:
         true_labels (np.array): an `Array` with the true labels of the events. Entries should be of type true/flase or 1/0
         model_output_positive (np.array): output of the model with propability predictions for positive events.
-        model_output_negative (np.array): output of the model with propability predictions for negative events. If not specified complementary propabilitues are chosen.
         thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries. Defaults to None.        weights (np.array): weights of the events
         errors (bool): calculate errors of the ROC entries
         args (y): list of additional parameters.
@@ -111,10 +109,6 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
     if thresholds is None:
         thresholds = np.linspace(0, 1, output_length)
 
-    #Define model_output_negatives if None
-    if model_output_negative is None:
-        model_output_negative = 1- model_output_positive
-
     #Define weights if None
     if sample_weights is None:
         sample_weights = np.ones_like(model_output_positive)
@@ -124,7 +118,6 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
 
     #Check the input on correctness
     is_input_valid(true_labels, model_output_positive)
-    is_input_valid(true_labels, model_output_negative)
     is_weights_valid(model_output_positive, sample_weights)
 
     tpr = []
@@ -142,13 +135,13 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
 
     return fpr, tpr, thresholds
 
-#TODO OnevsOne corregieren
+#TODO provide averaged ROC
 def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a multi-class classification
 
     Args:
-        evaluation_type (str): type of evaluation. Valid keys are \'1v1\' (One vs One) or \'1vrest\' (One vs Rest)
+        evaluation_type (str): type of evaluation. Valid keys are \'OvO\' (One vs One) or \'OvR\' (One vs Rest)
         true_labels (np.array): an `Array` with the true labels of the events
         model_output (np.array): output of the model with propability predictions for each event.
         class_names (np.array): name for the givin classes. Should be givin in the same order as the column. If not specified the index of the column will be used instead
@@ -162,21 +155,26 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         result = {}
         for ind, cls_name in enumerate(names):
             positiv_inputs = model_output[:, ind]
-            rest_inputs = np.delete(model_output, ind, axis = 1).sum(axis = 1)
-            fpr, tpr, th = binary_roc_data(true_labels == ind, positiv_inputs, rest_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
+            fpr, tpr, th = binary_roc_data(true_labels == ind, positiv_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
             result[cls_name] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
 
     def one_vs_one(names):
         result = {}
-        for ind, cls_name in enumerate(names):
-            positiv_inputs = model_output[:, ind]
-            for ind2, cls_name2 in enumerate(names):
-                if (ind == ind2):
+        for pos_ind, cls_name in enumerate(names):
+            for neg_ind, cls_name2 in enumerate(names):
+                if (pos_ind == neg_ind):
                     continue
-                neg_inputs = model_output[:, ind2]
-                fpr, tpr, th = binary_roc_data(true_labels, positiv_inputs, neg_inputs, thresholds, sample_weights, errors, output_length=output_length, *args)
+                #Event selection masks only for the 2 classes analysed
+                inputs_mask = np.logical_or(true_labels == pos_ind, true_labels == neg_ind)
+                select_input = model_output[inputs_mask]
+                select_labels = true_labels[inputs_mask]
+                if sample_weights is not None:
+                    select_weights = sample_weights[inputs_mask]
+
+                positiv_inputs = select_input[:, pos_ind]
+                fpr, tpr, th = binary_roc_data(select_labels == pos_ind, positiv_inputs, thresholds, select_weights, errors, output_length=output_length, *args)
                 result[f'{cls_name}_vs_{cls_name2}'] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
@@ -188,10 +186,11 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         for ind, name in enumerate(class_names):
             true_labels = np.where(true_labels == name, ind, true_labels)
 
-    if (evaluation_type == '1v1'):
+    if (evaluation_type == 'OvO'):
         return one_vs_one(class_names)
-    elif (evaluation_type == '1vrest'):
+    elif (evaluation_type == 'OvR'):
         return one_vs_rest(class_names)
     else:
-        raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'1v1\' (One vs One) or \'1vrest\' (One vs Rest)')
+        raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'OvO\' (One vs One) or \'OvR\' (One vs Rest)')
+    
     
