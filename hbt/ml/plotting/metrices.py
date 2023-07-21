@@ -135,7 +135,7 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
 
     return fpr, tpr, thresholds
 
-def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
+def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list = None, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a multi-class classification
 

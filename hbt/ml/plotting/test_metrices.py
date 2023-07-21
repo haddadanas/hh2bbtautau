@@ -84,5 +84,13 @@ class Test_Conf_Matrix(unittest.TestCase):
             self.assertTrue((sk_fpr.astype(dtype=np.float32) == my_fpr).all())
             self.assertTrue((sk_tpr.astype(dtype=np.float32) == my_tpr).all())
 
+    def test_output_size_mdim_roc_curve(self):
+        for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
+            OvO = mdim_roc_curve(evaluation_type='OvO', true_labels=trues,model_output=pred, errors=False)
+            OvR = mdim_roc_curve(evaluation_type='OvR', true_labels=trues,model_output=pred, errors=False)
+            self.assertEqual(20 ,len(OvO.keys()))
+            self.assertEqual(5 ,len(OvR.keys()))
+
+
 if __name__ == '__main__':
     unittest.main()
