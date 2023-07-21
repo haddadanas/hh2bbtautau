@@ -182,20 +182,27 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
 
     is_input_valid(true_labels, model_output)
 
+    #reshape in case only predictions for the positive class are givin
+    if model_output.ndim != 2:
+        model_output = model_output.reshape((model_output.size, 1))
+
+    #Generate class names if not givin
+    if class_names is None:
+        class_names = list(range(model_output.shape[1]))
+    
+    if len(class_names) != model_output.shape[1]:
+        raise ValueError('Number of givin class names does not match the number of output nodes in the `model_output` argument!')
+
     #Cast trues labels to class numers
     if true_labels.dtype.name == 'bool':
         true_labels = np.logical_not(true_labels).astype(dtype=np.int32)
-
-    if len(model_output.shape) != 2:
-        model_output = model_output.reshape((model_output.size, 1))
-
-    if class_names is None:
-        class_names = list(range(model_output.shape[1]))
- 
-    if true_labels.dtype.name == 'object':
+    
+    #Map true labels to integers if needed
+    if 'int' not in true_labels.dtype.name:
         for ind, name in enumerate(class_names):
             true_labels = np.where(true_labels == name, ind, true_labels)
 
+    #Choose the evaluation type
     if (evaluation_type == 'OvO'):
         return one_vs_one(class_names)
     elif (evaluation_type == 'OvR'):
@@ -203,5 +210,5 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
     else:
         raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'OvO\' (One vs One) or \'OvR\' (One vs Rest)')
 
-def auc_score():
+def binary_auc_score(fpr: list, tpr: list, *args):
     pass
