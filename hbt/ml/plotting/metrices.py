@@ -107,6 +107,8 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
     
     #Define Thresholds if None
     if thresholds is None:
+        if not isinstance(int(output_length), int):
+            raise ValueError('If `thresholds`  is not givin, `output_length` must be givin an int, from which the thresholds are determined! Both arguments cannot be `None`!')
         thresholds = np.linspace(0, 1, output_length)
 
     #Define weights if None
@@ -117,6 +119,7 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
     trues = true_labels.astype(dtype=bool)
 
     #Check the input on correctness
+    model_output_positive = model_output_positive.flatten()
     is_input_valid(true_labels, model_output_positive)
     is_weights_valid(model_output_positive, sample_weights)
 
@@ -135,13 +138,13 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
 
     return fpr, tpr, thresholds
 
-def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list = None, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
+def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: np.ndarray, class_names: list = None, thresholds: np.ndarray = None, sample_weights: np.ndarray = None, errors: bool = True, *args: list, output_length: int = 10 + 1) -> dict:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a multi-class classification
 
     Args:
-        evaluation_type (str): type of evaluation. Valid keys are \'OvO\' (One vs One) or \'OvR\' (One vs Rest)
-        true_labels (np.array): an `Array` with the true labels of the events
+        evaluation_type (str): type of evaluation. Valid keys are \'OvO\' (One vs One) or \'OvR\' (One vs Rest). For a binary classification choose \'OvR\' or the dedicated function `binary_roc_data`
+        true_labels (np.array): an `Array` with the true labels of the events. If a boolean array is givin 
         model_output (np.array): output of the model with propability predictions for each event.
         class_names (np.array): name for the givin classes. Should be givin in the same order as the column. If not specified the index of the column will be used instead
         thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries. Defaults to None.
@@ -177,8 +180,17 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         
         return result
 
+    is_input_valid(true_labels, model_output)
+
+    #Cast trues labels to class numers
+    if true_labels.dtype.name == 'bool':
+        true_labels = np.logical_not(true_labels).astype(dtype=np.int32)
+
+    if len(model_output.shape) != 2:
+        model_output = model_output.reshape((model_output.size, 1))
+
     if class_names is None:
-        class_names = list(range(model_output.shape[1]))    
+        class_names = list(range(model_output.shape[1]))
  
     if true_labels.dtype.name == 'object':
         for ind, name in enumerate(class_names):
@@ -190,5 +202,6 @@ def mdim_roc_curve(evaluation_type: str, true_labels: np.ndarray, model_output: 
         return one_vs_rest(class_names)
     else:
         raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'OvO\' (One vs One) or \'OvR\' (One vs Rest)')
-    
-    
+
+def auc_score():
+    pass

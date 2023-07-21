@@ -73,6 +73,15 @@ class Test_Conf_Matrix(unittest.TestCase):
             my_fpr, my_tpr, _  = binary_roc_data(true_labels=trues,model_output_positive=pred,thresholds=sk_threshold, errors = False)
             self.assertTrue((sk_fpr == my_fpr).all())
             self.assertTrue((sk_tpr == my_tpr).all())
+    
+    def test_equals_without_weights_roc_new_impl(self):
+        for ind, (trues, pred) in enumerate(zip(self.trues, self.pred)):
+            trues = trues > 0
+            pred = pred[:,0]
+            sk_fpr, sk_tpr, sk_threshold = roc_curve(trues, pred)
+            my_fpr, my_tpr, _  = roc_curve_data(evaluation_type='OvR', true_labels=trues,model_output=pred,thresholds=sk_threshold, errors = False)[0].values()
+            self.assertTrue((sk_fpr == my_fpr).all())
+            self.assertTrue((sk_tpr == my_tpr).all())
 
     def test_equals_with_weights_roc(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
@@ -86,8 +95,8 @@ class Test_Conf_Matrix(unittest.TestCase):
 
     def test_output_size_mdim_roc_curve(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
-            OvO = mdim_roc_curve(evaluation_type='OvO', true_labels=trues,model_output=pred, errors=False)
-            OvR = mdim_roc_curve(evaluation_type='OvR', true_labels=trues,model_output=pred, errors=False)
+            OvO = roc_curve_data(evaluation_type='OvO', true_labels=trues,model_output=pred, errors=False)
+            OvR = roc_curve_data(evaluation_type='OvR', true_labels=trues,model_output=pred, errors=False)
             self.assertEqual(20 ,len(OvO.keys()))
             self.assertEqual(5 ,len(OvR.keys()))
 
