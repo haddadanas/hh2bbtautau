@@ -158,7 +158,7 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
         for ind, cls_name in enumerate(names):
             positiv_inputs = model_output[:, ind]
             fpr, tpr, th = binary_roc_data(true_labels=(true_labels == ind), model_output_positive= positiv_inputs, sample_weights=sample_weights, *args, thresholds= thresholds, errors=errors, output_length=output_length)
-            result[cls_name] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
+            result[f'{cls_name}_vs_rest'] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
 
@@ -210,5 +210,52 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
     else:
         raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'OvO\' (One vs One) or \'OvR\' (One vs Rest)')
 
-def binary_auc_score(fpr: list, tpr: list, *args):
-    pass
+def binary_auc_score(fpr: list, tpr: list, *args) -> Number or np.float64:
+    """Calculates the Area Under the Curve (AUC) for givin False Positive Rate (fpr) and True Positive Rate (tpr)
+
+    Args:
+        fpr (list): False Positive Rate
+        tpr (list): True Positive Rate
+
+    Raises:
+        ValueError: If `tpr` or `fpr` is empty
+        ValueError: If the length of `tpr` does not match the length of `fpr`
+        ValueError: If `fpr` is not monoton
+
+    Returns:
+        Number or np.float64: If the givin list contain scinum.Number a Number instance is returend with the calculated error on the auc score. Else a numpy.float64 is returend.
+    """    
+    if not fpr or not tpr:
+        raise ValueError('Neither `tpr` nor `fpr` can be an empty list!')
+    if len(fpr) != len(tpr):
+        raise ValueError('Mismatch in the list length of tpr and fpr!')
+
+    sign = 1
+    if np.any(np.diff(fpr) < 0):
+        if np.all(np.diff(fpr) <= 0):
+            sign = -1
+        else:
+            raise ValueError("x is neither increasing nor decreasing : {}.".format(fpr))
+    
+    return sign * np.trapz(tpr,fpr)
+
+
+def mdim_auc_score(inputs: dict, *args) -> dict:
+    """Calculates the Area Under the Curve (AUC) for givin dictionary containing the False Positive Rate (fpr) and True Positive Rate (tpr) from a multi-dimentional ROC curve
+
+    Args:
+        inputs (dict): _description_
+
+    Raises:
+        ValueError: If `inputs` is an empty dictionary
+
+    Returns:
+        dict: dictionary containing the calculated AUC scores.
+    """    
+    if not inputs:
+        raise ValueError('`inputs` is empty!')
+    result = {}
+    for cls_name, values in inputs.items():
+        result[cls_name] = binary_auc_score(fpr= values['fpr'], tpr=values['tpr'])
+
+    return result
