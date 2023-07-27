@@ -1,7 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import mplhep as hep
 import re
+
+
+#matplotlib.rc('lines', usetex=True) #use latex for text
 
 #Define a CF custom color map
 import matplotlib.colors as colors
@@ -69,7 +73,7 @@ def plot_confusion_matrix(cm,
     if class_number > 10:
       return max(8, int(-8/10 * class_number + 23))
     else:
-      return int(class_number/14*(9 * class_number - 177) + 540/7)
+      return int(class_number/14*(9 * class_number - 177) + 510/7)
   
     
   def get_errors(matrix):
@@ -117,7 +121,7 @@ def plot_confusion_matrix(cm,
   plt.yticks(tick_marks, classes)
 
   #Justify Color bar
-  plt.colorbar(fraction=0.0471, pad=0.01)
+  plt.colorbar(fraction=0.0471, pad=0.01, label= 'Accuracy')
   plt.clim(0,max(1, values.max()))
 
   #Add Matrix Elemtns
@@ -141,6 +145,11 @@ def plot_confusion_matrix(cm,
   #plt.show()
   plt.savefig(f'./test_{type(uncs)}.png', dpi = 300, bbox_inches = 'tight')
   plt.clf()
+
+def plot_roc_curve(input):
+  pass
+
+
 if __name__ == '__main__':
   from scinum import Number
   plot_confusion_matrix(np.array([[Number(i,5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
