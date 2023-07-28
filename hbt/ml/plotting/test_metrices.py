@@ -2,7 +2,7 @@ import sys
 import unittest
 import numpy as np
 from metrices import *
-from tensorflow.math import confusion_matrix
+from tensorflow.math import confusion_matrix #type: ignore
 from sklearn.metrics import roc_curve
 
 
@@ -79,7 +79,7 @@ class Test_Conf_Matrix(unittest.TestCase):
             trues = trues > 0
             pred = pred[:,0]
             sk_fpr, sk_tpr, sk_threshold = roc_curve(trues, pred)
-            my_fpr, my_tpr, _  = roc_curve_data(evaluation_type='OvR', true_labels=trues,model_output=pred,thresholds=sk_threshold, errors = False)[0].values()
+            my_fpr, my_tpr, _  = roc_curve_data(evaluation_type='OvR', true_labels=trues,model_output=pred,thresholds=sk_threshold, errors = False)['0_vs_rest'].values()
             self.assertTrue((sk_fpr == my_fpr).all())
             self.assertTrue((sk_tpr == my_tpr).all())
 

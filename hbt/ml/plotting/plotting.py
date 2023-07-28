@@ -55,6 +55,7 @@ cf_cmap = colors.ListedColormap([
 
 def plot_confusion_matrix(cm, 
                           classes, 
+                          save_path:str='./cm_plot.png',
                           normalize=False, 
                           title='Confusion matrix', 
                           cmap=cf_cmap,
@@ -69,6 +70,8 @@ def plot_confusion_matrix(cm,
     title: Title of the confusion matrix.
     cmap: Colormap.
   """
+  #TODO check for unvalid inputs
+
   def scale_font(class_number: int) -> int:
     if class_number > 10:
       return max(8, int(-8/10 * class_number + 23))
@@ -143,11 +146,57 @@ def plot_confusion_matrix(cm,
   #Saving
   plt.tight_layout()
   #plt.show()
-  plt.savefig(f'./test_{type(uncs)}.png', dpi = 300, bbox_inches = 'tight')
+  plt.savefig(save_path, dpi = 300, bbox_inches = 'tight')
   plt.clf()
 
-def plot_roc_curve(input):
-  pass
+
+def plot_roc_curve(save_path:str='./roc_plot.png',
+                   fpr=None, 
+                   tpr=None,
+                    *args, 
+                    grid:tuple=None,  # type: ignore
+                    label:str='ROC Curve', 
+                    logscale:bool=False, 
+                    auc_scores:dict or float=None,
+                    input_dict:dict=None):
+
+  #TODO Check for unvalid inputs
+  def get_grid(n):
+    nrow = round(np.sqrt(n))
+    ncol = int(n/nrow)
+    while(nrow*ncol < n):
+        ncol+=1
+    return nrow, ncol
+
+  def plot_roc(ax:plt.Axes, x, y, log_scale:bool, axtitle):
+    ax.plot(x, y)
+    ax.set_yscale('log' if log_scale else 'linear')
+    ax.set_title(axtitle)
+    ax.set_xlim(0,1)
+    ax.set_ylim(0,1)
+    ax.set_xlabel('FPR')
+    ax.set_ylabel('TPR')
+    ax.tick_params(axis='x', pad=10)
+    ax.tick_params(axis='y', pad=10)
+  
+  if input_dict == None:
+    input_dict={label: {'fpr': fpr, 'tpr':tpr}}
+    if not isinstance(auc_scores, (dict, type(None))):
+      auc_scores={label: auc_scores}
+
+  nrow, ncol = get_grid(len(input_dict.keys())) if grid == None else grid
+
+  plt.style.use(hep.style.CMS)
+  fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6*ncol,6*nrow+1), dpi=300)
+  axs = np.array(axs).flatten()
+  hep.cms.label(llabel = 'private working', rlabel = '', ax=axs[0], pad=0.1)
+  for (key, item), ax in zip(input_dict.items(), axs):
+
+    plot_roc(ax, item['fpr'], item['tpr'], logscale, f'{key} (AUC = {auc_scores[key]})' if auc_scores else key)
+  #Saving
+  plt.tight_layout()
+  fig.savefig('./roc_test.png', dpi = 300, bbox_inches='tight')
+  plt.clf()
 
 
 if __name__ == '__main__':
