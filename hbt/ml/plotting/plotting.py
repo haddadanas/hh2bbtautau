@@ -154,11 +154,34 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
                    fpr=None, 
                    tpr=None,
                     *args, 
-                    grid:tuple=None,  # type: ignore
                     label:str='ROC Curve', 
+                    grid:tuple=None,  # type: ignore
                     logscale:bool=False, 
                     auc_scores:dict or float=None,
                     input_dict:dict=None):
+  """Creats the plot for givin ROC curve data
+
+  Args:
+      save_path (str, optional): Path to save the plot. Defaults to './roc_plot.png'.
+      fpr (_type_, optional): array of list with the FPR values. Defaults to None.
+      tpr (_type_, optional): array of list with the TPR values. Defaults to None.
+      label (str, optional): plot title of the ROC Curve. Defaults to 'ROC Curve'
+      grid (tuple, optional): The layout grid for the plots. 
+                              If not specified, the number of rows and columns will be set to an optimum. 
+                              Defaults to None.
+      logscale (bool, optional): Sets the axis scale type to a logarithmic scale. 
+                              Defaults to False.
+      auc_scores (dictorfloat, optional): AUC scores for the givin ROC curve. 
+                                          The parameter should be givin either as a float for a single ROC curve plot or 
+                                          if `input_dict` is givin as a dictionary with the same keys as `input_dict`. 
+                                          Defaults to None.
+      input_dict (dict, optional): If specified, this parameter overrides `fpr`, `tpr` and `label`. 
+                                    The input dictionary should have the form {plot_label:{'fpr': <<fpr array>>, 'tpr:<<tpr array>>}, ...}. 
+                                    Defaults to None.
+
+  Returns:
+      _type_: None
+  """  
 
   #TODO Check for unvalid inputs
   def get_grid(n):
