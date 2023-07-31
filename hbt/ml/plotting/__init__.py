@@ -7,7 +7,6 @@ def Confusion_Matrix(true_labels: np.ndarray,
                      process_labels:list,
                      class_labels:list,
                      sample_weights: np.ndarray = None, 
-                     *args, 
                      normalization: str = None, 
                      skip_uncertenties: bool = False,
                      output_path:str='./cm_plot.png',
@@ -58,3 +57,39 @@ def Confusion_Matrix(true_labels: np.ndarray,
                             )
         
     return cm
+
+def ROC_Curve(evaluation_type: str, 
+              true_labels: np.ndarray, 
+              model_output: np.ndarray, 
+              class_names: list = None, 
+              thresholds: np.ndarray = None, 
+              sample_weights: np.ndarray = None, 
+              errors: bool = True, 
+              output_length: int = 100 + 1, 
+              output_path:str='./roc_plot.png',
+              plot_title:str='ROC Curve', 
+              figure_grid:tuple=None,  # type: ignore
+              logscale:bool=False, 
+              ) -> dict:
+    
+    roc_dict = roc_curve_data(evaluation_type=evaluation_type,
+                   true_labels=true_labels,
+                   model_output=model_output,
+                   class_names=class_names,
+                   thresholds=thresholds,
+                   sample_weights=sample_weights,
+                   errors=errors,
+                   output_length=output_length)
+    auc_dict = mdim_auc_score(roc_dict)
+    if output_path != None:
+        plot_roc_curve(save_path=output_path,
+                       input_dict=roc_dict,
+                       auc_scores=auc_dict,
+                       logscale=logscale,
+                       grid=figure_grid
+                       ) 
+    
+    for key, data in roc_dict.items():
+        data.update({'auc_score': auc_dict[key]})
+        
+    return roc_dict

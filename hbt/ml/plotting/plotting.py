@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
 import mplhep as hep
 import re
 
@@ -150,7 +149,7 @@ def plot_confusion_matrix(cm,
   plt.clim(0,max(1, values.max()))
 
   #Add Matrix Elemtns
-  fmt = '.3f' if normalize else '.0f'
+  #fmt = '.3f' if normalize else '.0f'
   thresh = values.max() / 2.
   font_size = scale_font(len(class_labels))
   for i in range(values.shape[0]):
@@ -240,13 +239,13 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
     plot_roc(ax, item['fpr'], item['tpr'], logscale, f'{key} (AUC = {auc_scores[key]})' if auc_scores else key)
   #Saving
   plt.tight_layout()
-  fig.savefig('./roc_test.png', dpi = 300, bbox_inches='tight')
+  fig.savefig(save_path, dpi = 300, bbox_inches='tight')
   plt.clf()
 
 
 if __name__ == '__main__':
   from scinum import Number
   for n, i in enumerate([cf_cmap, cf_green_cmap, cf_ygb_cmap]):
-    plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
+    #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
     break
   #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
