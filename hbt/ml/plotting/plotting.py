@@ -9,7 +9,27 @@ import re
 
 #Define a CF custom color map
 import matplotlib.colors as colors
-cf_yellow_cmap = colors.ListedColormap(['#003675',
+cf_green_cmap = colors.ListedColormap(['#212121',
+ '#242723',
+ '#262D25',
+ '#283426',
+ '#2A3A26',
+ '#2C4227',
+ '#2E4927',
+ '#305126',
+ '#325A25',
+ '#356224',
+ '#386B22',
+ '#3B7520',
+ '#3F7F1E',
+ '#43891B',
+ '#479418',
+ '#4C9F14',
+ '#52AA10',
+ '#58B60C',
+ '#5FC207',
+ '#67cf02']) #type: ignore
+cf_ygb_cmap = colors.ListedColormap(['#003675',
   '#005B83',
   '#008490',
   '#009A83',
@@ -54,11 +74,13 @@ cf_cmap = colors.ListedColormap([
 ]) # type: ignore
 
 def plot_confusion_matrix(cm, 
-                          classes, 
+                          process_labels,
+                          class_labels, 
                           save_path:str='./cm_plot.png',
                           normalize=False, 
                           title='Confusion matrix', 
                           cmap=cf_cmap,
+                          cmap_label:str= 'Accuracy',
                           digits:int = 3):
   """
   Plots a confusion matrix.
@@ -85,8 +107,7 @@ def plot_confusion_matrix(cm,
     return get_errors(matrix)
     
   if normalize:
-    cm = cm.astype('float') / cm.sum(axis=0)[:, np.newaxis]
-    title += ' (normalized)'
+    cmap_label += ' (normalized)'
 
   #Get values and their uncertenties
   values = cm.astype(np.float32)
@@ -110,27 +131,28 @@ def plot_confusion_matrix(cm,
   plt.imshow(values, interpolation='nearest', cmap=cmap)
 
   #Remove Major ticks and edit minor ticks
-  minor_tick_length = max(int(120/len(classes)), 12)
-  minor_tick_width = max(6/len(classes), 0.6)
-  tick_marks = np.arange(len(classes))
+  minor_tick_length = max(int(120/len(class_labels)), 12)
+  minor_tick_width = max(6/len(class_labels), 0.6)
+  xtick_marks = np.arange(len(class_labels))
+  ytick_marks = np.arange(len(process_labels))
   plt.tick_params(axis='both', which= 'major', 
                   bottom = False, top = False, left = False, right = False)
   plt.tick_params(axis='both', which= 'minor', 
                   bottom = True, top = True, left = True, right = True, 
                   length = minor_tick_length, width = minor_tick_width)
-  plt.xticks(tick_marks + 0.5, minor=True)
-  plt.yticks(tick_marks + 0.5, minor=True)
-  plt.xticks(tick_marks, classes, rotation=45)
-  plt.yticks(tick_marks, classes)
+  plt.xticks(xtick_marks + 0.5, minor=True)
+  plt.yticks(ytick_marks + 0.49, minor=True)
+  plt.xticks(xtick_marks, class_labels, rotation=45)
+  plt.yticks(ytick_marks, process_labels)
 
   #Justify Color bar
-  plt.colorbar(fraction=0.0471, pad=0.01, label= 'Accuracy')
+  plt.colorbar(fraction=0.0471, pad=0.01, label= cmap_label)
   plt.clim(0,max(1, values.max()))
 
   #Add Matrix Elemtns
   fmt = '.3f' if normalize else '.0f'
   thresh = values.max() / 2.
-  font_size = scale_font(len(classes))
+  font_size = scale_font(len(class_labels))
   for i in range(values.shape[0]):
     for j in range(values.shape[1]):
       plt.text(j, i, value_text(i,j), fontdict={'size': font_size}, 
@@ -139,7 +161,7 @@ def plot_confusion_matrix(cm,
     #format(values[i, j], fmt)
 
   #Add Axes and plot labels
-  hep.cms.label(llabel = 'private working', rlabel = '', )
+  hep.cms.label(llabel = 'private working', rlabel = title if title != None else '')
   plt.xlabel('Predicted process', loc = 'right', labelpad= 14)
   plt.ylabel('True process', loc = 'top', labelpad= 18)
 
@@ -224,5 +246,7 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
 
 if __name__ == '__main__':
   from scinum import Number
-  plot_confusion_matrix(np.array([[Number(i,5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
+  for n, i in enumerate([cf_cmap, cf_green_cmap, cf_ygb_cmap]):
+    plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
+    break
   #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
