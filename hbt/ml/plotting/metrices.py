@@ -157,7 +157,13 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
         result = {}
         for ind, cls_name in enumerate(names):
             positiv_inputs = model_output[:, ind]
-            fpr, tpr, th = binary_roc_data(true_labels=(true_labels == ind), model_output_positive= positiv_inputs, sample_weights=sample_weights, *args, thresholds= thresholds, errors=errors, output_length=output_length)
+            fpr, tpr, th = binary_roc_data(true_labels=(true_labels == ind), 
+                                           model_output_positive= positiv_inputs, 
+                                           sample_weights=sample_weights, 
+                                           *args, 
+                                           thresholds= thresholds, 
+                                           errors=errors, 
+                                           output_length=output_length)
             result[f'{cls_name}_vs_rest'] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
@@ -175,7 +181,13 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
                 select_weights = None if sample_weights is None else sample_weights[inputs_mask]
 
                 positiv_inputs = select_input[:, pos_ind]
-                fpr, tpr, th = binary_roc_data(true_labels=(select_labels == pos_ind), model_output_positive=positiv_inputs, sample_weights=select_weights, *args, thresholds=thresholds, errors=errors, output_length=output_length)
+                fpr, tpr, th = binary_roc_data(true_labels=(select_labels == pos_ind), 
+                                               model_output_positive=positiv_inputs, 
+                                               sample_weights=select_weights, 
+                                               *args, 
+                                               thresholds=thresholds, 
+                                               errors=errors, 
+                                               output_length=output_length)
                 result[f'{cls_name}_vs_{cls_name2}'] = {'fpr' : fpr, 'tpr' : tpr, 'thresholds' : th}
         
         return result
