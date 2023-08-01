@@ -124,7 +124,7 @@ def plot_confusion_matrix(cm,
         return fmt(values[i][j])
     else:
         return "{}\n\u00B1{}".format(fmt(values[i][j]), fmt(uncs[i][j]))
-
+        # return "{}".format(fmt(values[i][j])),"\u00B1{}".format(fmt(uncs[i][j]))
   plt.style.use(hep.style.CMS)
   plt.imshow(values, interpolation='nearest', cmap=cmap)
 
@@ -150,11 +150,22 @@ def plot_confusion_matrix(cm,
   #Add Matrix Elemtns
   thresh = values.max() / 2.
   font_size = scale_font(len(class_labels))
+  #offset = 0.12 if len(class_labels) > 2 and len(class_labels) < 6 else 0.1
+  #size_offset = 1 if len(class_labels) > 5 else 3
   for i in range(values.shape[0]):
     for j in range(values.shape[1]):
       plt.text(j, i, value_text(i,j), fontdict={'size': font_size}, 
                horizontalalignment='center', verticalalignment='center', 
                color='white' if values[i, j] < thresh else 'black')
+      '''
+            val, err = value_text(i,j)
+      plt.text(j, i-offset, val, fontdict={'size': font_size}, 
+               horizontalalignment='center', verticalalignment='center', 
+               color='white' if values[i, j] < thresh else 'black')
+      plt.text(j, i+offset, err, fontdict={'size': font_size-size_offset}, 
+               horizontalalignment='center', verticalalignment='center', 
+               color='white' if values[i, j] < thresh else 'black')
+               '''
       #TODO for centering print the errors as two seperate texts
 
   #Add Axes and plot labels
@@ -244,6 +255,8 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
 
 if __name__ == '__main__':
   from scinum import Number
-  for n, i in enumerate([cf_cmap]):
-    plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
+  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, save_path=f'./cmap_8.png')
+  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,6)] for j in range(5)]), ['A','B','C','D','E'],['A','B','C','D','E'], title='test', normalize=True, save_path=f'./cmap_5.png')
+  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,4)] for j in range(3)]), ['A','B','C'],['A','B','C'], title='test', normalize=True, save_path=f'./cmap_3.png')
+  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,3)] for j in range(2)]), ['A','B'],['A','B'], title='test', normalize=True, save_path=f'./cmap_2.png')
   #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
