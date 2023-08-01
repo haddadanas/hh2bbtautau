@@ -49,11 +49,12 @@ def Confusion_Matrix(true_labels: np.ndarray,
                             process_labels=process_labels,
                             class_labels=class_labels,
                             save_path=output_path,
-                            normalize= normalization != None,
+                            normalized= normalization != None,
                             title=plot_title,
                             cmap=color_map,
                             cmap_label= z_title,
-                            digits=digits
+                            digits=digits,
+                            skip_uncertainties=skip_uncertenties
                             )
         
     return cm
@@ -69,7 +70,6 @@ def ROC_Curve(evaluation_type: str,
               output_path:str='./roc_plot.png',
               plot_title:str='ROC Curve', 
               figure_grid:tuple=None,  # type: ignore
-              logscale:bool=False, 
               ) -> dict:
     
     roc_dict = roc_curve_data(evaluation_type=evaluation_type,
@@ -85,7 +85,6 @@ def ROC_Curve(evaluation_type: str,
         plot_roc_curve(save_path=output_path,
                        input_dict=roc_dict,
                        auc_scores=auc_dict,
-                       logscale=logscale,
                        grid=figure_grid
                        ) 
     

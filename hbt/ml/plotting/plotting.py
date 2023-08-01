@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import mplhep as hep
-import re
+import re, os
 
 
 #matplotlib.rc('lines', usetex=True) #use latex for text
@@ -72,11 +72,11 @@ cf_cmap = colors.ListedColormap([
 '#67cf02'
 ]) # type: ignore
 
-def plot_confusion_matrix(cm, 
+def plot_confusion_matrix(cm:np.ndarray, 
                           process_labels,
                           class_labels, 
                           save_path:str='./cm_plot.png',
-                          normalize=False, 
+                          normalized=False, 
                           title='Confusion matrix', 
                           cmap=cf_cmap,
                           cmap_label:str= 'Accuracy',
@@ -88,11 +88,21 @@ def plot_confusion_matrix(cm,
   Args:
     cm: Confusion matrix.
     classes: List of class labels.
-    normalize: Whether to normalize the confusion matrix.
+    normalized: Whether to normalize the confusion matrix.
     title: Title of the confusion matrix.
     cmap: Colormap.
   """
-  #TODO check for unvalid inputs
+  assert (cm.ndim == 2), (
+    f'Input matrix should be of dimension 2. Received dimension {cm.ndim}!')
+  n_processes = cm.shape[0]
+  n_classes = cm.shape[1]
+  assert (n_processes == len(process_labels)), (
+    f'Array length of the process labels (={len(process_labels)}) does not match the number of rows givin in the confusion matrix (={n_processes})!')
+  assert (n_classes == len(class_labels)), (
+    f'Array length of the classes labels (={len(class_labels)}) does not match the number of columns givin in the confusion matrix (={n_processes})!')
+  
+  if (not os.path.exists(save_path)):
+    os.makedirs(os.path.dirname(save_path))
 
   def scale_font(class_number: int) -> int:
     if class_number > 10:
@@ -106,7 +116,7 @@ def plot_confusion_matrix(cm,
     get_errors = np.vectorize(lambda x: x.get(UP, unc=True))
     return get_errors(matrix)
     
-  if normalize:
+  if normalized:
     cmap_label += ' (normalized)'
 
   #Get values and their uncertenties
@@ -129,10 +139,10 @@ def plot_confusion_matrix(cm,
   plt.imshow(values, interpolation='nearest', cmap=cmap)
 
   #Remove Major ticks and edit minor ticks
-  minor_tick_length = max(int(120/len(class_labels)), 12)
-  minor_tick_width = max(6/len(class_labels), 0.6)
-  xtick_marks = np.arange(len(class_labels))
-  ytick_marks = np.arange(len(process_labels))
+  minor_tick_length = max(int(120/n_classes), 12)
+  minor_tick_width = max(6/n_classes, 0.6)
+  xtick_marks = np.arange(n_classes)
+  ytick_marks = np.arange(n_processes)
   plt.tick_params(axis='both', which= 'major', 
                   bottom = False, top = False, left = False, right = False)
   plt.tick_params(axis='both', which= 'minor', 
@@ -149,7 +159,7 @@ def plot_confusion_matrix(cm,
 
   #Add Matrix Elemtns
   thresh = values.max() / 2.
-  font_size = scale_font(len(class_labels))
+  font_size = scale_font(n_classes)
   #offset = 0.12 if len(class_labels) > 2 and len(class_labels) < 6 else 0.1
   #size_offset = 1 if len(class_labels) > 5 else 3
   for i in range(values.shape[0]):
@@ -209,9 +219,19 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
 
   Returns:
       _type_: None
-  """  
+  """
+  assert (input_dict != None or (fpr != None and tpr != None)), (
+    'Either `input_dict` or `fpr` and `tpr` should be givin!')
+  assert (input_dict != None or len(fpr) == len(tpr)), (
+    f'The length of `fpr` and `tpr` should be equal! Received arrays with length {len(fpr)} and {len(tpr)}')
+  assert isinstance(grid, tuple), (
+    f'the `grid` argument must be a tuple. Givin {grid}')
+  assert (auc_scores is None or isinstance(auc_scores, float) or auc_scores.keys() == input_dict.keys()), (
+    'The parameter `auc_score` should have the same keys as the `input_dict`!')
 
-  #TODO Check for unvalid inputs
+  if (not os.path.exists(save_path)):
+    os.makedirs(os.path.dirname(save_path))
+  
   def get_grid(n):
     nrow = round(np.sqrt(n))
     ncol = int(n/nrow)
@@ -249,14 +269,4 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
   fig.savefig(save_path, dpi = 300, bbox_inches='tight')
   plt.clf()
 
-
-if __name__ == '__main__':
-  from scinum import Number
-  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,6)] for j in range(5)]), ['A','B','C','D','E'],['A','B','C','D','E'], title='test', normalize=True, save_path=f'./cmap_5.png')
-  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, save_path=f'./cmap_8.png')
-  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,4)] for j in range(3)]), ['A','B','C'],['A','B','C'], title='test', normalize=True, save_path=f'./cmap_3.png')
-  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,3)] for j in range(2)]), ['A','B'],['A','B'], title='test', normalize=True, save_path=f'./cmap_2.png')
-  #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
-  fpr = np.linspace(0,1,100)
-  d = {'sqrt':{'fpr':fpr, 'tpr': np.sqrt(fpr)}, 'lin':{'fpr':fpr,'tpr':fpr}}
-  plot_roc_curve('./roc.png', input_dict=d)
+#TODO Add Signal Efficiency Plot (ask Peter)

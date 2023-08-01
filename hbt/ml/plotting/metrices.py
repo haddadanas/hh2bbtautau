@@ -12,17 +12,16 @@ def calc_uncert(matrix , func):
 #Helper functions
 
 def is_input_valid(true_labels, input):
-    if (true_labels.shape[0] != input.shape[0]):
-        raise ValueError(f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {input.shape[0]}')
+    assert (true_labels.shape[0] == input.shape[0]), (
+        f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {input.shape[0]}')
 
 def is_weights_valid(input, weights) -> bool:
     #Check if weights are givin
     is_weighted = type(weights) != type(None)
 
     #Check if shapes are valid
-    if (is_weighted and weights.shape[0] != input.shape[0]):
-        raise ValueError(f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {weights.shape[0]} and {input.shape[0]}')
-    
+    assert ((not is_weighted) or weights.shape[0] == input.shape[0]), (
+        f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {weights.shape[0]} and {input.shape[0]}')
     return is_weighted
 
 
@@ -41,7 +40,7 @@ def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_we
         An `Array` with shape `[m, n]` representing the confusion matrix, where `m` is number of expected classes in the true labels and `n` is the number of possible labels in the classification
 
     Raises:
-        ValueError: If both predictions and labels have mismatched shapes, or if `weights` is not `None` and its shape doesn't match `predictions`.
+        AssertionError: If both predictions and labels have mismatched shapes, or if `weights` is not `None` and its shape doesn't match `predictions`.
     """    
 
     is_input_valid(true_labels, model_output)
@@ -66,8 +65,8 @@ def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_we
     #Normalize Matrix if needed
     if normalization is not None:
         valid = {'row': 1, 'column': 0}
-        if normalization not in valid.keys():
-            raise ValueError(f'\'{normalization}\' is no valid argument for normalization. If givin, normalization should only take \'row\' or \'column\'')
+        assert (normalization in valid.keys()), (
+            f'\'{normalization}\' is no valid argument for normalization. If givin, normalization should only take \'row\' or \'column\'')
         
         row_sums = result.sum(axis=valid.get(normalization))
         result = result / row_sums[:, np.newaxis]
@@ -79,7 +78,7 @@ def get_conf_matrix(true_labels: np.ndarray, model_output: np.ndarray, sample_we
 
     return result
 
-def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, sample_weights: np.ndarray = None, *args, thresholds: np.ndarray = None,  errors: bool = True, output_length: int = 10 + 1) -> tuple:
+def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, sample_weights: np.ndarray = None, *args, thresholds: np.ndarray = None,  errors: bool = True, output_length:int = 10 + 1) -> tuple:
     """
     Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
 
@@ -95,7 +94,7 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
         An tuple of 1D `np.array` each with length `output_length` representing the FPR and TPR.
 
     Raises:
-        ValueError: If both predictions and labels have mismatched shapes.
+        AssertionError: If both predictions and labels have mismatched shapes.
     """   
     #Helper functions
     def cast_to_Number(array, get_errors) -> Number:
@@ -107,8 +106,8 @@ def binary_roc_data(true_labels: np.ndarray, model_output_positive: np.ndarray, 
     
     #Define Thresholds if None
     if thresholds is None:
-        if not isinstance(int(output_length), int):
-            raise ValueError('If `thresholds`  is not givin, `output_length` must be givin an int, from which the thresholds are determined! Both arguments cannot be `None`!')
+        assert isinstance(output_length, int), (
+            'If `thresholds`  is not givin, `output_length` must be givin an int, from which the thresholds are determined! Both arguments cannot be `None`!')
         thresholds = np.linspace(0, 1, output_length)
 
     #Define weights if None
@@ -202,8 +201,8 @@ def roc_curve_data(evaluation_type: str, true_labels: np.ndarray, model_output: 
     if class_names is None:
         class_names = list(range(model_output.shape[1]))
     
-    if len(class_names) != model_output.shape[1]:
-        raise ValueError('Number of givin class names does not match the number of output nodes in the `model_output` argument!')
+    assert (len(class_names) == model_output.shape[1]), (
+        'Number of givin class names does not match the number of output nodes in the `model_output` argument!')
 
     #Cast trues labels to class numers
     if true_labels.dtype.name == 'bool':
@@ -230,17 +229,17 @@ def binary_auc_score(fpr: list, tpr: list, *args) -> Number or np.float64:
         tpr (list): True Positive Rate
 
     Raises:
-        ValueError: If `tpr` or `fpr` is empty
-        ValueError: If the length of `tpr` does not match the length of `fpr`
+        AssertionError: If `tpr` or `fpr` is empty
+        AssertionError: If the length of `tpr` does not match the length of `fpr`
         ValueError: If `fpr` is not monoton
 
     Returns:
         Number or np.float64: If the givin list contain scinum.Number a Number instance is returend with the calculated error on the auc score. Else a numpy.float64 is returend.
     """    
-    if not fpr or not tpr:
-        raise ValueError('Neither `tpr` nor `fpr` can be an empty list!')
-    if len(fpr) != len(tpr):
-        raise ValueError('Mismatch in the list length of tpr and fpr!')
+    assert (fpr and tpr), (
+        'Neither `tpr` nor `fpr` can be an empty list!')
+    assert (len(fpr) == len(tpr)), (
+        'Mismatch in the list length of tpr and fpr!')
 
     sign = 1
     if np.any(np.diff(fpr) < 0):
@@ -259,13 +258,12 @@ def mdim_auc_score(inputs: dict, *args) -> dict:
         inputs (dict): _description_
 
     Raises:
-        ValueError: If `inputs` is an empty dictionary
+        AssertionError: If `inputs` is an empty dictionary
 
     Returns:
         dict: dictionary containing the calculated AUC scores.
     """    
-    if not inputs:
-        raise ValueError('`inputs` is empty!')
+    assert inputs, '`inputs` is empty!'
     result = {}
     for cls_name, values in inputs.items():
         result[cls_name] = binary_auc_score(fpr= values['fpr'], tpr=values['tpr'])

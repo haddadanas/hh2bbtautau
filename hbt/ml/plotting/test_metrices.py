@@ -17,16 +17,16 @@ class Test_Conf_Matrix(unittest.TestCase):
     
     def test_unvalid_inputs_conf(self):
         for ind, (trues, pred) in enumerate(zip(self.trues, self.pred)):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 get_conf_matrix(true_labels=np.array([1,0,1,1,0]), model_output=pred)
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 get_conf_matrix(true_labels=trues, model_output=pred[:100])
     
     def test_unvalid_weights_conf(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 get_conf_matrix(true_labels=trues, model_output=pred, sample_weights=weights[:100])
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 get_conf_matrix(true_labels=trues, model_output=pred, sample_weights=np.stack((weights, weights), axis = 0))
 
     def test_equals_no_weights(self):
@@ -51,18 +51,18 @@ class Test_Conf_Matrix(unittest.TestCase):
         for ind, (trues, pred) in enumerate(zip(self.trues, self.pred)):
             trues = trues > 0
             pred = pred[:,0]
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 binary_roc_data(true_labels=np.array([1,0,1,1,0]), model_output_positive=pred)
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 binary_roc_data(true_labels=trues, model_output_positive=pred[:100])
     
     def test_unvalid_weights_roc(self):
         for ind, (trues, pred, weights) in enumerate(zip(self.trues, self.pred, self.weights)):
             trues = trues > 0
             pred = pred[:,0]
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 binary_roc_data(true_labels=trues, model_output_positive=pred, sample_weights=weights[:100])
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AssertionError):
                 binary_roc_data(true_labels=trues, model_output_positive=pred, sample_weights=np.stack((weights, weights), axis = 0))
   
     def test_equals_without_weights_roc(self):
