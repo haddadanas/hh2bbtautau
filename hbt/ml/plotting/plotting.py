@@ -80,7 +80,8 @@ def plot_confusion_matrix(cm,
                           title='Confusion matrix', 
                           cmap=cf_cmap,
                           cmap_label:str= 'Accuracy',
-                          digits:int = 3):
+                          digits:int = 3,
+                          skip_uncertainties:bool=False):
   """
   Plots a confusion matrix.
 
@@ -112,10 +113,8 @@ def plot_confusion_matrix(cm,
   values = cm.astype(np.float32)
   if cm.dtype.name == 'object':
     uncs = get_errors(cm)
-    skip_uncertainties = False
   else:
-    skip_uncertainties = True
-    uncs = None
+    uncs = np.zeros_like(values)
 
   def value_text(i, j):
     def fmt(v):
@@ -157,7 +156,6 @@ def plot_confusion_matrix(cm,
                horizontalalignment='center', verticalalignment='center', 
                color='white' if values[i, j] < thresh else 'black')
       #TODO for centering print the errors as two seperate texts
-    #format(values[i, j], fmt)
 
   #Add Axes and plot labels
   hep.cms.label(llabel = 'private work', rlabel = title if title != None else '')
