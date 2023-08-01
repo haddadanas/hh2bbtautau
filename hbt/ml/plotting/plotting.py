@@ -124,7 +124,7 @@ def plot_confusion_matrix(cm,
     if skip_uncertainties:
         return fmt(values[i][j])
     else:
-        return "{} \n \u00B1{}".format(fmt(values[i][j]), fmt(uncs[i][j]))
+        return "{}\n\u00B1{}".format(fmt(values[i][j]), fmt(uncs[i][j]))
 
   plt.style.use(hep.style.CMS)
   plt.imshow(values, interpolation='nearest', cmap=cmap)
@@ -149,7 +149,6 @@ def plot_confusion_matrix(cm,
   plt.clim(0,max(1, values.max()))
 
   #Add Matrix Elemtns
-  #fmt = '.3f' if normalize else '.0f'
   thresh = values.max() / 2.
   font_size = scale_font(len(class_labels))
   for i in range(values.shape[0]):
@@ -157,10 +156,11 @@ def plot_confusion_matrix(cm,
       plt.text(j, i, value_text(i,j), fontdict={'size': font_size}, 
                horizontalalignment='center', verticalalignment='center', 
                color='white' if values[i, j] < thresh else 'black')
+      #TODO for centering print the errors as two seperate texts
     #format(values[i, j], fmt)
 
   #Add Axes and plot labels
-  hep.cms.label(llabel = 'private working', rlabel = title if title != None else '')
+  hep.cms.label(llabel = 'private work', rlabel = title if title != None else '')
   plt.xlabel('Predicted process', loc = 'right', labelpad= 14)
   plt.ylabel('True process', loc = 'top', labelpad= 18)
 
@@ -218,6 +218,7 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
     ax.set_title(axtitle)
     ax.set_xlim(0,1)
     ax.set_ylim(0,1)
+    #TODO Set X and Y Tick to be the same number
     ax.set_xlabel('FPR')
     ax.set_ylabel('TPR')
     ax.tick_params(axis='x', pad=10)
@@ -233,7 +234,7 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
   plt.style.use(hep.style.CMS)
   fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6*ncol,6*nrow+1), dpi=300)
   axs = np.array(axs).flatten()
-  hep.cms.label(llabel = 'private working', rlabel = '', ax=axs[0], pad=0.1)
+  hep.cms.label(llabel = 'private work', rlabel = '', ax=axs[0], pad=0.1)
   for (key, item), ax in zip(input_dict.items(), axs):
 
     plot_roc(ax, item['fpr'], item['tpr'], logscale, f'{key} (AUC = {auc_scores[key]})' if auc_scores else key)
@@ -245,7 +246,6 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
 
 if __name__ == '__main__':
   from scinum import Number
-  for n, i in enumerate([cf_cmap, cf_green_cmap, cf_ygb_cmap]):
-    #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
-    break
+  for n, i in enumerate([cf_cmap]):
+    plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, cmap=i, save_path=f'./cmap_{n}.png')
   #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
