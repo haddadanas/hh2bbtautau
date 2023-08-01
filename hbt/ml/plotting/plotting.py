@@ -166,8 +166,6 @@ def plot_confusion_matrix(cm,
                horizontalalignment='center', verticalalignment='center', 
                color='white' if values[i, j] < thresh else 'black')
                '''
-      #TODO for centering print the errors as two seperate texts
-
   #Add Axes and plot labels
   hep.cms.label(llabel = 'private work', rlabel = title if title != None else '')
   plt.xlabel('Predicted process', loc = 'right', labelpad= 14)
@@ -186,8 +184,8 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
                     *args, 
                     label:str='ROC Curve', 
                     grid:tuple=None,  # type: ignore
-                    logscale:bool=False, 
                     auc_scores:dict or float=None,
+                    shared_y:bool=False,
                     input_dict:dict=None):
   """Creats the plot for givin ROC curve data
 
@@ -221,18 +219,17 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
         ncol+=1
     return nrow, ncol
 
-  def plot_roc(ax:plt.Axes, x, y, log_scale:bool, axtitle):
-    ax.plot(x, y)
-    ax.set_yscale('log' if log_scale else 'linear')
-    ax.set_title(axtitle)
+  def plot_roc(ax:plt.Axes, x, y, axtitle):
+    ax.set_ylim(0,1) 
     ax.set_xlim(0,1)
-    ax.set_ylim(0,1)
-    #TODO Set X and Y Tick to be the same number
-    ax.set_xlabel('FPR')
-    ax.set_ylabel('TPR')
+    ax.locator_params(axis='both', nbins=6)
     ax.tick_params(axis='x', pad=10)
     ax.tick_params(axis='y', pad=10)
-  
+    ax.set_title(axtitle)
+    ax.set_xlabel('FPR')
+    ax.set_ylabel('TPR')
+    ax.plot(x, y)
+
   if input_dict == None:
     input_dict={label: {'fpr': fpr, 'tpr':tpr}}
     if not isinstance(auc_scores, (dict, type(None))):
@@ -241,12 +238,12 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
   nrow, ncol = get_grid(len(input_dict.keys())) if grid == None else grid
 
   plt.style.use(hep.style.CMS)
-  fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6*ncol,6*nrow+1), dpi=300)
+  fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6*ncol,6*nrow+1), dpi=300, sharey=shared_y)
   axs = np.array(axs).flatten()
   hep.cms.label(llabel = 'private work', rlabel = '', ax=axs[0], pad=0.1)
   for (key, item), ax in zip(input_dict.items(), axs):
+    plot_roc(ax, item['fpr'], item['tpr'], f'{key} (AUC = {auc_scores[key]})' if auc_scores else key)
 
-    plot_roc(ax, item['fpr'], item['tpr'], logscale, f'{key} (AUC = {auc_scores[key]})' if auc_scores else key)
   #Saving
   plt.tight_layout()
   fig.savefig(save_path, dpi = 300, bbox_inches='tight')
@@ -255,8 +252,11 @@ def plot_roc_curve(save_path:str='./roc_plot.png',
 
 if __name__ == '__main__':
   from scinum import Number
-  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, save_path=f'./cmap_8.png')
-  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,6)] for j in range(5)]), ['A','B','C','D','E'],['A','B','C','D','E'], title='test', normalize=True, save_path=f'./cmap_5.png')
-  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,4)] for j in range(3)]), ['A','B','C'],['A','B','C'], title='test', normalize=True, save_path=f'./cmap_3.png')
-  plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,3)] for j in range(2)]), ['A','B'],['A','B'], title='test', normalize=True, save_path=f'./cmap_2.png')
+  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,6)] for j in range(5)]), ['A','B','C','D','E'],['A','B','C','D','E'], title='test', normalize=True, save_path=f'./cmap_5.png')
+  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'],['A','B','C','D','E','F','G','H'], title='test', normalize=True, save_path=f'./cmap_8.png')
+  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,4)] for j in range(3)]), ['A','B','C'],['A','B','C'], title='test', normalize=True, save_path=f'./cmap_3.png')
+  #plot_confusion_matrix(np.array([[Number(np.random.random(),5) for i in range(1,3)] for j in range(2)]), ['A','B'],['A','B'], title='test', normalize=True, save_path=f'./cmap_2.png')
   #plot_confusion_matrix(np.array([[i for i in range(1,9)] for j in range(8)]), ['A','B','C','D','E','F','G','H'], normalize=True)
+  fpr = np.linspace(0,1,100)
+  d = {'sqrt':{'fpr':fpr, 'tpr': np.sqrt(fpr)}, 'lin':{'fpr':fpr,'tpr':fpr}}
+  plot_roc_curve('./roc.png', input_dict=d)
