@@ -77,7 +77,6 @@ class TestModel(MLModel):
         a1 = tf.keras.layers.Dense(10, activation="elu")(x)
         y = tf.keras.layers.Dense(2, activation="softmax")(a1)
         model = tf.keras.Model(inputs=x, outputs=y)
-
         # the output is just a single directory target
         output.dump(model, formatter="tf_keras_model")
 
