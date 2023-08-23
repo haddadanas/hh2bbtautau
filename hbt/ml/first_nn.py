@@ -463,7 +463,7 @@ class SimpleDNN(MLModel):
             """
             Small helper to make sure that our training does not fail due to plotting
             """
-            t0 = time.perf_counter()
+            #t0 = time.perf_counter()
 
             try:
                 outp = func(*args, **kwargs)
