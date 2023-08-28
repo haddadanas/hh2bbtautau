@@ -102,11 +102,11 @@ def hhbtag(
     even_mask = (events[event_mask].event % 2) == 0
     if ak.sum(even_mask):
         input_features_even = split(even_mask)
-        scores_even = self.hhbtag_model_even(input_features_even)[0].numpy()
+        scores_even = self.hhbtag_model_even(np.asarray(input_features_even))[0].numpy()
         scores[even_mask] = scores_even
     if ak.sum(~even_mask):
         input_features_odd = split(~even_mask)
-        scores_odd = self.hhbtag_model_odd(input_features_odd)[0].numpy()
+        scores_odd = self.hhbtag_model_odd(np.asarray(input_features_odd))[0].numpy()
         scores[~even_mask] = scores_odd
 
     # remove the scores of padded jets
