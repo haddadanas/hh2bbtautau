@@ -46,6 +46,11 @@ def hhbtag(
         (ak.num(lepton_pair, axis=1) >= 2) &
         (ak.sum(jet_mask, axis=1) >= 2)
     )
+    # all_scores = ak.full_like(events.Jet.pt, EMPTY_FLOAT, dtype=np.float32)
+    # mask = ak.flatten(jet_mask & event_mask, axis=1)
+    # scores = ak.full_like(mask, 0.7)
+    # np.asarray(ak.flatten(all_scores))[mask] = np.asarray()
+    # return all_scores
 
     # prepare objects
     n_jets_max = 10
@@ -93,16 +98,17 @@ def hhbtag(
         )
         # fix the dimension of the last axis to the known number of input features
         features = features[..., list(range(len(input_features)))]
-        return features
+        return features.to_numpy()
 
     # reserve an output score array
     scores = np.ones((ak.sum(event_mask), n_jets_max), dtype=np.float32) * EMPTY_FLOAT
 
     # fill even and odd events if there are any
-    even_mask = (events[event_mask].event % 2) == 0
+    even_mask = np.asarray((events[event_mask].event % 2) == 0)
     if ak.sum(even_mask):
         input_features_even = split(even_mask)
         scores_even = self.hhbtag_model_even(input_features_even)[0].numpy()
+        from IPython import embed; embed()
         scores[even_mask] = scores_even
     if ak.sum(~even_mask):
         input_features_odd = split(~even_mask)

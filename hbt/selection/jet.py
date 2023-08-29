@@ -24,11 +24,12 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
-        "nFatJet", "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
+        "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
         "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
-        "nSubJet", "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "GenPart.*"
     },
     produces={
         # new columns
