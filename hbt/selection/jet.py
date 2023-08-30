@@ -8,7 +8,6 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
-from columnflow.selection.util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
@@ -30,6 +29,7 @@ ak = maybe_import("awkward")
         "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
         "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
         "SubJet.pt", "SubJet.eta", "SubJet.phi", "SubJet.mass", "SubJet.btagDeepB",
+        "GenPart.*"
     },
     produces={
         # new columns
@@ -169,14 +169,15 @@ def jet_selection(
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
-    jet_indices = sorted_indices_from_mask(default_mask, events.Jet.pt, ascending=False)
+    sorted_indices = ak.argsort(events.Jet.pt, axis=-1, ascending=False)
+    ak4_btag_wp = self.config_inst.x.btag_working_points.deepjet.medium
+    bjet_indices = sorted_indices[events.Jet[sorted_indices].btagDeepFlavB > ak4_btag_wp]
+    bjet_indices = bjet_indices[default_mask[bjet_indices]]
+    jet_indices = sorted_indices[default_mask[sorted_indices]]
 
     # keep indices of default jets that are explicitly not selected as hhbjets for easier handling
-    non_hhbjet_indices = sorted_indices_from_mask(
-        default_mask & (~hhbjet_mask),
-        events.Jet.pt,
-        ascending=False,
-    )
+    non_hhbjet_mask = default_mask & (~hhbjet_mask)
+    non_hhbjet_indices = sorted_indices[non_hhbjet_mask[sorted_indices]]
 
     # final event selection
     jet_sel = (
@@ -184,12 +185,19 @@ def jet_selection(
         ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
     )
 
+    colljet_indices = ak.concatenate((jet_indices, vbfjet_indices), axis=1)
+    unique_colljet_indices = []
+    for i in colljet_indices:
+        unique_colljet_indices.append(np.unique(i))
+    colljet_indices = ak.Array(unique_colljet_indices)
+
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
     hhbjet_indices = ak.values_astype(hhbjet_indices, np.int32)
     non_hhbjet_indices = ak.values_astype(ak.fill_none(non_hhbjet_indices, 0), np.int32)
     fatjet_indices = ak.values_astype(fatjet_indices, np.int32)
     vbfjet_indices = ak.values_astype(ak.fill_none(vbfjet_indices, 0), np.int32)
+    colljet_indices = ak.values_astype(ak.fill_none(colljet_indices, 0), np.int32)
 
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
@@ -206,16 +214,14 @@ def jet_selection(
         objects={
             "Jet": {
                 "Jet": jet_indices,
+                "BJet": bjet_indices,
                 "HHBJet": hhbjet_indices,
                 "NonHHBJet": non_hhbjet_indices,
-                "VBFJet": vbfjet_indices,
-            },
-            "FatJet": {
                 "FatJet": fatjet_indices,
-            },
-            "SubJet": {
                 "SubJet1": subjet_indices[..., 0],
                 "SubJet2": subjet_indices[..., 1],
+                "VBFJet": vbfjet_indices,
+                "CollJet": colljet_indices,
             },
         },
         aux={
@@ -235,3 +241,4 @@ def jet_selection_init(self: Selector) -> None:
         for shift_inst in self.config_inst.shifts
         if shift_inst.has_tag(("jec", "jer"))
     }
+    
