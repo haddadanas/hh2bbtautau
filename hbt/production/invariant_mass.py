@@ -243,8 +243,8 @@ def energy_correlation(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # Producers for the columns of the kinetmatic variables (four vectors) of the jets, bjets and taus
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.E", "Jet.area",
-        "Jet.nConstituents", "Jet.jetID", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.area",
+        "Jet.nConstituents", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
         attach_coffea_behavior,
     },
     produces={
