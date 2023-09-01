@@ -32,7 +32,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 # Invariant Mass Producers
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.e",
+        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass",
         attach_coffea_behavior,
     },
     produces={
