@@ -32,7 +32,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 # Invariant Mass Producers
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -140,7 +140,7 @@ def pt_product(obj1, obj2):
 
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -178,7 +178,7 @@ def dr_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -217,7 +217,7 @@ def d_eta_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -307,7 +307,7 @@ def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # kinematic vars for coollection of jets and cbf jets
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         "CollJet.btagDeepFlavB", "CollJet.hadronFlavour",
         attach_coffea_behavior,
     },
@@ -349,7 +349,9 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
     jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_mass", jets_mass)
 
-    jets_e = ak.pad_none(events.CollJet.E, max(n_jets))
+    E = np.sqrt(np.square(ak.fill_none(events.CollJet.mass, 0, axis=-1)) + 
+                np.square(np.abs(ak.fill_none(events.CollJet.pt, 0, axis=-1))))
+    jets_e = ak.pad_none(E, max(n_jets))
     jets_e = ak.to_regular(jets_e, axis=1)
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "Colljets_e", jets_e)
