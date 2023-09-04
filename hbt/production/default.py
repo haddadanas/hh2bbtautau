@@ -62,7 +62,6 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # events = self[invariant_mass_HH](events, **kwargs)
 
     # kinetmatatic vars for jets, bjets, taus
-    from IPython import embed; embed()
     events = self[kinematic_vars_jets](events, **kwargs)
 
     events = self[kinematic_vars_colljets](events, **kwargs)
