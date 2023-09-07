@@ -84,7 +84,7 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features):
             jets_shaped = jets_flat.reshape((-1, n_features))
         except:
             print('---?---')
-            from IPython import embed; embed()
+            #from IPython import embed; embed()
         jets_normalized = (jets_shaped - mean_feature) / std_feature
         jets_normalized = jets_normalized.flatten()
         jets_shaped = jets_normalized.reshape((1, -1, n_features))
@@ -442,7 +442,7 @@ class SimpleDNN(MLModel):
         # reshape and normalize inputs
         train = reshape_norm_inputs(train, self.n_features, self.norm_features, self.input_features)
         validation = reshape_norm_inputs(validation, self.n_features, self.norm_features, self.input_features)
-        from IPython import embed; embed()
+        #from IPython import embed; embed()
 
         return train, validation
 
@@ -471,7 +471,7 @@ class SimpleDNN(MLModel):
             except Exception as e:
                 # logger.warning(f"Function '{func.__name__}' failed due to {type(e)}: {e}")
                 print('Failed')
-                from IPython import embed; embed()
+                #from IPython import embed; embed()
                 outp = None
 
             return outp
@@ -677,8 +677,7 @@ class SimpleDNN(MLModel):
                 'inputs2': events2,
                 'target': target,
                 }
-
-        test = reshape_norm_inputs(test, self.n_features, )
+        test = reshape_norm_inputs(test, self.n_features, self.norm_features, self.input_features)
 
         # inputs to feed to the model
         inputs = [test["inputs"], test["inputs2"]]

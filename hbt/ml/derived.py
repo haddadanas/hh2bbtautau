@@ -74,7 +74,7 @@ default_cls_dict = {
     "custom_layers": ["Sum", "Max", "Min"],
     "L2": False,
     "norm_features": norm_features,
-    "model_name": "Testing Model"
+    "model_name": "Testing Model",
 }
 
 # derived model, usable on command line
@@ -82,7 +82,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["epochs"] = 150
+cls_dict["epochs"] = 20
 cls_dict["batchsize"] = 2048
 cls_dict["model_name"] = f"{len(processes)}classes_testing"
 
