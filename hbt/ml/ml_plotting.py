@@ -14,6 +14,7 @@ import luigi
 from columnflow.tasks.framework.base import Requirements, ShiftTask
 from columnflow.tasks.framework.plotting import PlotBase
 from columnflow.tasks.framework.decorators import view_output_plots
+from columnflow.tasks.ml import MLEvaluation
 from columnflow.util import DotDict, maybe_import
 
 
@@ -26,7 +27,8 @@ class MLPLottingChoices(Enum):
     ROC = "PathToROC"
 
 
-class PlotMLMetric(PlotBase):
+class PlotMLMetric(PlotBase,
+                   MLEvaluation):
 
     plot_function = luigi.EnumListParameter(
         enum=MLPLottingChoices,
@@ -36,7 +38,7 @@ class PlotMLMetric(PlotBase):
 
     def requires(self):
         reqs = {
-            "events": self.reqs.MergeReducedEvents.req_different_branching(
+            "events": self.reqs.MLEvaluation.req(
                 self,
                 tree_index=self.branch,
                 branch=-1,
