@@ -227,7 +227,7 @@ class SimpleDNN(MLModel):
         produced = set()
         for proc in self.processes:
             produced.add(f"{self.cls_name}.score_{proc}")
-            produced.add(f"{self.cls_name}.ml_truth_label")
+        produced.add(f"{self.cls_name}.ml_truth_label")
 
         # produced.add("category_ids")
 
