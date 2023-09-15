@@ -227,8 +227,9 @@ class SimpleDNN(MLModel):
         produced = set()
         for proc in self.processes:
             produced.add(f"{self.cls_name}.score_{proc}")
+            produced.add(f"{self.cls_name}.ml_truth_label")
 
-        produced.add("category_ids")
+        # produced.add("category_ids")
 
         return produced
 
@@ -480,13 +481,13 @@ class SimpleDNN(MLModel):
         # call_func_safe(plot_accuracy, model.history.history, output)
         # call_func_safe(plot_loss, model.history.history, output)
 
-        # # evaluate training and validation sets
-        # train['prediction'] = call_func_safe(model, [train['inputs'], train['inputs2']])
-        # validation['prediction'] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
-        # train['prediction'] = np.reshape(train['prediction'], [len(train['prediction']), len(train['prediction'][0][0])])
-        # validation['prediction'] = np.reshape(validation['prediction'], [len(validation['prediction']), len(validation['prediction'][0][0])])
-        # train['target'] = np.reshape(train['target'], [len(train['target']), len(train['target'][0][0])])
-        # validation['target'] = np.reshape(validation['target'], [len(validation['target']), len(validation['target'][0][0])])
+        # evaluate training and validation sets
+        train['prediction'] = call_func_safe(model, [train['inputs'], train['inputs2']])
+        validation['prediction'] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
+        train['prediction'] = np.reshape(train['prediction'], [len(train['prediction']), len(train['prediction'][0][0])])
+        validation['prediction'] = np.reshape(validation['prediction'], [len(validation['prediction']), len(validation['prediction'][0][0])])
+        train['target'] = np.reshape(train['target'], [len(train['target']), len(train['target'][0][0])])
+        validation['target'] = np.reshape(validation['target'], [len(validation['target']), len(validation['target'][0][0])])
 
         # # create some confusion matrices
         # call_func_safe(plot_confusion, model, train, output, "train", self.process_insts)
@@ -667,10 +668,11 @@ class SimpleDNN(MLModel):
         events2 = reshape_raw_inputs2(events2)
 
         target_dict = {'graviton_hh_ggf_bbtautau_m400_madgraph': 0,
-            'graviton_hh_vbf_bbtautau_m400_madgraph': 1}
+                       'hh_ggf_bbtautau_madgraph': 1,
+                       'graviton_hh_vbf_bbtautau_m400_madgraph': 2}
 
         # create target and add to test dict
-        target = np.zeros((events1.shape[0], 2))
+        target = np.zeros((events1.shape[0], 3))
         target[:, target_dict[task.dataset]] = 1
 
         test = {'inputs': events1,
