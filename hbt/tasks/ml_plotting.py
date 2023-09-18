@@ -17,7 +17,6 @@ from columnflow.tasks.framework.decorators import view_output_plots
 from columnflow.tasks.ml import MLEvaluation
 from columnflow.util import DotDict, maybe_import
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
@@ -40,11 +39,8 @@ class PlotMLMetric(PlotBase,
         reqs = {
             "events": self.reqs.MLEvaluation.req(
                 self,
-                tree_index=self.branch,
-                branch=-1,
             ),
         }
-
         return reqs
 
     def output(self):
@@ -58,10 +54,13 @@ class PlotMLMetric(PlotBase,
         # prepare inputs and outputs
         inputs = self.input()
         output = self.output()
-        events = inputs['events']
+        events = inputs["events"]
 
+        from IPython import embed; embed()
+        # Define the position of the scores and true labels
         test_if_int = np.vectorize(float.is_integer)
-        labels_mask = {cl_name: test_if_int(events.test[cl_name]).all() for cl_name in events.test.fields}
+        labels_mask = {cl_name: test_if_int(events[self.cls_name][cl_name]).all()
+                       for cl_name in events[self.cls_name].fields}
         assert (sum(labels_mask.values()) == 1), (
-            f'Only one `true_labels` column per Network is expected, however {sum(labels_mask.values())} were found!'
+            f"Only one `true_labels` column per Network is expected, however {sum(labels_mask.values())} were found!"
         )
