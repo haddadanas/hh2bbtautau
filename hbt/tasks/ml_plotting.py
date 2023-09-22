@@ -5,7 +5,6 @@ Tasks to plot different types of metrices.
 """
 
 from collections import OrderedDict
-from abc import abstractmethod
 from enum import Enum
 
 import law
@@ -17,18 +16,47 @@ from columnflow.tasks.framework.base import Requirements, ShiftTask
 from columnflow.tasks.framework.plotting import PlotBase
 from columnflow.tasks.framework.decorators import view_output_plots
 from columnflow.tasks.ml import MLEvaluation, MLEvaluationWrapper
-from columnflow.util import DotDict, maybe_import, dev_sandbox
+from columnflow.util import maybe_import, dev_sandbox
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
 
-@inherits(MLEvaluationWrapper) #, MLEvaluation)
+class MLPLottingChoices(Enum):
+    ConfusionMatrix = {
+        'path': 'hbt.ml.plotting.Confusion_Matrix',
+        'params': {
+            'normalize': luigi.BoolParameter(
+                parsing=luigi.BoolParameter.EXPLICIT_PARSING,
+                significant=False
+            ),
+            'colormap': luigi.ChoiceParameter(default='viridis', significant=False,
+                                              choices=['viridis', 'cf_cmap', 'cf_ygb_cmap', 'cf_green_cmap']),
+            'z_title': luigi.Parameter(default='Accuracy', significant=False),
+            'digits': luigi.IntParameter(default=3, significant=False),
+            'title': luigi.Parameter(default='Confusion Matrix', significant=False, description=''),
+        }
+    }
+    ROC = {
+        'path': 'hbt.ml.plotting.ROC_Curve',
+        'params': {
+            'evaluation_type': luigi.ChoiceParameter(default='OvR', choices=['OvR', 'OvO']),
+            'array_size': luigi.IntParameter(default=100 + 1, significant=False),
+            'title': luigi.Parameter(default='ROC Curve', significant=False, description='')
+        }
+    }
+
+
+@inherits(MLEvaluation)
 class PlotMLMetric(PlotBase):
 
-    class MLPLottingChoices(Enum):
-        ConfusionMatrix = "pathtoCM"
-        ROC = "PathToROC"
+    datasets = law.CSVParameter(
+        default=("*",),
+        description="names or name patterns of datasets to use; can also be the key of a "
+        "mapping defined in the 'dataset_groups' auxiliary data of the corresponding "
+        "config; default: ('*',)",
+        brace_expand=True,
+    )
 
     plot_function = luigi.EnumListParameter(
         enum=MLPLottingChoices,
@@ -36,16 +64,30 @@ class PlotMLMetric(PlotBase):
         description="Metric plotting function to use. Available choices: 'ConfusionMatrix', 'ROC'",
     )
 
+    sample_weights = luigi.BoolParameter(
+        significant=False,
+        description='weights of the events'
+    )
+
+    skip_uncertenties = luigi.BoolParameter(significant=False)
+
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.branch = 0
+
         # set the sandbox
         self.sandbox = dev_sandbox(law.config.get("analysis", "default_columnar_sandbox"))
-
+        from IPython import embed;embed()
+        # Call the choosen plot function and set its Parameters
+        plotting_dict = self.plot_function.value
+        self.plot_func = self.get_plot_func(plotting_dict['path'])
+        for param_name, param in plotting_dict['params'].items():
+            setattr(self, param_name, param)
 
     def requires(self):
         # TODO The workflow tree starts with MLEvaluation at branch 0 and PlotMLMetric is not displayed however functions.
-        reqs = self.clone_parent()
+        reqs = {self.dataset: self.clone_parent()}
         return reqs
 
     def output(self):
@@ -88,9 +130,10 @@ class PlotMLMetric(PlotBase):
         # prepare inputs and outputs
         inputs = self.input()
         output = self.output()
-        events = {}
+        events = OrderedDict()
 
-        for (_,_,label), path in inputs.items():
+        from IPython import embed; embed()
+        for label, path in inputs.items():
             _, path = path.popitem()
             array = path[0]['mlcolumns'].load()
             if events.get(label):
@@ -98,4 +141,6 @@ class PlotMLMetric(PlotBase):
             else:
                 events[label] = array['test'] #TODO self.ml_model stattdessen verwenden
         array, target, cls_labels, pred_labels = self.get_plot_data(events)
+
+
 
