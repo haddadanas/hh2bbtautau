@@ -18,7 +18,9 @@ def Confusion_Matrix(true_labels: np.ndarray,
                      plot_title='Confusion matrix',
                      colormap='cf_cmap',
                      z_title: str = 'Accuracy',
-                     digits: int = 3
+                     digits: int = 3,
+                     *args,
+                     **kwargs
                      ) -> np.ndarray:
     """_summary_
 
@@ -68,7 +70,7 @@ def Confusion_Matrix(true_labels: np.ndarray,
 def ROC_Curve(evaluation_type: str,
               true_labels: np.ndarray,
               model_output: np.ndarray,
-              class_names: list = None,
+              class_labels: list = None,
               thresholds: np.ndarray = None,
               sample_weights: np.ndarray = None,
               skip_uncertenties: bool = False,
@@ -76,12 +78,14 @@ def ROC_Curve(evaluation_type: str,
               output_path: str = './roc_plot.png',
               plot_title: str = 'ROC Curve',
               figure_grid: tuple = None,  # type: ignore
+              *args,
+              **kwargs
               ) -> dict:
 
     roc_dict = roc_curve_data(evaluation_type=evaluation_type,
                               true_labels=true_labels,
                               model_output=model_output,
-                              class_names=class_names,
+                              class_names=class_labels,
                               thresholds=thresholds,
                               sample_weights=sample_weights,
                               errors=not (skip_uncertenties),

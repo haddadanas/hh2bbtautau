@@ -227,9 +227,9 @@ class SimpleDNN(MLModel):
         produced = set()
         for proc in self.processes:
             produced.add(f"{self.cls_name}.score_{proc}")
-        produced.add(f"{self.cls_name}.ml_truth_label")
+        # produced.add(f"{self.cls_name}.ml_truth_label")
 
-        # produced.add("category_ids")
+        produced.add("category_ids")
 
         return produced
 
@@ -669,10 +669,13 @@ class SimpleDNN(MLModel):
 
         target_dict = {'graviton_hh_ggf_bbtautau_m400_madgraph': 0,
                        'hh_ggf_bbtautau_madgraph': 1,
-                       'graviton_hh_vbf_bbtautau_m400_madgraph': 2}
+                       'graviton_hh_vbf_bbtautau_m400_madgraph': 2,
+                       'graviton_hh_ggf_bbtautau_m1250_madgraph': 3,
+                       'tt_sl_powheg': 4,
+                       }
 
         # create target and add to test dict
-        target = np.zeros((events1.shape[0], 3))
+        target = np.zeros((events1.shape[0], len(target_dict)))
         target[:, target_dict[task.dataset]] = 1
 
         test = {'inputs': events1,
