@@ -230,6 +230,7 @@ class SimpleDNN(MLModel):
         # produced.add(f"{self.cls_name}.ml_truth_label")
 
         produced.add("category_ids")
+        produced.add("process_ids")
 
         return produced
 
@@ -732,7 +733,7 @@ class SimpleDNN(MLModel):
 
         events = set_ak_column(events, "predictions", test["prediction"])
         events = set_ak_column(events, f"{self.cls_name}.ml_truth_label", np.squeeze(test['target']))
-
+        events = set_ak_column(events, "process_ids", 21100)
         # ML categorization on top of existing categories
         # ml_categories = [cat for cat in self.config_inst.categories if "ml_" in cat.name]
         # ml_proc_to_id = {cat.name.replace("ml_", ""): cat.id for cat in ml_categories}

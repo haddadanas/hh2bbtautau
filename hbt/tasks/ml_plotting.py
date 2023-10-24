@@ -49,7 +49,7 @@ class MLPLottingChoices(Enum):
 
 
 @inherits(MergeMLEvaluation)
-class PlotMLResults(PlotBase):
+class PlotMLResults1(PlotBase):
     dataset = None
 
     plot_function = luigi.EnumParameter(
