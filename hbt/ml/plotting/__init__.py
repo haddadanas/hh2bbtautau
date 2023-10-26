@@ -3,8 +3,7 @@ from hbt.ml.plotting.metrices import (get_conf_matrix,
                                       mdim_auc_score,
                                       np)
 from hbt.ml.plotting.plotting import (plot_confusion_matrix,
-                                      plot_roc_curve,
-                                      plot_SIF)
+                                      plot_roc_curve)
 
 
 def Confusion_Matrix(true_labels: np.ndarray,
@@ -14,13 +13,13 @@ def Confusion_Matrix(true_labels: np.ndarray,
                      sample_weights: np.ndarray = None,
                      normalization: str = None,
                      skip_uncertenties: bool = False,
-                     output_path: str = './cm_plot.png',
-                     plot_title='Confusion matrix',
-                     colormap='cf_cmap',
-                     z_title: str = 'Accuracy',
+                     output_path: str = "./cm_plot.png",
+                     plot_title="Confusion matrix",
+                     colormap="cf_cmap",
+                     z_title: str = "Accuracy",
                      digits: int = 3,
                      *args,
-                     **kwargs
+                     **kwargs,
                      ) -> np.ndarray:
     """_summary_
 
@@ -32,10 +31,10 @@ def Confusion_Matrix(true_labels: np.ndarray,
         sample_weights (np.ndarray, optional): _description_. Defaults to None.
         normalization (str, optional): _description_. Defaults to None.
         skip_uncertenties (bool, optional): _description_. Defaults to False.
-        output_path (str, optional): _description_. Defaults to './cm_plot.png'.
-        plot_title (str, optional): _description_. Defaults to 'Confusion matrix'.
+        output_path (str, optional): _description_. Defaults to "./cm_plot.png".
+        plot_title (str, optional): _description_. Defaults to "Confusion matrix".
         color_map (_type_, optional): _description_. Defaults to cf_cmap.
-        z_title (str, optional): _description_. Defaults to 'Accuracy'.
+        z_title (str, optional): _description_. Defaults to "Accuracy".
         digits (int, optional): _description_. Defaults to 3.
 
     Returns:
@@ -50,7 +49,7 @@ def Confusion_Matrix(true_labels: np.ndarray,
 
     if output_path is not None:
         if normalization is not None:
-            z_title += f'({normalization}-normalized)'
+            z_title += f"({normalization}-normalized)"
 
         plot_confusion_matrix(cm=cm,
                               process_labels=process_labels,
@@ -61,7 +60,7 @@ def Confusion_Matrix(true_labels: np.ndarray,
                               colormap=colormap,
                               cmap_label=z_title,
                               digits=digits,
-                              skip_uncertainties=skip_uncertenties
+                              skip_uncertainties=skip_uncertenties,
                               )
 
     return cm
@@ -75,11 +74,11 @@ def ROC_Curve(evaluation_type: str,
               sample_weights: np.ndarray = None,
               skip_uncertenties: bool = False,
               output_length: int = 100 + 1,
-              output_path: str = './roc_plot.png',
-              plot_title: str = 'ROC Curve',
+              output_path: str = "./roc_plot.png",
+              plot_title: str = "ROC Curve",
               figure_grid: tuple = None,  # type: ignore
               *args,
-              **kwargs
+              **kwargs,
               ) -> dict:
 
     roc_dict = roc_curve_data(evaluation_type=evaluation_type,
@@ -96,10 +95,10 @@ def ROC_Curve(evaluation_type: str,
         plot_roc_curve(save_path=output_path,
                        input_dict=roc_dict,
                        auc_scores=auc_dict,
-                       grid=figure_grid
+                       grid=figure_grid,
                        )
 
     for key, data in roc_dict.items():
-        data.update({'auc_score': auc_dict[key]})
+        data.update({"auc_score": auc_dict[key]})
 
     return roc_dict

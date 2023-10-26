@@ -1,92 +1,26 @@
+import os
+import re
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import mplhep as hep
-import re
-import os
+
 
 # Define a CF custom color map
-import matplotlib.colors as colors
-cf_colors = {"cf_green_cmap": colors.ListedColormap(["#212121",
-                                                     "#242723",
-                                                     "#262D25",
-                                                     "#283426",
-                                                     "#2A3A26",
-                                                     "#2C4227",
-                                                     "#2E4927",
-                                                     "#305126",
-                                                     "#325A25",
-                                                     "#356224",
-                                                     "#386B22",
-                                                     "#3B7520",
-                                                     "#3F7F1E",
-                                                     "#43891B",
-                                                     "#479418",
-                                                     "#4C9F14",
-                                                     "#52AA10",
-                                                     "#58B60C",
-                                                     "#5FC207",
-                                                     "#67cf02"]),  # type: ignore
-             "cf_ygb_cmap": colors.ListedColormap(["#003675",
-                                                   "#005B83",
-                                                   "#008490",
-                                                   "#009A83",
-                                                   "#00A368",
-                                                   "#00AC49",
-                                                   "#00B428",
-                                                   "#00BC06",
-                                                   "#0CC300",
-                                                   "#39C900",
-                                                   "#67cf02",
-                                                   "#72DB02",
-                                                   "#7EE605",
-                                                   "#8DF207",
-                                                   "#9CFD09",
-                                                   "#AEFF0B",
-                                                   "#C1FF0E",
-                                                   "#D5FF10",
-                                                   "#EBFF12",
-                                                   "#FFFF14"]),  # type: ignore
-             "cf_cmap": colors.ListedColormap(["#002C9C",
-                                               "#00419F",
-                                               "#0056A2",
-                                               "#006BA4",
-                                               "#0081A7",
-                                               "#0098AA",
-                                               "#00ADAB",
-                                               "#00B099",
-                                               "#00B287",
-                                               "#00B574",
-                                               "#00B860",
-                                               "#00BB4C",
-                                               "#00BD38",
-                                               "#00C023",
-                                               "#00C20D",
-                                               "#06C500",
-                                               "#1EC800",
-                                               "#36CA00",
-                                               "#4ECD01",
-                                               "#67cf02"]),  # type: ignore
-             "viridis": colors.ListedColormap(["#263DA8",
-                                               "#1652CC",
-                                               "#1063DB",
-                                               "#1171D8",
-                                               "#1380D5",
-                                               "#0E8ED0",
-                                               "#089DCC",
-                                               "#0DA7C2",
-                                               "#1DAFB3",
-                                               "#2DB7A3",
-                                               "#52BA91",
-                                               "#73BD80",
-                                               "#94BE71",
-                                               "#B2BC65",
-                                               "#D0BA59",
-                                               "#E1BF4A",
-                                               "#F4C53A",
-                                               "#FCD12B",
-                                               "#FAE61C",
-                                               "#F9F90E"]),  # type: ignore
-             }
+cf_colors = {
+    "cf_green_cmap": colors.ListedColormap(["#212121", "#242723", "#262D25", "#283426", "#2A3A26", "#2C4227", "#2E4927",
+                                            "#305126", "#325A25", "#356224", "#386B22", "#3B7520", "#3F7F1E", "#43891B",
+                                            "#479418", "#4C9F14", "#52AA10", "#58B60C", "#5FC207", "#67cf02"]),
+    "cf_ygb_cmap": colors.ListedColormap(["#003675", "#005B83", "#008490", "#009A83", "#00A368", "#00AC49", "#00B428",
+                                          "#00BC06", "#0CC300", "#39C900", "#67cf02", "#72DB02", "#7EE605", "#8DF207",
+                                          "#9CFD09", "#AEFF0B", "#C1FF0E", "#D5FF10", "#EBFF12", "#FFFF14"]),
+    "cf_cmap": colors.ListedColormap(["#002C9C", "#00419F", "#0056A2", "#006BA4", "#0081A7", "#0098AA", "#00ADAB",
+                                      "#00B099", "#00B287", "#00B574", "#00B860", "#00BB4C", "#00BD38", "#00C023",
+                                      "#00C20D", "#06C500", "#1EC800", "#36CA00", "#4ECD01", "#67cf02"]),
+    "viridis": colors.ListedColormap(["#263DA8", "#1652CC", "#1063DB", "#1171D8", "#1380D5", "#0E8ED0", "#089DCC",
+                                      "#0DA7C2", "#1DAFB3", "#2DB7A3", "#52BA91", "#73BD80", "#94BE71", "#B2BC65",
+                                      "#D0BA59", "#E1BF4A", "#F4C53A", "#FCD12B", "#FAE61C", "#F9F90E"]),
+}
 
 
 def plot_confusion_matrix(cm: np.ndarray,
@@ -109,23 +43,24 @@ def plot_confusion_matrix(cm: np.ndarray,
       title: Title of the confusion matrix.
       cmap: Colormap.
     """
-    assert (cm.ndim == 2), (
-      f"Input matrix should be of dimension 2. Received dimension {cm.ndim}!")
+    assert (cm.ndim == 2), f"Input matrix should be of dimension 2. Received dimension {cm.ndim}!"
     n_processes = cm.shape[0]
     n_classes = cm.shape[1]
     assert (n_processes == len(process_labels)), (
-      f"Array length of the process labels (={len(process_labels)}) does not match the number of rows givin in the confusion matrix (={n_processes})!")
+        f"Array length of the process labels (={len(process_labels)}) does not match the number of rows \
+            givin in the confusion matrix (={n_processes})!")
     assert (n_classes == len(class_labels)), (
-      f"Array length of the classes labels (={len(class_labels)}) does not match the number of columns givin in the confusion matrix (={n_processes})!")
+        f"Array length of the classes labels (={len(class_labels)}) does not match the number of columns \
+            givin in the confusion matrix (={n_processes})!")
 
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(save_path)
 
     def scale_font(class_number: int) -> int:
         if class_number > 10:
-            return max(8, int(- 8/10 * class_number + 23))
+            return max(8, int(- 8 / 10 * class_number + 23))
         else:
-            return int(class_number/14*(9 * class_number - 177) + 510/7)
+            return int(class_number / 14 * (9 * class_number - 177) + 510 / 7)
 
     def get_errors(matrix):
         from scinum import UP
@@ -158,8 +93,8 @@ def plot_confusion_matrix(cm: np.ndarray,
     font_size = scale_font(n_classes)
 
     # Remove Major ticks and edit minor ticks
-    minor_tick_length = max(int(120/n_classes), 12)
-    minor_tick_width = max(6/n_classes, 0.6)
+    minor_tick_length = max(int(120 / n_classes), 12)
+    minor_tick_width = max(6 / n_classes, 0.6)
     xtick_marks = np.arange(n_classes)
     ytick_marks = np.arange(n_processes)
     plt.tick_params(axis="both", which="major",
@@ -174,7 +109,7 @@ def plot_confusion_matrix(cm: np.ndarray,
 
     # Justify Color bar
     colorbar = plt.colorbar(fraction=0.0471, pad=0.01)
-    colorbar.set_label(label=cmap_label, fontsize=font_size+3)
+    colorbar.set_label(label=cmap_label, fontsize=font_size + 3)
     colorbar.ax.tick_params(labelsize=font_size)
     plt.clim(0, max(1, values.max()))
 
@@ -199,8 +134,8 @@ def plot_confusion_matrix(cm: np.ndarray,
     hep.cms.label(llabel="private work",
                   rlabel=title if title is not None else "")
     plt.xlabel("Predicted process", loc="right", labelpad=10,
-               fontsize=font_size+3)
-    plt.ylabel("True process", loc="top", labelpad=15, fontsize=font_size+3)
+               fontsize=font_size + 3)
+    plt.ylabel("True process", loc="top", labelpad=15, fontsize=font_size + 3)
 
     # Saving
     plt.tight_layout()
@@ -229,22 +164,22 @@ def plot_roc_curve(save_path: str = "./roc_plot.png",
                                 If not specified, the number of rows and columns will be set to an optimum.
                                 Defaults to None.
         auc_scores (dictorfloat, optional): AUC scores for the givin ROC curve.
-                                            The parameter should be givin either as a float for a single ROC curve plot or
-                                            if `input_dict` is givin as a dictionary with the same keys as `input_dict`.
-                                            Defaults to None.
+                                            The parameter should be givin either as a float for a single ROC curve plot
+                                            or if `input_dict` is givin as a dictionary with the same keys
+                                            as `input_dict`. Defaults to None.
         input_dict (dict, optional): 6Defaults to None.
 
     Returns:
         _type_: None
     """
     assert (input_dict is not None or (fpr is not None and tpr is not None)), (
-      "Either `input_dict` or `fpr` and `tpr` should be givin!")
+        "Either `input_dict` or `fpr` and `tpr` should be givin!")
     assert (input_dict is not None or len(fpr) == len(tpr)), (
-      f"The length of `fpr` and `tpr` should be equal! Received arrays with length {len(fpr)} and {len(tpr)}")
+        f"The length of `fpr` and `tpr` should be equal! Received arrays with length {len(fpr)} and {len(tpr)}")
     assert isinstance(grid, (tuple, type(None))), (
-      f"the `grid` argument must be a tuple. Givin {grid}")
+        f"the `grid` argument must be a tuple. Givin {grid}")
     assert (auc_scores is None or isinstance(auc_scores, float) or auc_scores.keys() == input_dict.keys()), (
-      "The parameter `auc_score` should have the same keys as the `input_dict`!")
+        "The parameter `auc_score` should have the same keys as the `input_dict`!")
 
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(save_path)
@@ -257,8 +192,8 @@ def plot_roc_curve(save_path: str = "./roc_plot.png",
 
     def get_grid(n):
         nrow = round(np.sqrt(n))
-        ncol = int(n/nrow)
-        while (nrow*ncol < n):
+        ncol = int(n / nrow)
+        while (nrow * ncol < n):
             ncol += 1
         return nrow, ncol
 
@@ -281,7 +216,7 @@ def plot_roc_curve(save_path: str = "./roc_plot.png",
     nrow, ncol = get_grid(len(input_dict.keys())) if grid is None else grid
 
     plt.style.use(hep.style.CMS)
-    fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6*ncol, 6*nrow+1),
+    fig, axs = plt.subplots(nrows=nrow, ncols=ncol, figsize=(6 * ncol, 6 * nrow + 1),
                             dpi=300, sharey=shared_y)
     axs = np.array(axs).flatten()
     hep.cms.label(llabel="private work", rlabel="", ax=axs[0],
@@ -296,7 +231,7 @@ def plot_roc_curve(save_path: str = "./roc_plot.png",
     plt.clf()
 
 
-def plot_SIF(thresholds,
+def plot_sif(thresholds,
              fpr,
              tpr,
              *args,
@@ -314,14 +249,15 @@ def plot_SIF(thresholds,
         _type_: None
     """
     assert (len(fpr) == len(tpr) and len(fpr) == len(thresholds)), (
-      f"The length of `fpr`, `tpr` and `thresholds` should be equal! Received arrays with length {len(fpr)}, {len(tpr)} and {len(thresholds)}")
+        f"The length of `fpr`, `tpr` and `thresholds` should be equal! Received arrays with \
+            length {len(fpr)}, {len(tpr)} and {len(thresholds)}")
 
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(save_path)
 
     min_value = np.argmin(thresholds)
-    norm_factor = tpr[min_value]/np.sqrt(fpr[min_value])
-    sif = (tpr/np.sqrt(fpr))/norm_factor
+    norm_factor = tpr[min_value] / np.sqrt(fpr[min_value])
+    sif = (tpr / np.sqrt(fpr)) / norm_factor
     plt.style.use(hep.style.CMS)
     plt.plot(thresholds, sif)
 
@@ -334,12 +270,3 @@ def plot_SIF(thresholds,
     # plt.show()
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.clf()
-
-
-if __name__ == "__main__":
-    trues = np.random.random(size=1000) > 0.5
-    pred = np.random.random(size=1000)
-    from sklearn.metrics import roc_curve
-    f, t, t = roc_curve(trues, pred)
-
-    plot_SIF(t, f, t)

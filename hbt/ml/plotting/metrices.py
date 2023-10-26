@@ -2,19 +2,20 @@ import numpy as np
 from scinum import Number
 
 
+# Helper functions
 def calc_uncert(matrix, func):
     # result = np.zeros_like(matrix.size, dtype = np.float)
     matrix = np.array(matrix)
     errors = func(matrix)
     row_sum = np.sum(matrix, axis=1)
-    result = ((errors*np.sqrt((np.sum(matrix, axis=1) - matrix.T).T)).T/np.power(row_sum, 3/2)).T
+    result = ((errors * np.sqrt((np.sum(matrix, axis=1) - matrix.T).T)).T / np.power(row_sum, 3 / 2)).T
     return result
 
 
-# Helper functions
 def is_input_valid(true_labels, input):
     assert (true_labels.shape[0] == input.shape[0]), (
-        f'Mismatched shapes of the inputs! Inputs can not be compared with shapes {true_labels.shape[0]} and {input.shape[0]}')
+        f"Mismatched shapes of the inputs! Inputs can not be compared with shapes \
+            {true_labels.shape[0]} and {input.shape[0]}")
 
 
 def is_weights_valid(input, weights) -> bool:
@@ -23,7 +24,8 @@ def is_weights_valid(input, weights) -> bool:
 
     # Check if shapes are valid
     assert ((not is_weighted) or weights.shape[0] == input.shape[0]), (
-        f'Mismatched shapes of the weights! Weights can not be broadcast to the inputs with shapes {weights.shape[0]} and {input.shape[0]}')
+        f"Mismatched shapes of the weights! Weights can not be broadcast to the \
+            inputs with shapes {weights.shape[0]} and {input.shape[0]}")
     return is_weighted
 
 
@@ -44,10 +46,12 @@ def get_conf_matrix(true_labels: np.ndarray,
         weights (np.array): weights of the events
 
     Returns:
-        An `Array` with shape `[m, n]` representing the confusion matrix, where `m` is number of expected classes in the true labels and `n` is the number of possible labels in the classification
+        An `Array` with shape `[m, n]` representing the confusion matrix, where `m` is number of expected
+        classes in the true labels and `n` is the number of possible labels in the classification
 
     Raises:
-        AssertionError: If both predictions and labels have mismatched shapes, or if `weights` is not `None` and its shape doesn't match `predictions`.
+        AssertionError: If both predictions and labels have mismatched shapes, or if `weights` is not `None`
+        and its shape doesn't match `predictions`.
     """
 
     is_input_valid(true_labels, model_output)
@@ -71,9 +75,10 @@ def get_conf_matrix(true_labels: np.ndarray,
 
     # Normalize Matrix if needed
     if normalization is not None:
-        valid = {'row': 1, 'column': 0}
+        valid = {"row": 1, "column": 0}
         assert (normalization in valid.keys()), (
-            f'\'{normalization}\' is no valid argument for normalization. If givin, normalization should only take \'row\' or \'column\'')
+            f"\"{normalization}\" is no valid argument for normalization. If givin, normalization \
+            should only take \"row\" or \"column\"")
 
         row_sums = result.sum(axis=valid.get(normalization))
         result = result / row_sums[:, np.newaxis]
@@ -93,15 +98,19 @@ def binary_roc_data(true_labels: np.ndarray,
                     *args,
                     thresholds: np.ndarray = None,
                     errors: bool = True,
-                    output_length: int = 10 + 1
+                    output_length: int = 10 + 1,
                     ) -> tuple:
     """
-    Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a binary classification
+    Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the
+    true labels for a binary classification
 
     Args:
-        true_labels (np.array): an `Array` with the true labels of the events. Entries should be of type true/flase or 1/0
+        true_labels (np.array): an `Array` with the true labels of the events. Entries should be of type true/flase
         model_output_positive (np.array): output of the model with propability predictions for positive events.
-        thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries. Defaults to None.        weights (np.array): weights of the events
+        thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points
+        shall be calculated. If specified, this will overwrite the parameter `output_points`,
+        else a linear spacewill be created with `output_points` entries. Defaults to None.
+        weights (np.array): weights of the events
         errors (bool): calculate errors of the ROC entries
         args (y): list of additional parameters.
         output_length (int): number of points generated for the ROC curve
@@ -118,7 +127,7 @@ def binary_roc_data(true_labels: np.ndarray,
         if get_errors:
             if array.size != 0:
                 return Number(np.sum(array),
-                              float(np.divide(array.sum(), np.sqrt(array.size))
+                              float(np.divide(array.sum(), np.sqrt(array.size)),
                                     ))
             return Number(np.sum(array), 0.0)
         return Number(np.sum(array))
@@ -126,7 +135,8 @@ def binary_roc_data(true_labels: np.ndarray,
     # Define Thresholds if None
     if thresholds is None:
         assert isinstance(output_length, int), (
-            'If `thresholds`  is not givin, `output_length` must be givin an int, from which the thresholds are determined! Both arguments cannot be `None`!')
+            "If `thresholds`  is not givin, `output_length` must be givin an int, from which the thresholds \
+                are determined! Both arguments cannot be `None`!")
         thresholds = np.linspace(0, 1, output_length)
 
     # Define weights if None
@@ -148,18 +158,15 @@ def binary_roc_data(true_labels: np.ndarray,
         positives = model_output_positive >= t
         tp = cast_to_Number(sample_weights[np.logical_and(positives, trues)],
                             errors)
-        tn = cast_to_Number(sample_weights[np.logical_and(positives == False,
-                                                          trues == False)],
+        tn = cast_to_Number(sample_weights[np.logical_and(~positives, ~trues)],
                             errors)
-        fp = cast_to_Number(sample_weights[np.logical_and(positives,
-                                                          trues == False)],
+        fp = cast_to_Number(sample_weights[np.logical_and(positives, ~trues)],
                             errors)
-        fn = cast_to_Number(sample_weights[np.logical_and(positives == False,
-                                                          trues)],
+        fn = cast_to_Number(sample_weights[np.logical_and(~positives, trues)],
                             errors)
 
-        tpr.append(tp/(tp + fn))
-        fpr.append(fp/(fp + tn))
+        tpr.append(tp / (tp + fn))
+        fpr.append(fp / (fp + tn))
 
     return fpr, tpr, thresholds
 
@@ -172,17 +179,22 @@ def roc_curve_data(evaluation_type: str,
                    sample_weights: np.ndarray = None,
                    errors: bool = True,
                    *args,
-                   output_length: int = 10 + 1
+                   output_length: int = 10 + 1,
                    ) -> dict:
     """
-    Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the true labels for a multi-class classification
+    Compute Receiver operating characteristic (ROC) values givin the nodes outputs and the
+    true labels for a multi-class classification
 
     Args:
-        evaluation_type (str): type of evaluation. Valid keys are \'OvO\' (One vs One) or \'OvR\' (One vs Rest). For a binary classification choose \'OvR\' or the dedicated function `binary_roc_data`
+        evaluation_type (str): type of evaluation. Valid keys are \"OvO\" (One vs One) or \"OvR\" (One vs Rest).
+        For a binary classification choose \"OvR\" or the dedicated function `binary_roc_data`
         true_labels (np.array): an `Array` with the true labels of the events. If a boolean array is givin
         model_output (np.array): output of the model with propability predictions for each event.
-        class_names (np.array): name for the givin classes. Should be givin in the same order as the column. If not specified the index of the column will be used instead
-        thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points shall be calculated. If specified, this will overwrite the parameter `output_points`, else a linear spacewill be created with `output_points` entries. Defaults to None.
+        class_names (np.array): name for the givin classes. Should be givin in the same order as the column.
+        If not specified the index of the column will be used instead
+        thresholds (np.array, optional): array with custom thresholds, at which the ROC curve points shall
+        be calculated. If specified, this will overwrite the parameter `output_points`,
+        else a linear spacewill be created with `output_points` entries. Defaults to None.
         sample_weights (np.array): weights of the events
         errors (bool): calculate errors of the ROC entries. Defaults to True.
         output_length (int): number of points generated for the ROC curve
@@ -199,9 +211,9 @@ def roc_curve_data(evaluation_type: str,
                                            thresholds=thresholds,
                                            errors=errors,
                                            output_length=output_length)
-            result[f'{cls_name}_vs_rest'] = {'fpr': fpr,
-                                             'tpr': tpr,
-                                             'thresholds': th}
+            result[f"{cls_name}_vs_rest"] = {"fpr": fpr,
+                                             "tpr": tpr,
+                                             "thresholds": th}
         return result
 
     def one_vs_one(names):
@@ -226,9 +238,9 @@ def roc_curve_data(evaluation_type: str,
                                                thresholds=thresholds,
                                                errors=errors,
                                                output_length=output_length)
-                result[f'{cls_name}_vs_{cls_name2}'] = {'fpr': fpr,
-                                                        'tpr': tpr,
-                                                        'thresholds': th}
+                result[f"{cls_name}_vs_{cls_name2}"] = {"fpr": fpr,
+                                                        "tpr": tpr,
+                                                        "thresholds": th}
         return result
 
     is_input_valid(true_labels, model_output)
@@ -242,24 +254,25 @@ def roc_curve_data(evaluation_type: str,
         class_names = list(range(model_output.shape[1]))
 
     assert (len(class_names) == model_output.shape[1]), (
-        'Number of givin class names does not match the number of output nodes in the `model_output` argument!')
+        "Number of givin class names does not match the number of output nodes in the `model_output` argument!")
 
     # Cast trues labels to class numers
-    if true_labels.dtype.name == 'bool':
+    if true_labels.dtype.name == "bool":
         true_labels = np.logical_not(true_labels).astype(dtype=np.int32)
 
     # Map true labels to integers if needed
-    if 'int' not in true_labels.dtype.name:
+    if "int" not in true_labels.dtype.name:
         for ind, name in enumerate(class_names):
             true_labels = np.where(true_labels == name, ind, true_labels)
 
     # Choose the evaluation type
-    if (evaluation_type == 'OvO'):
+    if (evaluation_type == "OvO"):
         return one_vs_one(class_names)
-    elif (evaluation_type == 'OvR'):
+    elif (evaluation_type == "OvR"):
         return one_vs_rest(class_names)
     else:
-        raise ValueError('Illeagal Argument! Evaluation Type can only be choosen as \'OvO\' (One vs One) or \'OvR\' (One vs Rest)')
+        raise ValueError("Illeagal Argument! Evaluation Type can only be choosen as \"OvO\" (One vs One) \
+                         or \"OvR\" (One vs Rest)")
 
 
 def binary_auc_score(fpr: list, tpr: list, *args) -> Number or np.float64:
@@ -275,13 +288,14 @@ def binary_auc_score(fpr: list, tpr: list, *args) -> Number or np.float64:
         ValueError: If `fpr` is not monoton
 
     Returns:
-        Number or np.float64: If the givin list contain scinum.Number a Number instance is returend with the calculated error on the auc score. Else a numpy.float64 is returend.
+        Number or np.float64: If the givin list contain scinum.Number a Number instance is returend
+        with the calculated error on the auc score. Else a numpy.float64 is returend.
     """
 
     assert (fpr and tpr), (
-        'Neither `tpr` nor `fpr` can be an empty list!')
+        "Neither `tpr` nor `fpr` can be an empty list!")
     assert (len(fpr) == len(tpr)), (
-        'Mismatch in the list length of tpr and fpr!')
+        "Mismatch in the list length of tpr and fpr!")
 
     sign = 1
     if np.any(np.diff(fpr) < 0):
@@ -294,7 +308,8 @@ def binary_auc_score(fpr: list, tpr: list, *args) -> Number or np.float64:
 
 
 def mdim_auc_score(inputs: dict, *args) -> dict:
-    """Calculates the Area Under the Curve (AUC) for givin dictionary containing the False Positive Rate (fpr) and True Positive Rate (tpr) from a multi-dimentional ROC curve
+    """Calculates the Area Under the Curve (AUC) for givin dictionary containing the False Positive Rate (fpr)
+    and True Positive Rate (tpr) from a multi-dimentional ROC curve
 
     Args:
         inputs (dict): _description_
@@ -306,10 +321,10 @@ def mdim_auc_score(inputs: dict, *args) -> dict:
         dict: dictionary containing the calculated AUC scores.
     """
 
-    assert inputs, '`inputs` is empty!'
+    assert inputs, "`inputs` is empty!"
     result = {}
     for cls_name, values in inputs.items():
-        result[cls_name] = binary_auc_score(fpr=values['fpr'],
-                                            tpr=values['tpr'])
+        result[cls_name] = binary_auc_score(fpr=values["fpr"],
+                                            tpr=values["tpr"])
 
     return result
