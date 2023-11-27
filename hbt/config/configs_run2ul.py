@@ -199,7 +199,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
+        "default": ["json", "met_filter", "trigger", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns
@@ -556,7 +556,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-dfd90038"
+    json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c"
     cfg.x.external_files = DotDict.wrap({
         # jet energy correction
         "jet_jerc": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
@@ -668,7 +668,7 @@ def add_config(
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
         },
         "cf.MergeSelectionMasks": {
-            "normalization_weight", "process_id", "category_ids", "cutflow.*",
+            "cutflow.*",
         },
         "cf.UniteColumns": {
             "*",

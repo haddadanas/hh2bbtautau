@@ -23,7 +23,7 @@ def trigger_object_matching(
     vectors2: ak.Array,
     threshold: float = 0.25,
     axis: int = 2,
-) -> ak.Array | tuple[ak.Array, ak.Array]:
+) -> ak.Array:
     """
     Helper to check per object in *vectors1* if there is at least one object in *vectors2* that
     leads to a delta R metric below *threshold*. The final reduction is applied over *axis* of the
@@ -47,6 +47,7 @@ def trigger_object_matching(
         IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
+    exposed=False,
 )
 def electron_selection(
     self: Selector,
@@ -136,6 +137,7 @@ def electron_selection(
         "Muon.dxy", "Muon.dz",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
+    exposed=False,
 )
 def muon_selection(
     self: Selector,
@@ -220,6 +222,7 @@ def muon_selection(
         "Muon.pt", "Muon.eta", "Muon.phi",
     },
     # shifts are declared dynamically below in tau_selection_init
+    exposed=False,
 )
 def tau_selection(
     self: Selector,
@@ -385,7 +388,8 @@ def lepton_selection(
     sel_muon_indices = empty_indices
     sel_tau_indices = empty_indices
 
-    # perform each lepton election step separately per trigger
+    # perform each lepton election step separately per trigger, avoid caching
+    sel_kwargs = {**kwargs, "call_force": True}
     for trigger, trigger_fired, leg_masks in trigger_results.x.trigger_data:
         is_single = trigger.has_tag("single_trigger")
         is_cross = trigger.has_tag("cross_trigger")
@@ -395,8 +399,7 @@ def lepton_selection(
             events,
             trigger,
             leg_masks,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # muon selection
@@ -404,8 +407,7 @@ def lepton_selection(
             events,
             trigger,
             leg_masks,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # tau selection
@@ -415,8 +417,7 @@ def lepton_selection(
             leg_masks,
             electron_indices,
             muon_indices,
-            call_force=True,
-            **kwargs,
+            **sel_kwargs,
         )
 
         # lepton pair selecton per trigger via lepton counting
