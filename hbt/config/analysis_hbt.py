@@ -73,3 +73,29 @@ add_config_run2ul(
     config_id=32,
     limit_dataset_files=2,
 )
+
+
+# #
+# # Run 3 configs
+# #
+
+# # 2022
+# from hbt.config.configs_run3 import add_config as add_config_run3
+# from cmsdb.campaigns.run3_2022_postEE_nano_v11 import campaign_run3_2022_postEE_nano_v11
+# from cmsdb.campaigns.run3_2022_preEE_nano_v11 import campaign_run3_2022_preEE_nano_v11
+
+# # postEE v11 config
+# add_config_run3(
+#     analysis_hbt,
+#     campaign_run3_2022_postEE_nano_v11.copy(),
+#     config_name=campaign_run3_2022_postEE_nano_v11.name,
+#     config_id=3,
+# )
+
+# # preEE v11 config
+# add_config_run3(
+#     analysis_hbt,
+#     campaign_run3_2022_preEE_nano_v11.copy(),
+#     config_name=campaign_run3_2022_preEE_nano_v11.name,
+#     config_id=4,
+# )
