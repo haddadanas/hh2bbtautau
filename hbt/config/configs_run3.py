@@ -263,12 +263,12 @@ def add_config(
     })
 
     # jec configuration
-    # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201 # TODO: check this
-    jerc_postfix = "APV" if year == 2016 and campaign.x.vfp == "post" else ""
+    # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201 # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
+    jerc_postfix = "EEPrompt22" if year == 2022 else ""
     cfg.x.jec = DotDict.wrap({
-        "campaign": f"Summer19UL{year2}{jerc_postfix}",
-        "version": {2022: "V7", 2023: "V5", 2024: "V5"}[year],
-        "jet_type": "AK4PFchs",
+        "campaign": f"Summer{year2}{jerc_postfix}",
+        "version": {2022: "V1"}[year],
+        "jet_type": "AK4PFPuppi",
         "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
         "levels_for_type1_met": ["L1FastJet"],
         "uncertainty_sources": [
@@ -319,10 +319,6 @@ def add_config(
             # "FlavorPureQuark",
             # "FlavorPureCharm",
             # "FlavorPureBottom",
-            # "TimeRunA",
-            # "TimeRunB",
-            # "TimeRunC",
-            # "TimeRunD",
             "CorrelationGroupMPFInSitu",
             "CorrelationGroupIntercalibration",
             "CorrelationGroupbJES",
@@ -332,11 +328,11 @@ def add_config(
     })
 
     # JER
-    # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107 # TODO: check this
+    # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107 # TODO later: check this
     cfg.x.jer = DotDict.wrap({
-        "campaign": f"Summer19UL{year2}{jerc_postfix}",
-        "version": "JR" + {2016: "V3", 2017: "V2", 2018: "V2"}[year],
-        "jet_type": "AK4PFchs",
+        "campaign": f"Summer{year2}{jerc_postfix}",
+        "version": "JR" + {2022: "V1"}[year],
+        "jet_type": "AK4PFPuppi",
     })
 
     # JEC uncertainty sources propagated to btag scale factors
@@ -347,15 +343,8 @@ def add_config(
         "AbsoluteMPFBias",
         "AbsoluteScale",
         "AbsoluteStat",
-        f"Absolute_{year}",
-        "BBEC1",
-        f"BBEC1_{year}",
-        "EC2",
-        f"EC2_{year}",
         "FlavorQCD",
         "Fragmentation",
-        "HF",
-        f"HF_{year}",
         "PileUpDataMC",
         "PileUpPtBB",
         "PileUpPtEC1",
@@ -372,7 +361,6 @@ def add_config(
         "RelativePtEC2",
         "RelativePtHF",
         "RelativeSample",
-        f"RelativeSample_{year}",
         "RelativeStatEC",
         "RelativeStatFSR",
         "RelativeStatHF",
@@ -382,23 +370,23 @@ def add_config(
     ]
 
     # name of the btag_sf correction set and jec uncertainties to propagate through
-    cfg.x.btag_sf = ("deepJet_shape", cfg.x.btag_sf_jec_sources)
+    cfg.x.btag_sf = ("particleNet_wp_values", cfg.x.btag_sf_jec_sources)
 
-    # name of the deep tau tagger
-    # (used in the tec calibrator)
-    cfg.x.tau_tagger = "DeepTau2017v2p1"
+    # # name of the deep tau tagger
+    # # (used in the tec calibrator)
+    # cfg.x.tau_tagger = "DeepTau2017v2p1"
 
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
+    # # name of the MET phi correction set
+    # # (used in the met_phi calibrator)
+    # cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
 
-    # names of electron correction sets and working points
-    # (used in the electron_sf producer)
-    cfg.x.electron_sf_names = ("UL-Electron-ID-SF", f"{year}", "wp80iso")
+    # # names of electron correction sets and working points
+    # # (used in the electron_sf producer)
+    # cfg.x.electron_sf_names = ("UL-Electron-ID-SF", f"{year}", "wp80iso")
 
-    # names of muon correction sets and working points
-    # (used in the muon producer)
-    cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", f"{year}")
+    # # names of muon correction sets and working points
+    # # (used in the muon producer)
+    # cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", f"{year}")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
