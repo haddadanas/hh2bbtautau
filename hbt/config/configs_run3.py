@@ -593,18 +593,18 @@ def add_config(
         cfg.x.external_files.update(DotDict.wrap({
             # lumi files
             "lumi": {
-                "golden": ("/eos/user/c/cmsdqm/www/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
+                "golden": ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
                 "normtag": ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
             },
 
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
             "pu": {
                 "json": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/pileup_latest.txt", "v1"),  # noqa
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/a65c2e1a23f2e7fe036237e2e34cda8af06b8182/SimGeneral/MixingModule/python/mix_2016_25ns_UltraLegacy_PoissonOOTPU_cfi.py", "v1"),  # noqa
+                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/master/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
                 "data_profile": {
-                    "nominal": (f"/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2016-{campaign.x.vfp}VFP-69200ub-99bins.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2016-{campaign.x.vfp}VFP-72400ub-99bins.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2016-{campaign.x.vfp}VFP-66000ub-99bins.root", "v1"),  # noqa
+                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_69200ub.root", "v1"),  # noqa
+                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_72400ub.root", "v1"),  # noqa
+                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_66000ub.root", "v1"),  # noqa
                 },
             },
         }))
@@ -619,11 +619,11 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
             "pu": {
                 "json": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/pileup_latest.txt", "v1"),  # noqa
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/a65c2e1a23f2e7fe036237e2e34cda8af06b8182/SimGeneral/MixingModule/python/mix_2018_25ns_UltraLegacy_PoissonOOTPU_cfi.py", "v1"),  # noqa
+                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/master/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
                 "data_profile": {
-                    "nominal": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2018-69200ub-99bins.root", "v1"),  # noqa
-                    "minbias_xs_up": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2018-72400ub-99bins.root", "v1"),  # noqa
-                    "minbias_xs_down": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/PileupHistogram-goldenJSON-13tev-2018-66000ub-99bins.root", "v1"),  # noqa
+                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_69200ub.root", "v1"),  # noqa
+                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_72400ub.root", "v1"),  # noqa
+                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_66000ub.root", "v1"),  # noqa
                 },
             },
         }))
@@ -717,12 +717,12 @@ def add_config(
     from hbt.config.met_filters import add_met_filters
     add_met_filters(cfg)
 
-    # add triggers
-    if year == 2017:  # TODO: check if still needed
-        from hbt.config.triggers import add_triggers_2017
-        add_triggers_2017(cfg)
-    else:
-        raise NotImplementedError(f"triggers not implemented for {year}")
+    # # add triggers
+    # if year == 2017:  # TODO later: check if still needed
+    #     from hbt.config.triggers import add_triggers_2017
+    #     add_triggers_2017(cfg)
+    # else:
+    #     raise NotImplementedError(f"triggers not implemented for {year}")
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if cfg.campaign.x("custom", {}).get("creator") == "uhh":
