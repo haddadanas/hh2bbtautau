@@ -90,16 +90,19 @@ def add_config(
         "data_e_d",
         "data_e_e",
         "data_e_f",
+        "data_mu_a",
         "data_mu_b",
         "data_mu_c",
         "data_mu_d",
         "data_mu_e",
         "data_mu_f",
+        "data_mu_g",
         "data_tau_b",
         "data_tau_c",
         "data_tau_d",
         "data_tau_e",
         "data_tau_f",
+        "data_tau_g",
         # backgrounds
         "tt_sl_powheg",
         "tt_dl_powheg",
@@ -243,31 +246,31 @@ def add_config(
             "loose": {"2022": 0.0583, "2022EE": 0.0614, "2023": 0.0, "2024": 0.0}[btag_key],
             "medium": {"2022": 0.3086, "2022EE": 0.3196, "2023": 0.0, "2024": 0.0}[btag_key],
             "tight": {"2022": 0.7183, "2022EE": 0.73, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very tight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very-very tight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xtight": {"2022": 0.8111, "2022EE": 0.8184, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xxtight": {"2022": 0.9512, "2022EE": 0.9542, "2023": 0.0, "2024": 0.0}[btag_key],
         },
         "robustParticleTransformer": {
             "loose": {"2022": 0.0849, "2022EE": 0.0897, "2023": 0.0, "2024": 0.0}[btag_key],
             "medium": {"2022": 0.4319, "2022EE": 0.451, "2023": 0.0, "2024": 0.0}[btag_key],
             "tight": {"2022": 0.8482, "2022EE": 0.8604, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very tight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very-very tight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xtight": {"2022": 0.9151, "2022EE": 0.9234, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xxtight": {"2022": 0.9874, "2022EE": 0.9893, "2023": 0.0, "2024": 0.0}[btag_key],
         },
         "particleNet": {
             "loose": {"2022": 0.047, "2022EE": 0.0499, "2023": 0.0, "2024": 0.0}[btag_key],
             "medium": {"2022": 0.245, "2022EE": 0.2605, "2023": 0.0, "2024": 0.0}[btag_key],
             "tight": {"2022": 0.6734, "2022EE": 0.6915, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very tight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.0, "2024": 0.0}[btag_key],
-            "very-very tight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xtight": {"2022": 0.7862, "2022EE": 0.8033, "2023": 0.0, "2024": 0.0}[btag_key],
+            "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.0, "2024": 0.0}[btag_key],
         },
     })
 
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201 # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
-    jerc_postfix = "EEPrompt22" if year == 2022 else ""
+    jerc_postfix = "EE_22Sep2023" if year == 2022 else ""
     cfg.x.jec = DotDict.wrap({
         "campaign": f"Summer{year2}{jerc_postfix}",
-        "version": {2022: "V1"}[year],
+        "version": {2022: "V2"}[year],
         "jet_type": "AK4PFPuppi",
         "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
         "levels_for_type1_met": ["L1FastJet"],
@@ -579,7 +582,7 @@ def add_config(
             "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year_folder['BTV']}/btagging.json.gz", "v1"),
 
             # met phi corrector
-            # "met_phi_corr": (f"{json_mirror}/POG/JME/{year_folder}/met.json.gz", "v1"),
+            # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
 
             # hh-btag repository (lightweight) with TF saved model directories
             "hh_btag_repo": (
@@ -600,11 +603,12 @@ def add_config(
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
             "pu": {
                 "json": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/pileup_latest.txt", "v1"),  # noqa
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/master/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
+                # Problem No file for 2022 --> using 2023 no matching shapes with root shape
+                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/master/SimGeneral/MixingModule/python/Run3_2022_LHC_Simulation_10h_2h_cfi.py", "v1"),  # noqa
                 "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_69200ub.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_72400ub.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_hist_66000ub.root", "v1"),  # noqa
+                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-69200ub-100bins.root", "v1"),  # noqa
+                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-72400ub-100bins.root", "v1"),  # noqa
+                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-66000ub-100bins.root", "v1"),  # noqa
                 },
             },
         }))
@@ -621,9 +625,9 @@ def add_config(
                 "json": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/pileup_latest.txt", "v1"),  # noqa
                 "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/master/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
                 "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_69200ub.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_72400ub.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_hist_66000ub.root", "v1"),  # noqa
+                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-69200ub-99bins.root", "v1"),  # noqa
+                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-72400ub-99bins.root", "v1"),  # noqa
+                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-66000ub-99bins.root", "v1"),  # noqa
                 },
             },
         }))
@@ -640,13 +644,13 @@ def add_config(
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
             "Jet.hhbtag",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
-            "HHBJet.hadronFlavour", "HHBJet.hhbtag",
+            "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
             "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
             "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
-            "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
+            "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all", "Muon.charge",
+            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
             "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
@@ -704,6 +708,7 @@ def add_config(
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
+    cfg.add_channel(name="mumu", id=4)
 
     # add categories
     from hbt.config.categories import add_categories
@@ -718,11 +723,11 @@ def add_config(
     add_met_filters(cfg)
 
     # # add triggers
-    # if year == 2017:  # TODO later: check if still needed
-    #     from hbt.config.triggers import add_triggers_2017
-    #     add_triggers_2017(cfg)
-    # else:
-    #     raise NotImplementedError(f"triggers not implemented for {year}")
+    if year == 2022:  # TODO later: check if still needed
+        from hbt.config.triggers import add_triggers_2022
+        add_triggers_2022(cfg)
+    else:
+        raise NotImplementedError(f"triggers not implemented for {year}")
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
     if cfg.campaign.x("custom", {}).get("creator") == "uhh":

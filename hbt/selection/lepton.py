@@ -375,6 +375,7 @@ def lepton_selection(
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
+    ch_mumu = self.config_inst.get_channel("mumu")
 
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
@@ -468,6 +469,27 @@ def lepton_selection(
             cross_triggered = ak.where(where & is_cross, True, cross_triggered)
             sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
             sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
+
+            # expect 2 muon, 2 veto muon (the same one), 0 veto electrons
+            is_mumu = (
+                trigger_fired &
+                (ak.num(muon_indices, axis=1) == 2) &
+                (ak.num(muon_veto_indices, axis=1) == 2) &
+                (ak.num(electron_veto_indices, axis=1) == 0)
+                # (ak.num(tau_indices, axis=1) >= 1)
+            )
+            # is_iso = ak.sum(tau_iso_mask, axis=1) >= 1
+            # determine the os/ss charge sign relation
+            mu1_charge = ak.firsts(events.Muon[muon_indices].charge, axis=1)
+            mu2_charge = ak.firsts(events.Muon[muon_indices].charge[:, 1:], axis=1)
+            is_os = ak.fill_none(mu1_charge == -mu2_charge, False)
+            # store global variables
+            where = (channel_id == 0) & is_mumu
+            channel_id = ak.where(where, ch_mumu.id, channel_id)
+            leptons_os = ak.where(where, is_os, leptons_os)
+            single_triggered = ak.where(where & is_single, True, single_triggered)
+            cross_triggered = ak.where(where & is_cross, True, cross_triggered)
+            sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
 
         elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf"}):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated

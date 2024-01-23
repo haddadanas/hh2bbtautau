@@ -279,3 +279,91 @@ def add_triggers_2017(config: od.Config) -> None:
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
     ])
+
+
+def add_triggers_2022(config: od.Config) -> None:
+    """
+    Adds all triggers to a *config*. For the conversion from filter names to trigger bits, see
+    https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/triggerObjects_cff.py.
+    """
+    config.x.triggers = od.UniqueObjectIndex(Trigger, [
+        #
+        # single electron
+        #
+        Trigger(
+            name="HLT_Ele32_WPTight_Gsf",
+            id=201,
+            legs=[
+                TriggerLeg(
+                    pdg_id=11,
+                    min_pt=35.0,
+                    # filter names:
+                    # hltEle32WPTightGsfTrackIsoFilter
+                    trigger_bits=2,
+                ),
+            ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "D"),
+            tags={"single_trigger", "single_e", "channel_e_tau"},
+        ),
+        Trigger(
+            name="HLT_Ele32_WPTight_Gsf_L1DoubleEG",
+            id=202,
+            legs=[
+                TriggerLeg(
+                    pdg_id=11,
+                    min_pt=35.0,
+                    # filter names:
+                    # hltEle32L1DoubleEGWPTightGsfTrackIsoFilter
+                    # hltEGL1SingleEGOrFilter
+                    trigger_bits=2 + 1024,
+                ),
+            ],
+            tags={"single_trigger", "single_e", "channel_e_tau"},
+        ),
+        Trigger(
+            name="HLT_Ele35_WPTight_Gsf",
+            id=203,
+            legs=[
+                TriggerLeg(
+                    pdg_id=11,
+                    min_pt=38.0,
+                    # filter names:
+                    # hltEle35noerWPTightGsfTrackIsoFilter
+                    trigger_bits=2,
+                ),
+            ],
+            tags={"single_trigger", "single_e", "channel_e_tau"},
+        ),
+
+        #
+        # single muon
+        #
+        Trigger(
+            name="HLT_IsoMu24",
+            id=101,
+            legs=[
+                TriggerLeg(
+                    pdg_id=13,
+                    min_pt=26.0,
+                    # filter names:
+                    # hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered0p07
+                    trigger_bits=2,
+                ),
+            ],
+            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+        ),
+        Trigger(
+            name="HLT_IsoMu27",
+            id=102,
+            legs=[
+                TriggerLeg(
+                    pdg_id=13,
+                    min_pt=29.0,
+                    # filter names:
+                    # hltL3crIsoL1sMu22Or25L1f0L2f10QL3f27QL3trkIsoFiltered0p07
+                    trigger_bits=2,
+                ),
+            ],
+            tags={"single_trigger", "single_mu", "channel_mu_tau"},
+        ),
+    ])
