@@ -63,6 +63,43 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 1 $p_{T}$",
     )
     config.add_variable(
+        name="muon1_pt",
+        expression="Muon.pt[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 120.0),
+        unit="GeV",
+        x_title=r"Muon 1 $p_{T}$",
+    )
+    config.add_variable(
+        name="muon2_pt",
+        expression="Muon.pt[:,1]",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 120.0),
+        unit="GeV",
+        x_title=r"Muon 2 $p_{T}$",
+    )
+    config.add_variable(
+        name="m2mu",
+        expression="m2mu",
+        null_value=EMPTY_FLOAT,
+        binning=(60, 0, 100),
+        x_title=r"invariant mass $m_{\mu\mu}$",
+    )
+    config.add_variable(
+        name="m1mu",
+        expression="Muon.mass[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(60, 60, 120),
+        x_title=r"invariant mass $m_{\mu}$",
+    )
+    config.add_variable(
+        name="m2tau",
+        expression="m2tau",
+        null_value=EMPTY_FLOAT,
+        binning=(120, 60.0, 400.0),
+        x_title=r"invariant mass $m_{\tau\tau}$",
+    )
+    config.add_variable(
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         null_value=EMPTY_FLOAT,

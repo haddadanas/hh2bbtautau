@@ -48,6 +48,7 @@ def muons_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array
     mask = ak.num(sorted_muons, axis=-1)
 
     di_muon_mass = ak.where(mask == 2, di_muon.mass, EMPTY_FLOAT)
+    di_muon_mass = ak.nan_to_num(di_muon_mass, nan=EMPTY_FLOAT)
 
     # write the invariant mass to the events
     events = set_ak_column_f32(events, "m2mu", di_muon_mass)
