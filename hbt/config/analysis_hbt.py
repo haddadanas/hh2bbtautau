@@ -101,6 +101,14 @@ add_config_run3(
     limit_dataset_files=2,
 )
 
+# postEE v11 config
+add_config_run3(
+    analysis_hbt,
+    campaign_run3_2022_postEE_nano_v11.copy(),
+    config_name="run3_2022_postEE",
+    config_id=13,
+)
+
 # preEE v11 config
 add_config_run3(
     analysis_hbt,
