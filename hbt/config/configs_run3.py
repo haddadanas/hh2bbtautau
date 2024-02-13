@@ -267,9 +267,10 @@ def add_config(
 
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201 # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
-    jerc_postfix = "EE_22Sep2023" if year == 2022 else ""
+    jerc_postfix = f"{year_postfix}_22Sep2023" if year_postfix else "Run3"
+    season_prefix = "Summer" if year_postfix else "Winter"
     cfg.x.jec = DotDict.wrap({
-        "campaign": f"Summer{year2}{jerc_postfix}",
+        "campaign": f"{season_prefix}{year2}{jerc_postfix}",
         "version": {2022: "V2"}[year],
         "jet_type": "AK4PFPuppi",
         "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
@@ -334,7 +335,7 @@ def add_config(
     # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107 # TODO later: check this
     cfg.x.jer = DotDict.wrap({
         "campaign": f"Summer{year2}{jerc_postfix}",
-        "version": "JR" + {2022: "V1"}[year],
+        "version": {2022: "V2"}[year],
         "jet_type": "AK4PFPuppi",
     })
 
@@ -585,10 +586,7 @@ def add_config(
             # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
 
             # hh-btag repository (lightweight) with TF saved model directories
-            "hh_btag_repo": (
-                "https://github.com/hh-italian-group/HHbtag/archive/1dc426053418e1cab2aec021802faf31ddf3c5cd.tar.gz",
-                "v1",
-            ),
+           "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
         })
 
     # external files with more complex year dependence # TODO: check this
