@@ -215,9 +215,8 @@ def add_config(
     # TODO later: preliminary luminosity using norm tag. Must be corrected, when more data is available
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     if year == 2022:
-        cfg.x.luminosity = Number(35182, {
-            "lumi_13TeV_2022": 0.023j,
-            "lumi_13TeV_correlated": 0.0j,
+        cfg.x.luminosity = Number(38010, {
+            "total": 0.014j,
         })
     elif year == 2023:
         cfg.x.luminosity = Number(27208, {
@@ -645,9 +644,8 @@ def add_config(
             "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
             "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
-            "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
-            "Electron.pfRelIso03_all", "Electron.charge",
-            "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all", "Muon.charge",
+            "Electron.*",
+            "Muon.*",
             "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
             "Tau.decayMode",
