@@ -53,7 +53,7 @@ def jet_selection(
     https://twiki.cern.ch/twiki/bin/view/CMS/PileupJetIDUL?rev=17
     https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD?rev=100#Jets
     """
-    is_2016 = self.config_inst.campaign.x.year == 2016
+    # is_2016 = self.config_inst.campaign.x.year == 2016
 
     # local jet index
     li = ak.local_index(events.Jet)

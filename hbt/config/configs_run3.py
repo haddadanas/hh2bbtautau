@@ -20,8 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
-
-from modules.columnflow.columnflow.production.cms import btag
+from columnflow.columnar_util import ColumnCollection
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -265,7 +264,8 @@ def add_config(
     })
 
     # jec configuration
-    # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201 # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
+    # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
+    # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
     jerc_postfix = f"{year_postfix}_22Sep2023" if year_postfix else "Run3"
     season_prefix = "Summer" if year_postfix else "Winter"
     cfg.x.jec = DotDict.wrap({
@@ -661,6 +661,8 @@ def add_config(
             "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
+            # columns added during selection
+            ColumnCollection.ALL_FROM_SELECTOR,
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
