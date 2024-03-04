@@ -71,6 +71,13 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Muon 1 $p_{T}$",
     )
     config.add_variable(
+        name="muon_phi",
+        expression="Muon.phi",
+        null_value=EMPTY_FLOAT,
+        binning=(40, -3.15, 3.15),
+        x_title=r"Muon $\phi$",
+    )
+    config.add_variable(
         name="muon2_pt",
         expression="Muon.pt[:,1]",
         null_value=EMPTY_FLOAT,
@@ -82,7 +89,7 @@ def add_variables(config: od.Config) -> None:
         name="m2mu",
         expression="m2mu",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0, 100),
+        binning=(60, 60, 160),
         x_title=r"invariant mass $m_{\mu\mu}$",
     )
     config.add_variable(
@@ -96,7 +103,7 @@ def add_variables(config: od.Config) -> None:
         name="m2tau",
         expression="m2tau",
         null_value=EMPTY_FLOAT,
-        binning=(120, 60.0, 400.0),
+        binning=(30, 60, 300),
         x_title=r"invariant mass $m_{\tau\tau}$",
     )
     config.add_variable(
