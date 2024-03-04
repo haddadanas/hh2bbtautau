@@ -588,6 +588,12 @@ def add_config(
            "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
         })
 
+    if year == 2022:
+        cfg.x.external_files.update(DotDict.wrap({
+            # Add Muon POG scale factors
+            "muon_sf": (f"{json_mirror}/POG/MUO/{year}{year_postfix}_27Jun2023/muon_Z.json.gz", "v1"),
+        }))
+
     # external files with more complex year dependence # TODO: check this
     if year == 2022:
         cfg.x.external_files.update(DotDict.wrap({
