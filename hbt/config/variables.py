@@ -107,6 +107,14 @@ def add_variables(config: od.Config) -> None:
         x_title=r"invariant mass $m_{\tau\tau}$",
     )
     config.add_variable(
+        name="mtW",
+        expression="mT_W",
+        null_value=EMPTY_FLOAT,
+        binning=(100, 0.0, 150.0),
+        unit="GeV",
+        x_title=r"Transverse mass $m_{T}$",
+    )
+    config.add_variable(
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         null_value=EMPTY_FLOAT,

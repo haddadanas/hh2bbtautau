@@ -99,3 +99,63 @@ def taus_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "m2tau", di_tau_mass)
 
     return events
+
+
+@producer(
+    uses=(
+        {
+            f"{field}.{var}"
+            for field in ["Muon"]
+            for var in ["pt", "mass", "eta", "phi"]
+        } | {
+            "MET.pt", "MET.phi", attach_coffea_behavior,
+        }
+    ),
+    produces={
+        "mT_W",
+    },
+)
+def transverse_mass_W(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    """
+    Construct the transverse mass of the W boson in each event.
+    """
+    from coffea.nanoevents.methods import vector
+    # attach coffea behavior for four-vector arithmetic
+    events = self[attach_coffea_behavior](
+        events,
+        collections=["Muon"],
+        **kwargs,
+    )
+
+    muons = events.Muon
+    met = ak.zip(
+        {"r": events.MET.pt, "phi": events.MET.phi},
+        with_name="PolarTwoVector",
+        behavior=vector.behavior,
+    )
+    met = ak.unflatten(
+        ak.zip(
+            {"x": met.x, "y": met.y},
+            with_name="TwoVector",
+            behavior=vector.behavior,
+        ),
+        1,
+    )
+
+    # Calculate the W candidates
+    wCand = np.sqrt((abs(met.pt) + abs(muons.pt))**2 - ((met + muons).pt)**2)
+    combi_mask = ak.min(abs(wCand - 80.377), axis=-1) == abs(wCand - 80.377)
+
+    # define a mask for better results
+    mask = (ak.num(muons) != 0) & ak.flatten(met.pt > 30) & (
+        ak.flatten(abs(ak.drop_none(ak.fill_none(ak.mask(muons.eta, combi_mask), [10], axis=0))) < 0.5)
+    )
+
+    # Define the best W candidate and apply the mask
+    w = wCand[combi_mask]
+    w = ak.fill_none(ak.mask(w, mask), [EMPTY_FLOAT], axis=0)[:, 0]
+
+    # write the transverse mass to the events
+    events = set_ak_column_f32(events, "mT_W", w)
+
+    return events

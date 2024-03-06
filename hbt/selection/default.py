@@ -235,8 +235,8 @@ def empty(
 
     # True selection
     all_filter_results = SelectionResult(
-        steps={"all": ak.ones_like(events.run, dtype=bool)}
-        )
+        steps={"all": ak.ones_like(events.run, dtype=bool)},
+    )
     results += all_filter_results
 
     event_sel = reduce(and_, results.steps.values())
