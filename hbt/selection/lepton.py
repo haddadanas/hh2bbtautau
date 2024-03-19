@@ -134,8 +134,8 @@ def electron_selection(
 @selector(
     uses={
         # nano columns
-        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId", "Muon.pfRelIso04_all",
-        "Muon.dxy", "Muon.dz",
+        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.looseId", "Muon.pfRelIso04_all",
+        "Muon.dxy", "Muon.dz", "Muon.puppiIsoId",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
@@ -145,6 +145,7 @@ def muon_selection(
     events: ak.Array,
     trigger: Trigger,
     leg_masks: list[ak.Array],
+    use_default_mask: bool = False,
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
     """
@@ -193,8 +194,16 @@ def muon_selection(
             (events.Muon.pt > min_pt) &
             matches_leg0
         )
+        new_mask = (
+            (events.Muon.mediumId == 1) &
+            (abs(events.Muon.eta) < 2.4) &
+            (abs(events.Muon.dxy) < 0.045) &
+            (abs(events.Muon.dz) < 0.2) &
+            (events.Muon.pfRelIso04_all < 0.15)
+        )
         # convert to sorted indices
-        default_indices = sorted_indices[default_mask[sorted_indices]]
+        default_indices = (sorted_indices[default_mask[sorted_indices]] if use_default_mask
+                           else sorted_indices[new_mask[sorted_indices]])
         default_indices = ak.values_astype(default_indices, np.int32)
 
     # veto muon mask
@@ -479,8 +488,8 @@ def lepton_selection(
             # expect 2 muon, 2 veto muon (the same one), 0 veto electrons
             is_mumu = (
                 trigger_fired &
-                (ak.num(muon_indices, axis=1) == 2) &
-                (ak.num(muon_veto_indices, axis=1) == 2) &
+                (ak.num(muon_indices, axis=1) >= 2) &
+                (ak.num(muon_veto_indices, axis=1) >= 2) &
                 (ak.num(electron_veto_indices, axis=1) == 0)
                 # (ak.num(tau_indices, axis=1) >= 1)
             )
