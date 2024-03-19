@@ -4,7 +4,6 @@
 Definition of variables.
 """
 
-from os import name
 import order as od
 
 from columnflow.columnar_util import EMPTY_FLOAT
