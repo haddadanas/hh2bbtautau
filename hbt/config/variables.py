@@ -4,6 +4,7 @@
 Definition of variables.
 """
 
+from os import name
 import order as od
 
 from columnflow.columnar_util import EMPTY_FLOAT
@@ -109,6 +110,14 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="mtW",
         expression="mT_W",
+        null_value=EMPTY_FLOAT,
+        binning=(100, 0.0, 150.0),
+        unit="GeV",
+        x_title=r"Transverse mass $m_{T}$",
+    )
+    config.add_variable(
+        name="mtZ",
+        expression="mT_Z",
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 150.0),
         unit="GeV",

@@ -560,14 +560,10 @@ def add_config(
     if year == 2022:
         json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
         # TODO later: add factors for other POGs when available
-        year_folder = {
-            "BTV": f"{year}_Summer{year2}{year_postfix}",
-            "JME": f"{year}_Summer{year2}{year_postfix}" if year_postfix else f"{year}_Prompt",
-        }
 
         cfg.x.external_files = DotDict.wrap({
             # jet energy correction
-            "jet_jerc": (f"{json_mirror}/POG/JME/{year_folder['JME']}/jet_jerc.json.gz", "v1"),
+            "jet_jerc": (f"{json_mirror}/POG/JME/{year}_Summer{year2}{year_postfix}/jet_jerc.json.gz", "v1"),
 
             # tau energy correction and scale factors
             # "tau_sf": (f"{json_mirror}/POG/TAU/{year_folder}/tau.json.gz", "v1"),
@@ -579,7 +575,7 @@ def add_config(
             # "muon_sf": (f"{json_mirror}/POG/MUO/{year_folder}/muon_Z.json.gz", "v1"),
 
             # btag scale factor
-            "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year_folder['BTV']}/btagging.json.gz", "v1"),
+            "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}_Summer{year2}{year_postfix}/btagging.json.gz", "v1"),
 
             # met phi corrector
             # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
@@ -592,6 +588,9 @@ def add_config(
         cfg.x.external_files.update(DotDict.wrap({
             # Add Muon POG scale factors
             "muon_sf": (f"{json_mirror}/POG/MUO/{year}{year_postfix}_27Jun2023/muon_Z.json.gz", "v1"),
+
+            # electron scale factors
+            "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
         }))
 
     # external files with more complex year dependence # TODO: check this
