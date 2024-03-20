@@ -134,7 +134,7 @@ def electron_selection(
 @selector(
     uses={
         # nano columns
-        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.looseId", "Muon.pfRelIso04_all",
+        "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId", "Muon.pfRelIso04_all",
         "Muon.dxy", "Muon.dz", "Muon.puppiIsoId",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
@@ -145,7 +145,7 @@ def muon_selection(
     events: ak.Array,
     trigger: Trigger,
     leg_masks: list[ak.Array],
-    use_default_mask: bool = False,
+    use_default_mask: bool = True,
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
     """
