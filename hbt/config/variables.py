@@ -118,7 +118,7 @@ def add_variables(config: od.Config) -> None:
         name="mtZ",
         expression="mT_Z",
         null_value=EMPTY_FLOAT,
-        binning=(100, 0.0, 150.0),
+        binning=(100, 40.0, 120.0),
         unit="GeV",
         x_title=r"Transverse mass $m_{T}$",
     )
