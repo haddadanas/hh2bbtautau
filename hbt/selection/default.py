@@ -351,7 +351,7 @@ def selector_factory(
 
 
 selector_new = selector_factory(
-    selector_name="alternative_lepton_selection",
+    selector_name="looser_lepton_selection",
     lepton_selection_kwargs={"use_default_mask": False},
 )
 
