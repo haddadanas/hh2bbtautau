@@ -71,6 +71,22 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Muon 1 $p_{T}$",
     )
     config.add_variable(
+        name="met_pz",
+        expression="MET.pz",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 120.0),
+        unit="GeV",
+        x_title=r"MET $p_{z}$",
+    )
+    config.add_variable(
+        name="top_mass",
+        expression="Top.mass",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$m_t$",
+    )
+    config.add_variable(
         name="muon_phi",
         expression="Muon.phi",
         null_value=EMPTY_FLOAT,
