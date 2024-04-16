@@ -28,6 +28,18 @@ def add_variables(config: od.Config) -> None:
         discrete_x=True,
     )
     config.add_variable(
+        name="met_covx",
+        expression="MET.covXX",
+        binning=(50, 0.0, 200.0),
+        x_title="$\sigma_x$",
+    )
+    config.add_variable(
+        name="met_covy",
+        expression="MET.covYY",
+        binning=(50, 0.0, 200.0),
+        x_title="$\sigma_y$",
+    )
+    config.add_variable(
         name="lumi",
         expression="luminosityBlock",
         binning=(1, 0.0, 5000.0),
@@ -85,6 +97,30 @@ def add_variables(config: od.Config) -> None:
         binning=(40, 0.0, 400.0),
         unit="GeV",
         x_title=r"$m_t$",
+    )
+    config.add_variable(
+        name="w_mass",
+        expression="mW",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
+    )
+    config.add_variable(
+        name="w_mass_ana",
+        expression="mW_ana",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
+    )
+    config.add_variable(
+        name="w_mass_kin",
+        expression="mW_kin",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
     )
     config.add_variable(
         name="muon_phi",
