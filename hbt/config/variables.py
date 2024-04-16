@@ -31,13 +31,13 @@ def add_variables(config: od.Config) -> None:
         name="met_covx",
         expression="MET.covXX",
         binning=(50, 0.0, 200.0),
-        x_title="$\sigma_x$",
+        x_title=r"$\sigma_x$",
     )
     config.add_variable(
         name="met_covy",
         expression="MET.covYY",
         binning=(50, 0.0, 200.0),
-        x_title="$\sigma_y$",
+        x_title=r"$\sigma_y$",
     )
     config.add_variable(
         name="lumi",

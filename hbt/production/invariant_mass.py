@@ -410,7 +410,7 @@ def top_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         }
     ),
     produces={
-        "mW", "mW_ana", "mW_kin" 
+        "mW", "mW_ana", "mW_kin",
     },
 )
 def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
