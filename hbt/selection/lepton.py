@@ -10,7 +10,7 @@ from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
 from columnflow.util import DotDict, maybe_import
 
-from hbt.util import IF_NANO_V9, IF_NANO_V11
+from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
 from hbt.config.util import Trigger
 
 
@@ -45,6 +45,7 @@ def trigger_object_matching(
         "Electron.pfRelIso03_all",
         IF_NANO_V9("Electron.mvaFall17V2Iso_WP80", "Electron.mvaFall17V2Iso_WP90", "Electron.mvaFall17V2noIso_WP90"),
         IF_NANO_V11("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
+        IF_NANO_V12("Electron.mvaIso_WP80", "Electron.mvaIso_WP90", "Electron.mvaNoIso_WP90"),
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
@@ -240,6 +241,11 @@ def tau_selection(
 
     TODO: there is no decay mode selection yet, but this should be revisited!
     """
+    if not ak.any(events.Tau.pt):
+        # Convinint definition of empty mask to remove the substructure of the array
+        empty_mask = events.Tau.idDeepTau2017v2p1VSjet + events.Tau.pt > 0
+        return empty_mask, empty_mask
+
     is_single_e = trigger.has_tag("single_e")
     is_single_mu = trigger.has_tag("single_mu")
     is_cross_e = trigger.has_tag("cross_e_tau")

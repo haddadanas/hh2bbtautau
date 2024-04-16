@@ -25,7 +25,7 @@ ak = maybe_import("awkward")
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
         "Jet.btagDeepFlavB",
         "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
         "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
@@ -53,7 +53,7 @@ def jet_selection(
     https://twiki.cern.ch/twiki/bin/view/CMS/PileupJetIDUL?rev=17
     https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD?rev=100#Jets
     """
-    is_2016 = self.config_inst.campaign.x.year == 2016
+    # is_2016 = self.config_inst.campaign.x.year == 2016
 
     # local jet index
     li = ak.local_index(events.Jet)
@@ -61,7 +61,7 @@ def jet_selection(
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
         (events.Jet.jetId == 6) &  # tight plus lepton veto
-        ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
+        # ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
 
@@ -165,7 +165,10 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    wp = self.config_inst.x.btag_working_points.deepcsv.loose
+    if self.config_inst.campaign.x.year in [2016, 2017, 2018]:
+        wp = self.config_inst.x.btag_working_points.deepcsv.loose
+    elif self.config_inst.campaign.x.year in [2022, 2023, 2024, 2025]:
+        wp = self.config_inst.x.btag_working_points.deepjet.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
