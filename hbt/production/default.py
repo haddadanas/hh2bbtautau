@@ -16,7 +16,7 @@ from hbt.production.weights import normalized_pu_weight, normalized_pdf_weight, 
 from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
 from hbt.production.invariant_mass import (muons_invariant_mass, taus_invariant_mass, transverse_mass_W,
-                                           four_lepton_mass, transverse_mass_Z)
+                                           four_lepton_mass, transverse_mass_Z, top_invariant_mass, W_mass)
 from hbt.production.kinematic_fit import met_z_component
 
 
@@ -29,12 +29,14 @@ ak = maybe_import("awkward")
         normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
         tau_weights, electron_weights, muon_weights, trigger_weights, muons_invariant_mass,
         taus_invariant_mass, transverse_mass_W, four_lepton_mass, transverse_mass_Z, met_z_component,
+        top_invariant_mass, W_mass,
     },
     produces={
         category_ids, features, normalization_weights, normalized_pdf_weight,
         normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
         tau_weights, electron_weights, muon_weights, trigger_weights, muons_invariant_mass,
         taus_invariant_mass, transverse_mass_W, four_lepton_mass, transverse_mass_Z, met_z_component,
+        top_invariant_mass, W_mass,
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -80,5 +82,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[four_lepton_mass](events, **kwargs)
     events = self[transverse_mass_Z](events, **kwargs)
     events = self[met_z_component](events, **kwargs)
+    events = self[top_invariant_mass](events, **kwargs)
+    events = self[W_mass](events, **kwargs)
 
     return events

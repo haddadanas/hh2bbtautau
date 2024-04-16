@@ -23,17 +23,19 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
             for field in ["Muon"]
             for var in ["pt", "mass", "eta", "phi"]
         } | {
-            "MET.pt", "MET.phi", attach_coffea_behavior,
+            "MET.pt", "MET.phi", "MET.covXX", "MET.covYY", "MET.covXY",
+            attach_coffea_behavior,
         }
     ),
     produces={
-        "MET.pz",
+        "MET.pz", "MET.eta", "MET.fit_methode",
     },
 )
 def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
     Reconstruct the z component of the missing energy.
     """
+    from coffea.nanoevents.methods import vector
 
     # attach coffea behavior for four-vector arithmetic
     events = self[attach_coffea_behavior](
@@ -44,10 +46,13 @@ def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # define some useful variables
     m_w = 80.3
-    muons = events.Muon
-    met = events.MET
-    met_px = met.pt * np.cos(met.phi)
-    met_py = met.pt * np.sin(met.phi)
+
+    muons, met = ak.broadcast_arrays(events.Muon, events.MET)
+    muons = ak.Array(ak.flatten(muons), with_name="PtEtaPhiMLorentzVector", behavior=vector.behavior)
+    met = ak.flatten(met)
+
+    met_px = ak.to_numpy(met.pt * np.cos(met.phi))
+    met_py = ak.to_numpy(met.pt * np.sin(met.phi))
     k = (m_w ** 2) / 2 + met_px * muons.x + met_py * muons.y
     h, h_sign_mask = get_h(met, muons, k)
     pz = ak.full_like(h, EMPTY_FLOAT)
@@ -62,16 +67,34 @@ def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # h > 1
     # define the rotation coeffitients
-    xi = np.sqrt(1 / (1 + (muons.y / muons.x) ** 2))
-    zeta = (muons.y / muons.x) * xi
-    px_rot = cubic_solve(*get_params(muons, met_px, met_py, xi, zeta, m_w))
-    py_rot = muons.x / (m_w**2 * xi) * px_rot ** 2 - m_w ** 2 / (4 * muons.x) * xi
-    px_prime = zeta * px_rot + xi * py_rot
-    py_prime = -xi * px_rot + zeta * px_prime
+    xi = np.sqrt(1 / (1 + ak.to_numpy(muons.y / muons.x) ** 2))
+    zeta = ak.to_numpy(muons.y / muons.x) * xi
+
+    trafo_mat = get_trafo_matrix(xi, zeta)
+    met_vec = concat_columns(met_px, met_py)[:, :, np.newaxis]
+
+    px_rot = cubic_solve(*get_params(muons, trafo_mat @ met_vec, m_w))
+
+    met_rot = concat_columns(
+        px_rot,
+        ak.to_numpy(muons.x / (m_w**2 * xi) * px_rot ** 2 - m_w ** 2 / (4 * muons.x) * xi),
+    )[:, :, np.newaxis]
+
+    px_prime, py_prime = (np.transpose(trafo_mat, axes=(0, 2, 1)) @ met_rot).T[0]
     k_prime = (m_w ** 2) / 2 + px_prime * muons.x + py_prime * muons.y
     pz = ak.where(h_sign_mask == -1, get_pz(muons, k_prime, 0), pz)
 
+    # Get original shape
+    pz = ak.unflatten(pz, ak.num(events.Muon))
+    h_sign_mask = ak.unflatten(h_sign_mask, ak.num(events.Muon))
+
     events = set_ak_column_f32(events, "MET.pz", pz)
+    events = set_ak_column_f32(
+        events,
+        "MET.eta",
+        np.arcsinh(pz / np.sqrt(pz ** 2 + events.MET.pt ** 2)),
+    )
+    events = set_ak_column(events, "MET.fit_methode", h_sign_mask)
 
     return events
 
@@ -107,24 +130,20 @@ def get_pz(muons, k, pm_term):
     return (k / (muons.pt ** 2)) * (muons.z + pm_term)
 
 
-def get_params(in_muons, met_x, met_y, xi, zeta, m_w):
+def get_params(in_muons, transformed_met, m_w):
     """
     calculates the parameters for the cubic equation
 
     :param in_muons: ak.Array, muon array
-    :param met_x: ak.Array, met x component
-    :param met_y: ak.Array, met y component
-    :param xi: ak.Array, xi value
-    :param zeta: ak.Array, zeta value
+    :param transformed_met: ak.Array, transformed met array
     :param m_w: float, W boson mass
     :return: tuple, a, c, d values
     """
 
-    x_prime = met_x * zeta - met_y * xi
-    y_prime = met_x * xi + met_y * zeta
+    x_prime, y_prime = transformed_met.T[0]
 
-    a = (4 * in_muons.pt ** 2)
-    c = m_w ** 4 - (4 * np.sign(in_muons.x) * in_muons.pt * y_prime * m_w ** 2)
+    a = ak.to_numpy((4 * in_muons.pt ** 2))
+    c = m_w ** 4 - ak.to_numpy((4 * np.sign(in_muons.x) * in_muons.pt * y_prime * m_w ** 2))
     d = - 2 * m_w ** 4 * x_prime
     return a, c, d
 
@@ -146,10 +165,10 @@ def cubic_solve(a, c, d):
     def findH(g, f):
         return ((g ** 2.0) / 4.0 + (f ** 3.0) / 27.0)
 
-    counts = ak.num(a)
-    a = np.asarray(ak.flatten(a))
-    c = np.asarray(ak.flatten(c))
-    d = np.asarray(ak.flatten(d))
+    # counts = ak.num(a)
+    # a = np.asarray(ak.flatten(a))
+    # c = np.asarray(ak.flatten(c))
+    # d = np.asarray(ak.flatten(d))
 
     sol = np.zeros_like(a)
     a_mask = a == 0
@@ -189,4 +208,33 @@ def cubic_solve(a, c, d):
 
         sol[h_g0_mask] = (S + U)
 
-    return ak.unflatten(sol, counts)
+    return sol
+
+
+def get_trafo_matrix(zeta, xi):
+    """
+    calculates the rotation matrix for the x and y components
+
+    :param zeta: np.ndarray, zeta value
+    :param xi: np.ndarray, xi value
+    :return: np.ndarray, rotation matrix
+    """
+
+    return np.concatenate(
+        [
+            concat_columns(zeta, -xi)[:, np.newaxis],
+            concat_columns(xi, zeta)[:, np.newaxis],
+        ],
+        axis=1,
+    )
+
+
+def concat_columns(col1, col2):
+    """
+    concatenates two columns to a vector
+
+    :param col1: ak.Array, first column
+    :param col2: ak.Array, second column
+    :return: ak.Array, concatenated column
+    """
+    return np.concatenate([col1[:, np.newaxis], col2[:, np.newaxis]], axis=-1)

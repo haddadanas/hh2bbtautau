@@ -12,6 +12,17 @@ ak = maybe_import("awkward")
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
+def delta_R(vector1, vector2):
+    """
+    Calculate the delta R between two vectors.
+    """
+    deta = vector1.eta - vector2.eta
+    dphi = np.abs(vector1.phi - vector2.phi)
+    dphi = np.where(dphi > np.pi, 2 * np.pi - dphi, dphi)
+
+    return np.sqrt(deta ** 2 + dphi ** 2)
+
+
 @producer(
     uses=(
         {
@@ -311,5 +322,130 @@ def transverse_mass_Z(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # write the transverse mass to the events
     events = set_ak_column_f32(events, "mT_Z", ak.flatten(mT_Z))
+
+    return events
+
+
+@producer(
+    uses=(
+        {
+            f"{field}.{var}"
+            for field in ["Muon"]
+            for var in ["pt", "mass", "eta", "phi", "charge"]
+        } | {
+            f"{field}.{var}"
+            for field in ["Jet"]
+            for var in ["pt", "mass", "eta", "phi", "btagDeepFlavB"]
+        } | {
+            "MET.pt", "MET.phi", "MET.pz", attach_coffea_behavior,
+        }
+    ),
+    produces={
+        f"Top.{var}"
+        for var in ["pt", "mass", "eta", "phi"]
+    },
+)
+def top_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    """
+    Construct the invariant mass of the muons in each event.
+    """
+    from coffea.nanoevents.methods import vector
+
+    # attach coffea behavior for four-vector arithmetic
+    events = self[attach_coffea_behavior](
+        events,
+        collections=["Muon", "Jet"],
+        **kwargs,
+    )
+    muons = events.Muon
+    jet = events.Jet
+
+    # Calculate the MET four-vector
+    met = ak.zip(
+        {
+            "pt": events.MET.pt,
+            "eta": np.arcsinh(events.MET.pz / np.sqrt(events.MET.pt ** 2 + events.MET.pz ** 2)),
+            "phi": events.MET.phi,
+            "mass": np.full(len(events.MET.pt), 0.),
+        },
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+
+    # select the muon with the smallest delta R to the MET
+    muon_mask = np.argsort(delta_R(muons, met), axis=-1)[:, :1]
+    muon = muons[muon_mask]
+    met = met[muon_mask]
+
+    # reconstruct the 4 momentum of the W boson
+    w = muon + met
+
+    # select the jet with the smallest delta R to the W boson
+    btag_mask = ak.argsort(jet.btagDeepFlavB, ascending=False, axis=-1)[:, :1]
+    jet_mask = btag_mask[w.pt != -42]
+    jet = jet[jet_mask]
+
+    # reconstruct the 4 momentum of the top quark\
+    top = w + jet
+
+    # write the invariant mass to the events
+    for var in ["pt", "mass", "eta", "phi"]:
+        events = set_ak_column(
+            events,
+            f"Top.{var}",
+            getattr(top, var),
+        )
+
+    return events
+
+
+@producer(
+    uses=(
+        {
+            f"{field}.{var}"
+            for field in ["Muon"]
+            for var in ["pt", "mass", "eta", "phi", "charge"]
+        } | {
+            "MET.pt", "MET.pz", "MET.phi", "MET.origin", attach_coffea_behavior,
+        }
+    ),
+    produces={
+        "mW", "mW_ana", "mW_kin" 
+    },
+)
+def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    """
+    Construct the transverse mass of the Z boson in each event.
+    """
+    from coffea.nanoevents.methods import vector
+    # attach coffea behavior for four-vector arithmetic
+    events = self[attach_coffea_behavior](
+        events,
+        collections=["Muon"],
+        **kwargs,
+    )
+
+    muons = events.Muon
+    met = ak.zip(
+        {
+            "pt": events.MET.pt,
+            "eta": np.arcsinh(events.MET.pz / np.sqrt(events.MET.pt ** 2 + events.MET.pz ** 2)),
+            "phi": events.MET.phi,
+            "mass": np.full(len(events.MET.pt), 0.),
+        },
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+
+    # W 4 momentum
+    w = met + muons
+
+    w_m = w.mass
+    mW_ana = ak.where(events.MET.origin == 1, w_m, EMPTY_FLOAT)
+    mW_kin = ak.where(events.MET.origin == -1, w_m, EMPTY_FLOAT)
+
+    events = set_ak_column_f32(events, "mW", w_m)
+    events = set_ak_column_f32(events, "mW_ana", mW_ana)
+    events = set_ak_column_f32(events, "mW_kin", mW_kin)
 
     return events
