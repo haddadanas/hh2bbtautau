@@ -557,32 +557,34 @@ def add_config(
     )
 
     # external files
-    if year == 2022:
-        json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
-        # TODO later: add factors for other POGs when available
+    json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
+    # TODO later: add factors for other POGs when available
 
-        cfg.x.external_files = DotDict.wrap({
-            # jet energy correction
-            "jet_jerc": (f"{json_mirror}/POG/JME/{year}_Summer{year2}{year_postfix}/jet_jerc.json.gz", "v1"),
+    cfg.x.external_files = DotDict.wrap({
+        # pileup weight corrections
+        "pu_sf": (f"{json_mirror}/POG/LUM/{year}_Summer{year2}{year_postfix}/puWeights.json.gz", "v1"),
 
-            # tau energy correction and scale factors
-            # "tau_sf": (f"{json_mirror}/POG/TAU/{year_folder}/tau.json.gz", "v1"),
+        # jet energy correction
+        "jet_jerc": (f"{json_mirror}/POG/JME/{year}_Summer{year2}{year_postfix}/jet_jerc.json.gz", "v1"),
 
-            # electron scale factors
-            # "electron_sf": (f"{json_mirror}/POG/EGM/{year_folder}/electron.json.gz", "v1"),
+        # tau energy correction and scale factors
+        # "tau_sf": (f"{json_mirror}/POG/TAU/{year_folder}/tau.json.gz", "v1"),
 
-            # muon scale factors
-            # "muon_sf": (f"{json_mirror}/POG/MUO/{year_folder}/muon_Z.json.gz", "v1"),
+        # electron scale factors
+        # "electron_sf": (f"{json_mirror}/POG/EGM/{year_folder}/electron.json.gz", "v1"),
 
-            # btag scale factor
-            "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}_Summer{year2}{year_postfix}/btagging.json.gz", "v1"),
+        # muon scale factors
+        # "muon_sf": (f"{json_mirror}/POG/MUO/{year_folder}/muon_Z.json.gz", "v1"),
 
-            # met phi corrector
-            # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
+        # btag scale factor
+        "btag_sf_corr": (f"{json_mirror}/POG/BTV/{year}_Summer{year2}{year_postfix}/btagging.json.gz", "v1"),
 
-            # hh-btag repository (lightweight) with TF saved model directories
-           "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
-        })
+        # met phi corrector
+        # "met_phi_corr": (f"{json_mirror}/POG/JME/2018_UL/met.json.gz", "v1"),
+
+        # hh-btag repository (lightweight) with TF saved model directories
+        "hh_btag_repo": ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"),  # noqa
+    })
 
     if year == 2022:
         cfg.x.external_files.update(DotDict.wrap({
