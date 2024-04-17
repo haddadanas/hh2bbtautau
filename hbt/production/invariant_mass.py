@@ -406,7 +406,7 @@ def top_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             for field in ["Muon"]
             for var in ["pt", "mass", "eta", "phi", "charge"]
         } | {
-            "MET.pt", "MET.pz", "MET.phi", "MET.origin", attach_coffea_behavior,
+            "MET.pt", "MET.pz", "MET.phi", "MET.fit_methode", attach_coffea_behavior,
         }
     ),
     produces={
@@ -441,8 +441,8 @@ def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     w = met + muons
 
     w_m = w.mass
-    mW_ana = ak.where(events.MET.origin == 1, w_m, EMPTY_FLOAT)
-    mW_kin = ak.where(events.MET.origin == -1, w_m, EMPTY_FLOAT)
+    mW_ana = ak.where(events.MET.fit_methode == 1, w_m, EMPTY_FLOAT)
+    mW_kin = ak.where(events.MET.fit_methode == -1, w_m, EMPTY_FLOAT)
 
     events = set_ak_column_f32(events, "mW", w_m)
     events = set_ak_column_f32(events, "mW_ana", mW_ana)
