@@ -123,6 +123,30 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$m_W$",
     )
     config.add_variable(
+        name="w_mass2",
+        expression="mW_corr",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
+    )
+    config.add_variable(
+        name="w_mass_ana2",
+        expression="mW_corr_ana",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
+    )
+    config.add_variable(
+        name="w_mass_kin2",
+        expression="mW_corr_kin",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"$m_W$",
+    )
+    config.add_variable(
         name="muon_phi",
         expression="Muon.phi",
         null_value=EMPTY_FLOAT,

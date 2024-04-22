@@ -406,11 +406,11 @@ def top_invariant_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
             for field in ["Muon"]
             for var in ["pt", "mass", "eta", "phi", "charge"]
         } | {
-            "MET.pt", "MET.pz", "MET.phi", "MET.fit_methode", attach_coffea_behavior,
+            "MET.pt", "MET.eta", "" "MET.phi", "MET.fit_methode", attach_coffea_behavior,
         }
     ),
     produces={
-        "mW", "mW_ana", "mW_kin",
+        "mW", "mW_ana", "mW_kin", "mW_corr", "mW_corr_ana", "mW_corr_kin",
     },
 )
 def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -426,11 +426,22 @@ def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     )
 
     muons = events.Muon
+    met = events.MET
     met = ak.zip(
         {
             "pt": events.MET.pt,
-            "eta": np.arcsinh(events.MET.pz / np.sqrt(events.MET.pt ** 2 + events.MET.pz ** 2)),
+            "eta": events.MET.eta,
             "phi": events.MET.phi,
+            "mass": np.full(len(events.MET.pt), 0.),
+        },
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    met_corr = ak.zip(
+        {
+            "pt": np.sqrt(events.MET.fit_px ** 2 + events.MET.fit_py ** 2),
+            "eta": events.MET.eta,
+            "phi": np.arctan2(events.MET.fit_py, events.MET.fit_px),
             "mass": np.full(len(events.MET.pt), 0.),
         },
         with_name="PtEtaPhiMLorentzVector",
@@ -447,5 +458,16 @@ def W_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "mW", w_m)
     events = set_ak_column_f32(events, "mW_ana", mW_ana)
     events = set_ak_column_f32(events, "mW_kin", mW_kin)
+
+    # W 4 momentum corrected
+    w_corr = met_corr + muons
+
+    w_corr_m = w_corr.mass
+    mW_corr_ana = ak.where(events.MET.fit_methode == 1, w_corr_m, EMPTY_FLOAT)
+    mW_corr_kin = ak.where(events.MET.fit_methode == -1, w_corr_m, EMPTY_FLOAT)
+
+    events = set_ak_column_f32(events, "mW_corr", w_corr_m)
+    events = set_ak_column_f32(events, "mW_corr_ana", mW_corr_ana)
+    events = set_ak_column_f32(events, "mW_corr_kin", mW_corr_kin)
 
     return events

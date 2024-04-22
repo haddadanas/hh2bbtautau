@@ -28,7 +28,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         }
     ),
     produces={
-        "MET.pz", "MET.eta", "MET.fit_methode",
+        "MET.pz", "MET.eta", "MET.fit_methode", "MET.fit_px", "MET.fit_py",
     },
 )
 def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -53,24 +53,29 @@ def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     met_px = ak.to_numpy(met.pt * np.cos(met.phi))
     met_py = ak.to_numpy(met.pt * np.sin(met.phi))
-    k = (m_w ** 2) / 2 + met_px * muons.x + met_py * muons.y
+    k = np.square(m_w) / 2 + met_px * muons.px + met_py * muons.py
     h, h_sign_mask = get_h(met, muons, k)
     pz = ak.full_like(h, EMPTY_FLOAT)
+    fit_px = ak.full_like(h, EMPTY_FLOAT)
+    fit_py = ak.full_like(h, EMPTY_FLOAT)
 
     # h == 1
     pz = ak.where(h_sign_mask == 0, get_pz(muons, k, 0), pz)
+    fit_px = ak.where(h_sign_mask == 0, met_px, fit_px)
+    fit_py = ak.where(h_sign_mask == 0, met_py, fit_py)
 
     # h < 1
-    pm_term = muons.E * np.sqrt(np.abs(1 - h ** 2))
-    sqrt_sign = ak.where(muons.z > 0, -1, 1)
-    pz = ak.where(h_sign_mask == 1, get_pz(muons, k, sqrt_sign * pm_term), pz)
+    sqrt_sign = 1  # ak.where(muons.z > 0, -1.0, 1.0)
+    pz = ak.where(h_sign_mask == 1, get_pz(muons, k, sqrt_sign * np.sqrt(abs(h))), pz)
+    fit_px = ak.where(h_sign_mask == 1, met_px, fit_px)
+    fit_py = ak.where(h_sign_mask == 1, met_py, fit_py)
 
     # h > 1
     # define the rotation coeffitients
     xi = np.sqrt(1 / (1 + ak.to_numpy(muons.y / muons.x) ** 2))
     zeta = ak.to_numpy(muons.y / muons.x) * xi
 
-    trafo_mat = get_trafo_matrix(xi, zeta)
+    trafo_mat = get_trafo_matrix(zeta, xi)
     met_vec = concat_columns(met_px, met_py)[:, :, np.newaxis]
 
     px_rot = cubic_solve(*get_params(muons, trafo_mat @ met_vec, m_w))
@@ -83,16 +88,21 @@ def met_z_component(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     px_prime, py_prime = (np.transpose(trafo_mat, axes=(0, 2, 1)) @ met_rot).T[0]
     k_prime = (m_w ** 2) / 2 + px_prime * muons.x + py_prime * muons.y
     pz = ak.where(h_sign_mask == -1, get_pz(muons, k_prime, 0), pz)
+    fit_px = ak.where(h_sign_mask == -1, px_prime, fit_px)
+    fit_py = ak.where(h_sign_mask == -1, py_prime, fit_py)
 
     # Get original shape
     pz = ak.unflatten(pz, ak.num(events.Muon))
     h_sign_mask = ak.unflatten(h_sign_mask, ak.num(events.Muon))
+    fit_px = ak.unflatten(fit_px, ak.num(events.Muon))
+    fit_py = ak.unflatten(fit_py, ak.num(events.Muon))
 
-    events = set_ak_column_f32(events, "MET.pz", pz)
+    for field in ["pz", "fit_px", "fit_py"]:
+        events = set_ak_column_f32(events, f"MET.{field}", eval(field))
     events = set_ak_column_f32(
         events,
         "MET.eta",
-        np.arcsinh(pz / np.sqrt(pz ** 2 + events.MET.pt ** 2)),
+        np.arcsinh(pz / events.MET.pt),
     )
     events = set_ak_column(events, "MET.fit_methode", h_sign_mask)
 
@@ -108,11 +118,11 @@ def get_h(met, muons, k):
     :param k: ak.Array, k value
     :return: ak.Array, h value
     """
-    h = ((met.pt * muons.pt) / k) ** 2
-    sign_mask = ak.ones_like(h)
+    h = np.square(k) - np.square(met.pt) * (np.square(muons.E) - np.square(muons.pz))
+    sign_mask = ak.zeros_like(h)
 
-    sign_mask = ak.where(h == 1, 0, sign_mask)
-    sign_mask = ak.where(h > 1, -1, sign_mask)
+    sign_mask = ak.where(h > 0, 1, sign_mask)
+    sign_mask = ak.where(h < 0, -1, sign_mask)
 
     return h, sign_mask
 
@@ -127,7 +137,7 @@ def get_pz(muons, k, pm_term):
     :return: ak.Array, pz value
     """
 
-    return (k / (muons.pt ** 2)) * (muons.z + pm_term)
+    return ((muons. pz * k) + muons.E * pm_term) / (np.square(muons.E) - np.square(muons.pz))
 
 
 def get_params(in_muons, transformed_met, m_w):
