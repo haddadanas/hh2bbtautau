@@ -66,6 +66,7 @@ def add_config(
         "qcd",
         "h",
         "hh_ggf_bbtautau",
+        "hh_vbf_bbtautau",
         "graviton_hh_ggf_bbtautau_m400",
         "graviton_hh_ggf_bbtautau_m1250",
     ]
@@ -148,6 +149,14 @@ def add_config(
         "hh_ggf_bbtautau_madgraph",
         "graviton_hh_ggf_bbtautau_m400_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
+        "hh_ggf_bbtautau_powheg",
+        "hh_vbf_bbtautau_madgraph",
+        "bsm_hh_vbf_bbtautau_cv1_c2v2_c3_1_madgraph",
+        "bsm_hh_vbf_bbtautau_cv1_c2v0_c3_1_madgraph",
+        "bsm_hh_vbf_bbtautau_cv1_c2v1_c3_2_madgraph",
+        "bsm_hh_ggf_bbtautau_kl0_kt1_powheg",
+        "bsm_hh_ggf_bbtautau_kl2p45_kt1_powheg",
+        "bsm_hh_ggf_bbtautau_kl5_kt1_powheg",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
