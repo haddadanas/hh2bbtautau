@@ -43,7 +43,8 @@ def add_config(
     year2 = year % 100
 
     # postfix for 2022 campaigns after ECAL Endcap water leak
-    year_postfix = "EE" if campaign.id == 320221102 else ""
+    year_postfix = "EE" if campaign.x.postfix == "post" else ""
+    postfixEE = f"{campaign.x.postfix}EE"
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
@@ -77,6 +78,14 @@ def add_config(
 
         # add the process
         cfg.add_process(procs.get(process_name))
+
+        # # add the process (and set xsec to 0.1 if not available)
+        # process_inst = procs.get(process_name)
+
+        # cfg.add_process(process_inst)
+        # for proc_inst in cfg.get_process(process_inst).get_leaf_processes():
+        #     if campaign.ecm not in proc_inst.xsecs.keys():
+        #         cfg.get_process(proc_inst.name).set_xsec(campaign.ecm, Number(0.1))
 
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
@@ -275,10 +284,8 @@ def add_config(
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
     # TODO later: check this corrections summary correction_file (jet_jerc.json.gz) after setting sandbox_dev
-    jerc_postfix = f"{year_postfix}_22Sep2023" if year_postfix else "Run3"
-    season_prefix = "Summer" if year_postfix else "Winter"
     cfg.x.jec = DotDict.wrap({
-        "campaign": f"{season_prefix}{year2}{jerc_postfix}",
+        "campaign": f"Summer{year2}{year_postfix}_22Sep2023",
         "version": {2022: "V2"}[year],
         "jet_type": "AK4PFPuppi",
         "levels": ["L1FastJet", "L2Relative", "L2L3Residual", "L3Absolute"],
@@ -342,8 +349,8 @@ def add_config(
     # JER
     # https://twiki.cern.ch/twiki/bin/view/CMS/JetResolution?rev=107 # TODO later: check this
     cfg.x.jer = DotDict.wrap({
-        "campaign": f"Summer{year2}{jerc_postfix}",
-        "version": {2022: "V2"}[year],
+        "campaign": f"Summer{year2}{year_postfix}_22Sep2023",
+        "version": {2022: "JRV1"}[year],
         "jet_type": "AK4PFPuppi",
     })
 
@@ -355,8 +362,15 @@ def add_config(
         "AbsoluteMPFBias",
         "AbsoluteScale",
         "AbsoluteStat",
+        f"Absolute_{year}",
+        "BBEC1",
+        f"BBEC1_{year}",
+        "EC2",
+        f"EC2_{year}",
         "FlavorQCD",
         "Fragmentation",
+        "HF",
+        f"HF_{year}",
         "PileUpDataMC",
         "PileUpPtBB",
         "PileUpPtEC1",
@@ -373,6 +387,7 @@ def add_config(
         "RelativePtEC2",
         "RelativePtHF",
         "RelativeSample",
+        f"RelativeSample_{year}",
         "RelativeStatEC",
         "RelativeStatFSR",
         "RelativeStatHF",
@@ -382,23 +397,24 @@ def add_config(
     ]
 
     # name of the btag_sf correction set and jec uncertainties to propagate through
-    cfg.x.btag_sf = ("particleNet_wp_values", cfg.x.btag_sf_jec_sources)
+    cfg.x.btag_sf = ("particleNet_shape", cfg.x.btag_sf_jec_sources, "btagPNetB")
 
-    # # name of the deep tau tagger
-    # # (used in the tec calibrator)
-    # cfg.x.tau_tagger = "DeepTau2017v2p1"
+    # name of the deep tau tagger
+    # (used in the tec calibrator)
+    # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3
+    cfg.x.tau_tagger = "DeepTau2018v2p5"  # "DeepTauv2p5"
 
-    # # name of the MET phi correction set
-    # # (used in the met_phi calibrator)
+    # name of the MET phi correction set
+    # (used in the met_phi calibrator)
     # cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
 
-    # # names of electron correction sets and working points
-    # # (used in the electron_sf producer)
-    # cfg.x.electron_sf_names = ("UL-Electron-ID-SF", f"{year}", "wp80iso")
+    # names of electron correction sets and working points
+    # (used in the electron_sf producer)
+    cfg.x.electron_sf_names = ("Electron-ID-SF", f"{year}_{postfixEE}", "wp80iso")
 
-    # # names of muon correction sets and working points
-    # # (used in the muon producer)
-    # cfg.x.muon_sf_names = ("NUM_TightRelIso_DEN_TightIDandIPCut", f"{year}")
+    # names of muon correction sets and working points
+    # (used in the muon producer)
+    cfg.x.muon_sf_names = ("NUM_LoosePFIso_DEN_TightID", f"{year}_{postfixEE}EE")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
@@ -567,6 +583,7 @@ def add_config(
 
     # external files
     json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
+    json_mirror_alt = "/afs/cern.ch/user/a/anhaddad/public/jsonpog_alt"
     # TODO later: add factors for other POGs when available
 
     cfg.x.external_files = DotDict.wrap({
@@ -602,6 +619,12 @@ def add_config(
 
             # electron scale factors
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
+
+            # tau energy correction and scale factors
+            "tau_sf": (f"{json_mirror_alt}/POG/TAU/{year}_{postfixEE}/tau_DeepTau2018v2p5_2022_{postfixEE}.json.gz", "v1"),  # noqa
+
+            # tau trigger
+            "tau_trigger_sf": (f"{json_mirror_alt}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfixEE}.json", "v1"),  # noqa
         }))
 
     # external files with more complex year dependence # TODO: check this

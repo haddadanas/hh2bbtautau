@@ -371,7 +371,7 @@ def add_config(
     ]
 
     # name of the btag_sf correction set and jec uncertainties to propagate through
-    cfg.x.btag_sf = ("deepJet_shape", cfg.x.btag_sf_jec_sources)
+    cfg.x.btag_sf = ("deepJet_shape", cfg.x.btag_sf_jec_sources, 'btagDeepFlavB')
 
     # name of the deep tau tagger
     # (used in the tec calibrator)
