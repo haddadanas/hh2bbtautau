@@ -615,7 +615,7 @@ def add_config(
     if year == 2022:
         cfg.x.external_files.update(DotDict.wrap({
             # Add Muon POG scale factors
-            "muon_sf": (f"{json_mirror}/POG/MUO/{year}{year_postfix}_27Jun2023/muon_Z.json.gz", "v1"),
+            "muon_sf": (f"{json_mirror}/POG/MUO/{year}_Summer{year2}{year_postfix}/muon_Z.json.gz", "v1"),
 
             # electron scale factors
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
