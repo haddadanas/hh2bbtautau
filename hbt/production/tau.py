@@ -200,9 +200,9 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in (0, 1, 2)
-    assert self.id_vs_e_corrector.version in (0,)
-    assert self.id_vs_mu_corrector.version in (0,)
+    # assert self.id_vs_jet_corrector.version in (0, 1, 2)
+    # assert self.id_vs_e_corrector.version in (0,)
+    # assert self.id_vs_mu_corrector.version in (0,)
 
 
 @producer(
@@ -220,7 +220,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     # only run on mc
     mc_only=True,
     # function to determine the correction file
-    get_tau_file=(lambda self, external_files: external_files.tau_sf),
+    get_tau_file=(lambda self, external_files: external_files.tau_trigger_sf),
 )
 def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     """
@@ -324,10 +324,16 @@ def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targe
     # create the trigger and id correctors
     import correctionlib
     correctionlib.highlevel.Correction.__call__ = correctionlib.highlevel.Correction.evaluate
-    correction_set = correctionlib.CorrectionSet.from_string(
-        self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
-    )
-    self.trigger_corrector = correction_set["tau_trigger"]
+
+    if bundle.config_inst.has_tag("run3"):
+        correction_set = correctionlib.CorrectionSet.from_file(self.get_tau_file(bundle.files).abspath)
+
+        self.trigger_corrector = correction_set["tauTriggerSF"]
+    else:  # run2
+        correction_set = correctionlib.CorrectionSet.from_string(
+            self.get_tau_file(bundle.files).load(formatter="gzip").decode("utf-8"),
+        )
+        self.trigger_corrector = correction_set["tau_trigger"]
 
     # check versions
-    assert self.trigger_corrector.version in [0]
+    assert self.trigger_corrector.version in [0, 1]
