@@ -168,7 +168,7 @@ def jet_selection(
     if self.config_inst.campaign.x.year in [2016, 2017, 2018]:
         wp = self.config_inst.x.btag_working_points.deepcsv.loose
     elif self.config_inst.campaign.x.year in [2022, 2023, 2024, 2025]:
-        wp = self.config_inst.x.btag_working_points.deepjet.loose
+        wp = self.config_inst.x.btag_working_points.particleNet.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
