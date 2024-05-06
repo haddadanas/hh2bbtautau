@@ -566,6 +566,9 @@ def add_config(
         # tau energy correction and scale factors
         "tau_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
 
+        # tau trigger scale factors
+        "tau_trigger_sf": (f"{json_mirror}/POG/TAU/{year}{corr_postfix}_UL/tau.json.gz", "v1"),
+
         # electron scale factors
         "electron_sf": (f"{json_mirror}/POG/EGM/{year}{corr_postfix}_UL/electron.json.gz", "v1"),
 

@@ -165,10 +165,10 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    if self.config_inst.campaign.x.year in [2016, 2017, 2018]:
-        wp = self.config_inst.x.btag_working_points.deepcsv.loose
-    elif self.config_inst.campaign.x.year in [2022, 2023, 2024, 2025]:
+    if self.config_inst.has_tag("run3"):
         wp = self.config_inst.x.btag_working_points.particleNet.loose
+    else:
+        wp = self.config_inst.x.btag_working_points.deepcsv.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
