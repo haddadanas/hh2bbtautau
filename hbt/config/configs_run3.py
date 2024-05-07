@@ -411,11 +411,15 @@ def add_config(
 
     # names of electron correction sets and working points
     # (used in the electron_sf producer)
-    cfg.x.electron_sf_names = ("Electron-ID-SF", f"{year}_{postfixEE}", "wp80iso")
+    cfg.x.electron_sf_names = (
+        "Electron-ID-SF",
+        "2022Re-recoE+PromptFG" if year_postfix else "2022Re-recoBCD",
+        "wp80iso",
+    )
 
     # names of muon correction sets and working points
     # (used in the muon producer)
-    cfg.x.muon_sf_names = ("NUM_LoosePFIso_DEN_TightID", f"{year}_{postfixEE}EE")
+    cfg.x.muon_sf_names = ("NUM_TightPFIso_DEN_TightID", f"{year}_{postfixEE}")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
@@ -679,7 +683,7 @@ def add_config(
             "run", "luminosityBlock", "event",
             # object info
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.hhbtag", "Jet.btagPNetB"
+            "Jet.hhbtag", "Jet.btagPNet*",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag", "Jet.puId",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
