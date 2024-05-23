@@ -34,9 +34,10 @@ ak = maybe_import("awkward")
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # category ids
+    events = self[category_ids](events, **kwargs)
 
     # features
-    events = self[category_ids](events, **kwargs)
+    events = self[features](events, **kwargs)
 
     # mc-only weights
     if self.dataset_inst.is_mc:
