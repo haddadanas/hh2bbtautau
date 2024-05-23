@@ -13,7 +13,7 @@ from columnflow.selection.cms.json_filter import json_filter
 from columnflow.selection.cms.met_filters import met_filters
 from columnflow.production.processes import process_ids
 # from columnflow.selection.cms.met_filters import met_filters
-from columnflow.production.categories import category_ids
+# from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.production.cms.pileup import pu_weight
 from columnflow.production.cms.pdf import pdf_weights

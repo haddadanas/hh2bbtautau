@@ -49,6 +49,7 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
 
     return events
 
+
 @calibrator(
     uses=set(),
     produces=set(),

@@ -17,6 +17,7 @@ from columnflow.util import maybe_import
 
 ak = maybe_import("awkward")
 
+
 @producer(
     uses={
         category_ids,

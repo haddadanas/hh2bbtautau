@@ -81,7 +81,7 @@ def default_original(
     # mc-only functions
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
-        
+
         # pdf weights
         events = self[pdf_weights](events, **kwargs)
 
