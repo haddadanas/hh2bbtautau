@@ -45,7 +45,7 @@ ak = maybe_import("awkward")
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
 )
-def default(
+def default_original(
     self: Selector,
     events: ak.Array,
     stats: defaultdict,
@@ -53,10 +53,6 @@ def default(
 ) -> tuple[ak.Array, SelectionResult]:
     # ensure coffea behavior
     events = self[attach_coffea_behavior](events, **kwargs)
-
-    # add corrected mc weights
-    if self.dataset_inst.is_mc:
-        events = self[mc_weight](events, **kwargs)
 
     # prepare the selection results that are updated at every step
     results = SelectionResult()
@@ -84,6 +80,8 @@ def default(
 
     # mc-only functions
     if self.dataset_inst.is_mc:
+        events = self[mc_weight](events, **kwargs)
+        
         # pdf weights
         events = self[pdf_weights](events, **kwargs)
 
