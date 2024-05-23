@@ -665,9 +665,12 @@ def add_config(
             "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
             "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe", "Tau.charge",
             "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
-            "Tau.decayMode",
+            "Tau.decayMode", "Tau.charge",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
+            "PFCandidate.charge", "PFCandidate.dxy", "PFCandidate.dz", "PFCandidate.eta", "PFCandidate.mass",
+            "PFCandidate.pdgId", "PFCandidate.phi", "PFCandidate.pt", "nPFCandidate",
+            "PFCandidateIndices.jet", "PFCandidateIndices.tau",
             # columns added during selection
             ColumnCollection.ALL_FROM_SELECTOR,
         },

@@ -183,24 +183,20 @@ def add_triggers_2016(config: od.Config) -> None:
         #
         # vbf  (NO Triggers)
         #
-    ])
 
-
-"""
-commenting out single triggers because they do not exist in the NanoAODs .....
         #
         # single electron
         #
         Trigger(
             name="HLT_Ele25_eta2p1_WPTight_Gsf",
-            id= 701, # TODO
+            id=701,  # TODO
             legs=[
                 TriggerLeg(
                     pdg_id=11,
-                    min_pt= 28, # TODO
+                    min_pt=28,  # TODO
                     # filter names:
                     # TODO
-                    trigger_bits=None, # TODO
+                    trigger_bits=None,  # TODO
                 ),
             ],
             tags={"single_trigger", "single_e", "channel_e_tau"},
@@ -211,61 +207,61 @@ commenting out single triggers because they do not exist in the NanoAODs .....
         #
         Trigger(
             name="HLT_IsoMu22",
-            id= 702, # TODO
+            id=702,  # TODO
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt= 25, # TODO
+                    min_pt=25,  # TODO
                     # filter names:
                     # TODO
-                    trigger_bits=None, # TODO
+                    trigger_bits=None,  # TODO
                 ),
             ],
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
         Trigger(
             name="HLT_IsoMu22_eta2p1",
-            id= 703, # TODO
+            id=703,  # TODO
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt= 25, # TODO
+                    min_pt=25,  # TODO
                     # filter names:
                     # TODO
-                    trigger_bits=None, # TODO
+                    trigger_bits=None,  # TODO
                 ),
             ],
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
         Trigger(
             name="HLT_IsoTkMu22",
-            id= 704, # TODO
+            id=704,  # TODO
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt= 25, # TODO
+                    min_pt=25,  # TODO
                     # filter names:
                     # TODO
-                    trigger_bits=None, # TODO
+                    trigger_bits=None,  # TODO
                 ),
             ],
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
         Trigger(
             name="HLT_IsoTkMu22_eta2p1",
-            id= 705, # TODO
+            id=705,  # TODO
             legs=[
                 TriggerLeg(
                     pdg_id=13,
-                    min_pt= 25, # TODO
+                    min_pt=25,  # TODO
                     # filter names:
                     # TODO
-                    trigger_bits=None, # TODO
+                    trigger_bits=None,  # TODO
                 ),
             ],
             tags={"single_trigger", "single_mu", "channel_mu_tau"},
         ),
-"""
+    ])
 
 
 def add_triggers_2017(config: od.Config) -> None:

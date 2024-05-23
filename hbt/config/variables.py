@@ -180,70 +180,103 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"Jet 2 $p_{T}$",
     )
-
-    # variables of interest
     config.add_variable(
-        name="hh_mass",
-        expression="hh.mass",
-        binning=(20, 250, 750.0),
+        name="tau_pt_vsum",
+        expression="PFCandidatesTau.pt_vsum_pfcand",
+        binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"$m_{hh}$",
+        x_title=r"Tau PF Cand. $p_{T}$",
     )
     config.add_variable(
-        name="hh_pt",
-        expression="hh.pt",
-        binning=(100, 0, 500.0),
+        name="tau_dpt_vsum",
+        expression="PFCandidatesTau.dpt_vsum",
+        binning=(40, 0.0, 100.0),
         unit="GeV",
-        x_title=r"$p_T$",
+        x_title=r"Tau PF Cand. $\Delta p_{T}$",
     )
     config.add_variable(
-        name="hh_eta",
-        expression="hh.eta",
-        binning=(100, -3.0, 3.0),
+        name="tau_dpt_hsum",
+        expression="PFCandidatesTau.dpt_hsum",
+        binning=(40, 0.0, 100.0),
         unit="GeV",
-        x_title=r"$\eta$",
-    )
-
-    config.add_variable(
-        name="diTau_mass",
-        expression="diTau.mass",
-        binning=(20, 50, 200.0),
-        unit="GeV",
-        x_title=r"$m_{\tau\tau}$",
+        x_title=r"Tau PF Cand. $\Delta p_{T}$",
     )
     config.add_variable(
-        name="diTau_pt",
-        expression="diTau.pt",
-        binning=(100, 0, 500.0),
+        name="tau_pt_hsum",
+        expression="PFCandidatesTau.pt_hsum_pfcand",
+        binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"$p_T$",
+        x_title=r"Tau PF Cand. $p_{T}$",
     )
     config.add_variable(
-        name="diTau_eta",
-        expression="diTau.eta",
-        binning=(100, -3.0, 3.0),
-        unit="GeV",
-        x_title=r"$\eta$",
-    )
-
-    config.add_variable(
-        name="diBJet_mass",
-        expression="diBJet.mass",
-        binning=(20, 0, 500.0),
-        unit="GeV",
-        x_title=r"$m_{bb}$",
+        name="tau_charge",
+        expression="PFCandidatesTau.charge_sum_pfcand",
+        binning=(7, -3, 3),
+        x_title=r"Tau PF Cand. Charge Sum",
     )
     config.add_variable(
-        name="diBJet_pt",
-        expression="diBJet.pt",
-        binning=(100, 0, 500.0),
-        unit="GeV",
-        x_title=r"$p_T$",
+        name="tau_ncand",
+        expression="PFCandidatesTau.ncand_per_part",
+        binning=(20, 0.0, 20.0),
+        x_title=r"Tau PF Cand. Count",
     )
     config.add_variable(
-        name="diBJet_eta",
-        expression="diBJet.eta",
-        binning=(100, -3.0, 3.0),
+        name="jet_pt_hsum",
+        expression="PFCandidatesJet.pt_hsum_pfcand",
+        binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"$\eta$",
+        x_title=r"Jet PF Cand. $p_{T}$",
+    )
+    config.add_variable(
+        name="jet_pt_vsum",
+        expression="PFCandidatesJet.pt_vsum_pfcand",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet PF Cand. $p_{T}$",
+    )
+    config.add_variable(
+        name="jet_ncand",
+        expression="PFCandidatesJet.ncand_per_part",
+        binning=(20, 0.0, 50.0),
+        x_title=r"Jet PF Cand. Count",
+    )
+    config.add_variable(
+        name="jet_dpt_hsum",
+        expression="PFCandidatesJet.dpt_hsum",
+        binning=(40, 0.0, 100.0),
+        unit="GeV",
+        x_title=r"Jet PF Cand. $\Delta p_{T}$",
+    )
+    config.add_variable(
+        name="jet_dpt_vsum",
+        expression="PFCandidatesJet.dpt_vsum",
+        binning=(40, 0.0, 100.0),
+        unit="GeV",
+        x_title=r"Jet PF Cand. $\Delta p_{T}$",
+    )
+    config.add_variable(
+        name="taucand_charge",
+        expression="Tau.charge",
+        binning=(7, -3.0, 3.0),
+        x_title=r"Tau Cand charge",
+    )
+    config.add_variable(
+        name="tau_decaymode_charge",
+        expression="PFCandidatesTau.decaymode_charge",
+        binning=(4, 0, 3),
+        x_title=r"Tau Cand decay mode charge",
+    )
+    config.add_variable(
+        name="jetcand_pt",
+        expression="Jet.pt",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Jet Cand. $p_{T}$",
+    )
+    config.add_variable(
+        name="taucand_pt",
+        expression="Tau.pt",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Tau Cand. $p_{T}$",
     )
