@@ -200,7 +200,6 @@ def add_config(
     cfg.x.default_variables = ("n_jet", "n_btag")
     cfg.x.default_weight_producer = "all_weights"
 
-
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)
     cfg.x.process_groups = {}
