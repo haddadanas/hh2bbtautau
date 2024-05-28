@@ -121,6 +121,8 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # electrons faking taus
     e_mask = ((events.Tau.genPartFlav == 1) | (events.Tau.genPartFlav == 3))
+    if self.config_inst.has_tag("run3"):
+        e_mask = e_mask & (events.Tau.decayMode != 5) & (events.Tau.decayMode != 6)
     e_single_mask = flat_np_view((e_mask & single_triggered), axis=1)
     e_cross_mask = flat_np_view((e_mask & cross_triggered), axis=1)
     sf_nom[e_single_mask] = self.id_vs_e_corrector(*e_args(e_single_mask, e_wp, "nom"))

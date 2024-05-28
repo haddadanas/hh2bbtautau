@@ -14,6 +14,9 @@ def stylize_processes(config: od.Config) -> None:
     if config.has_process("hh_ggf_bbtautau"):
         config.processes.n.hh_ggf_bbtautau.color1 = (67, 118, 201)
 
+    if config.has_process("hh_vbf_bbtautau"):
+        config.processes.n.hh_vbf_bbtautau.color1 = (112, 61, 122)
+
     if config.has_process("h"):
         config.processes.n.h.color1 = (65, 180, 219)
 
