@@ -42,7 +42,10 @@ def default(self: Calibrator, events: ak.Array, **kwargs) -> ak.Array:
         events = self[jec_full](events, **kwargs)
         events = self[jer](events, **kwargs)
 
-    events = self[met_phi](events, **kwargs)
+    if not self.config_inst.has_tag("run3"):
+        events = self[met_phi](events, **kwargs)
+    else:
+        print("met_phi_setup will be skipped for now, since correction files for run 3 are not yet available!")
 
     if self.dataset_inst.is_mc:
         events = self[tec](events, **kwargs)
