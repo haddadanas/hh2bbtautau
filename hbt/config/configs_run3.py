@@ -776,7 +776,7 @@ def add_config(
     elif year == 2023:
         from hbt.config.triggers import add_triggers_2023
         add_triggers_2023(cfg)
-    else: 
+    else:
         raise NotImplementedError(f"triggers not implemented for {year}")
 
     # custom lfn retrieval method in case the underlying campaign is custom uhh
