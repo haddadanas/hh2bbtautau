@@ -446,6 +446,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=2 + 32 + 16,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc or dataset_inst.x.era >= "E"),
             tags={"cross_trigger", "cross_tau_tau", "channel_tau_tau"},
         ),
 
@@ -484,6 +485,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc and config.has_tag("pre")),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
 
@@ -515,7 +517,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
-            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau_jet"},
+            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
         Trigger(
             name="HLT_DoubleMediumDeepTauPFTauHPS30_L2NN_eta2p1_PFJet75",
@@ -542,7 +544,7 @@ def add_triggers_2022(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
-            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau_jet"},
+            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
     ])
 
@@ -722,7 +724,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
-            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau_jet"},
+            tags={"cross_trigger", "cross_tau_tau_jet", "channel_tau_tau"},
         ),
 
         #
@@ -760,6 +762,7 @@ def add_triggers_2023(config: od.Config) -> None:
                     trigger_bits=1,
                 ),
             ],
+            applies_to_dataset=(lambda dataset_inst: dataset_inst.is_mc),
             tags={"cross_trigger", "cross_tau_tau_vbf", "channel_tau_tau"},
         ),
     ])

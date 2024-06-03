@@ -52,6 +52,8 @@ def add_config(
     # create a config by passing the campaign, so id and name will be identical
     cfg = analysis.add_config(campaign, name=config_name, id=config_id)
     cfg.add_tag("run3")
+    if not year_postfix:
+        cfg.add_tag("pre")
 
     # add processes we are interested in
     process_names = [
@@ -167,6 +169,8 @@ def add_config(
         "bsm_hh_ggf_bbtautau_kl0_kt1_powheg",
         "bsm_hh_ggf_bbtautau_kl2p45_kt1_powheg",
         "bsm_hh_ggf_bbtautau_kl5_kt1_powheg",
+        # Extra datasets
+        "dy_lep_m50_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there

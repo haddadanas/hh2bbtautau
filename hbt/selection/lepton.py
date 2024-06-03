@@ -252,8 +252,10 @@ def tau_selection(
     is_cross_mu = trigger.has_tag("cross_mu_tau")
     is_cross_tau = trigger.has_tag("cross_tau_tau")
     is_cross_tau_vbf = trigger.has_tag("cross_tau_tau_vbf")
-    is_any_cross_tau = is_cross_tau or is_cross_tau_vbf
+    is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
+    is_any_cross_tau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
     is_2016 = self.config_inst.campaign.x.year == 2016
+    is_run3 = self.config_inst.has_tag("run3")
     # tau id v2.1 working points (binary to int transition after nano v10)
     if self.config_inst.campaign.x.version < 10:
         # https://cms-nanoaod-integration.web.cern.ch/integration/master/mc94X_doc.html
@@ -273,7 +275,7 @@ def tau_selection(
         assert abs(trigger.legs[1].pdg_id) == 15
         # match leg 1
         matches_leg1 = trigger_object_matching(events.Tau, events.TrigObj[leg_masks[1]])
-    elif is_cross_tau or is_cross_tau_vbf:
+    elif is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet:
         # catch config errors
         assert trigger.n_legs == len(leg_masks) >= 2
         assert abs(trigger.legs[0].pdg_id) == 15
@@ -300,7 +302,10 @@ def tau_selection(
         # only existing after 2016, so force in failure in case of misconfiguration
         min_pt = None if is_2016 else 25.0
         max_eta = 2.1
-
+    elif is_cross_tau_jet:
+        min_pt = None if not is_run3 else 35.0
+        max_eta = 2.1
+    # from IPython import embed; embed(header='Debugging tau selection...')
     # base tau mask for default and qcd sideband tau
     base_mask = (
         (abs(events.Tau.eta) < max_eta) &
@@ -320,7 +325,7 @@ def tau_selection(
     # add trigger object masks
     if is_cross_e or is_cross_mu:
         base_mask = base_mask & matches_leg1
-    elif is_cross_tau or is_cross_tau_vbf:
+    elif is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet:
         # taus need to be matched to at least one leg, but as a side condition
         # each leg has to have at least one match to a tau
         base_mask = base_mask & (
