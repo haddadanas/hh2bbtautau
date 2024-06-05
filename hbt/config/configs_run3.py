@@ -44,14 +44,14 @@ def add_config(
 
     # postfix for 2022 campaigns after ECAL Endcap water leak
     year_postfix = "EE" if campaign.x.postfix == "post" else ""
-    postfixEE = f"{campaign.x.postfix}EE"
+    postfix_ee = f"{campaign.x.postfix}EE"
 
     # get all root processes
     procs = get_root_processes_from_campaign(campaign)
 
     # create a config by passing the campaign, so id and name will be identical
     cfg = analysis.add_config(campaign, name=config_name, id=config_id)
-    cfg.add_tag("run3")
+
     if not year_postfix:
         cfg.add_tag("pre")
 
@@ -59,20 +59,20 @@ def add_config(
     process_names = [
         "data",
         "tt",
-        "st",
-        "ttv",
-        "ttvv",
-        "dy",
-        "w",
-        "ewk",
-        "vv",
-        "vvv",
-        "qcd",
-        "h",
+        # "st",
+        # "ttv",
+        # "ttvv",
+        # "dy",
+        # "w",
+        # "ewk",
+        # "vv",
+        # "vvv",
+        # "qcd",
+        # "h",
         "hh_ggf_bbtautau",
-        "hh_vbf_bbtautau",
-        "graviton_hh_ggf_bbtautau_m400",
-        "graviton_hh_ggf_bbtautau_m1250",
+        # "hh_vbf_bbtautau",
+        # "graviton_hh_ggf_bbtautau_m400",
+        # "graviton_hh_ggf_bbtautau_m1250",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -82,14 +82,6 @@ def add_config(
         # add the process
         cfg.add_process(procs.get(process_name))
 
-        # # add the process (and set xsec to 0.1 if not available)
-        # process_inst = procs.get(process_name)
-
-        # cfg.add_process(process_inst)
-        # for proc_inst in cfg.get_process(process_inst).get_leaf_processes():
-        #     if campaign.ecm not in proc_inst.xsecs.keys():
-        #         cfg.get_process(proc_inst.name).set_xsec(campaign.ecm, Number(0.1))
-
     # configure colors, labels, etc
     from hbt.config.styles import stylize_processes
     stylize_processes(cfg)
@@ -97,80 +89,68 @@ def add_config(
     # add datasets we need to study
     dataset_names = [
         # data
-        "data_e_b",
-        "data_e_c",
-        "data_e_d",
-        "data_e_e",
-        "data_e_f",
-        "data_mu_a",
-        "data_mu_b",
-        "data_mu_c",
-        "data_mu_d",
-        "data_mu_e",
-        "data_mu_f",
-        "data_mu_g",
-        "data_tau_b",
-        "data_tau_c",
+        # "data_e_b",
+        # "data_e_c",
+        # "data_e_d",
+        # "data_e_e",
+        # "data_e_f",
+        # "data_mu_a",
+        # "data_mu_b",
+        # "data_mu_c",
+        # "data_mu_d",
+        # "data_mu_e",
+        # "data_mu_f",
+        # "data_mu_g",
+        # "data_tau_b",
+        # "data_tau_c",
         "data_tau_d",
-        "data_tau_e",
-        "data_tau_f",
-        "data_tau_g",
+        # "data_tau_e",
+        # "data_tau_f",
+        # "data_tau_g",
         # backgrounds
         "tt_sl_powheg",
-        "tt_dl_powheg",
-        "tt_fh_powheg",
-        "ttz_llnunu_amcatnlo",
-        "ttw_nlu_amcatnlo",
-        "ttw_qq_amcatnlo",
-        "ttzz_madgraph",
-        "ttwz_madgraph",
-        "ttww_madgraph",
-        "st_tchannel_t_powheg",
-        "st_tchannel_tbar_powheg",
-        "st_twchannel_t_powheg",
-        "st_twchannel_tbar_powheg",
-        "st_schannel_lep_amcatnlo",
-        "st_schannel_had_amcatnlo",
-        "dy_lep_pt50To100_amcatnlo",
-        "dy_lep_pt100To250_amcatnlo",
-        "dy_lep_pt250To400_amcatnlo",
-        "dy_lep_pt400To650_amcatnlo",
-        "dy_lep_pt650_amcatnlo",
-        "w_lnu_madgraph",
-        "ewk_wm_lnu_madgraph",
-        "ewk_w_lnu_madgraph",
-        "ewk_z_ll_madgraph",
-        "zz_pythia",
-        "wz_pythia",
-        "ww_pythia",
-        "zzz_amcatnlo",
-        "wzz_amcatnlo",
-        "wwz_amcatnlo",
-        "www_amcatnlo",
-        "h_ggf_tautau_powheg",
-        "h_vbf_tautau_powheg",
-        "zh_tautau_powheg",
-        "zh_bb_powheg",
-        "wph_tautau_powheg",
-        "wmh_tautau_powheg",
-        "ggzh_llbb_powheg",
-        "tth_tautau_powheg",
-        "tth_bb_powheg",
-        "tth_nonbb_powheg",
-        # signals
-        "hh_ggf_bbtautau_madgraph",
-        "graviton_hh_ggf_bbtautau_m400_madgraph",
-        "graviton_hh_ggf_bbtautau_m1250_madgraph",
-        "hh_ggf_bbtautau_powheg",
-        "hh_vbf_bbtautau_madgraph",
-        "bsm_hh_vbf_bbtautau_cv1_c2v2_c3_1_madgraph",
-        "bsm_hh_vbf_bbtautau_cv1_c2v0_c3_1_madgraph",
-        "bsm_hh_vbf_bbtautau_cv1_c2v1_c3_2_madgraph",
-        "bsm_hh_ggf_bbtautau_kl0_kt1_powheg",
-        "bsm_hh_ggf_bbtautau_kl2p45_kt1_powheg",
-        "bsm_hh_ggf_bbtautau_kl5_kt1_powheg",
-        # Extra datasets
-        "dy_lep_m50_madgraph",
+        # "tt_dl_powheg",
+        # "tt_fh_powheg",
+        # "ttz_llnunu_amcatnlo",
+        # "ttw_nlu_amcatnlo",
+        # "ttw_qq_amcatnlo",
+        # "ttzz_madgraph",
+        # "ttwz_madgraph",
+        # "ttww_madgraph",
+        # "st_tchannel_t_powheg",
+        # "st_tchannel_tbar_powheg",
+        # "st_twchannel_t_powheg",
+        # "st_twchannel_tbar_powheg",
+        # "st_schannel_lep_amcatnlo",
+        # "st_schannel_had_amcatnlo",
+        # "dy_lep_pt50To100_amcatnlo",
+        # "dy_lep_pt100To250_amcatnlo",
+        # "dy_lep_pt250To400_amcatnlo",
+        # "dy_lep_pt400To650_amcatnlo",
+        # "dy_lep_pt650_amcatnlo",
+        # "w_lnu_madgraph",
+        # "ewk_wm_lnu_madgraph",
+        # "ewk_w_lnu_madgraph",
+        # "ewk_z_ll_madgraph",
+        # "zz_pythia",
+        # "wz_pythia",
+        # "ww_pythia",
+        # "zzz_amcatnlo",
+        # "wzz_amcatnlo",
+        # "wwz_amcatnlo",
+        # "www_amcatnlo",
+        # "h_ggf_tautau_powheg",
+        # "h_vbf_tautau_powheg",
+        # "zh_tautau_powheg",
+        # "zh_bb_powheg",
+        # "wph_tautau_powheg",
+        # "wmh_tautau_powheg",
+        # "ggzh_llbb_powheg",
+        # "tth_tautau_powheg",
+        # "tth_bb_powheg",
+        # "tth_nonbb_powheg",
+        # # signals
+        "hh_ggf_hbb_htt_kl1_kt1_c20_powheg",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
@@ -238,9 +218,14 @@ def add_config(
     # TODO later: preliminary luminosity using norm tag. Must be corrected, when more data is available
     # https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis
     if year == 2022:
-        cfg.x.luminosity = Number(38010, {
-            "total": 0.014j,
-        })
+        if campaign.x.postfix == "post":
+            cfg.x.luminosity = Number(26671.7, {
+                "total": 0.014j,
+            })
+        else:
+            cfg.x.luminosity = Number(7980.4, {
+                "total": 0.014j,
+            })
     elif year == 2023:
         cfg.x.luminosity = Number(27208, {
             "lumi_13TeV_correlated": 0.0j,
@@ -286,6 +271,26 @@ def add_config(
             "xxtight": {"2022": 0.961, "2022EE": 0.9664, "2023": 0.0, "2024": 0.0}[btag_key],
         },
     })
+
+    # tau id working points for the selection for nanoAoD > 10
+    cfg.x.tau_id_working_points = DotDict.wrap({
+        "tau_vs_e": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+        "tau_vs_jet": {"vvvloose": 1, "vvloose": 2, "vloose": 3, "loose": 4, "medium": 5, "tight": 6, "vtight": 7, "vvtight": 8},  # noqa
+        "tau_vs_mu": {"vloose": 1, "loose": 2, "medium": 3, "tight": 4},
+    })
+
+    # tau trigger working points
+    cfg.x.tau_trigger_working_points = DotDict.wrap({
+        "id_vs_jet_v0": "VVLoose",
+        "id_vs_jet_gv0": ("Loose", "VVLoose"),
+        "id_vs_mu_single": "Tight",
+        "id_vs_mu_cross": "VLoose",
+        "id_vs_e_single": "VVLoose",
+        "id_vs_e_cross": "VVLoose",
+        "trigger_corr": "VVLoose",
+    })
+
+    cfg.x.tau_energy_calibration = ("Tight", "Tight")
 
     # jec configuration
     # https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC?rev=201
@@ -408,11 +413,7 @@ def add_config(
     # name of the deep tau tagger
     # (used in the tec calibrator)
     # https://twiki.cern.ch/twiki/bin/view/CMS/TauIDRecommendationForRun3
-    cfg.x.tau_tagger = "DeepTau2018v2p5"  # "DeepTauv2p5"
-
-    # name of the MET phi correction set
-    # (used in the met_phi calibrator)
-    # cfg.x.met_phi_correction_set = "{variable}_metphicorr_pfmet_{data_source}"
+    cfg.x.tau_tagger = "DeepTau2018v2p5"
 
     # names of electron correction sets and working points
     # (used in the electron_sf producer)
@@ -424,7 +425,7 @@ def add_config(
 
     # names of muon correction sets and working points
     # (used in the muon producer)
-    cfg.x.muon_sf_names = ("NUM_TightPFIso_DEN_TightID", f"{year}_{postfixEE}")
+    cfg.x.muon_sf_names = ("NUM_TightPFIso_DEN_TightID", f"{year}_{postfix_ee}")
 
     # load jec sources
     with open(os.path.join(thisdir, "jec_sources.yaml"), "r") as f:
@@ -592,9 +593,9 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/a/anhaddad/public/jsonpog-integration"
-    json_mirror_alt = "/afs/cern.ch/user/a/anhaddad/public/jsonpog_alt"
-    # TODO later: add factors for other POGs when available
+    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-7d9636bf"
+    # remove the taupog specific json files once they are integrated centrally
+    json_mirror_taupog = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-taupog"
 
     cfg.x.external_files = DotDict.wrap({
         # pileup weight corrections
@@ -631,10 +632,10 @@ def add_config(
             "electron_sf": (f"{json_mirror}/POG/EGM/{year}_Summer{year2}{year_postfix}/electron.json.gz", "v1"),
 
             # tau energy correction and scale factors
-            "tau_sf": (f"{json_mirror_alt}/POG/TAU/{year}_{postfixEE}/tau_DeepTau2018v2p5_2022_{postfixEE}.json.gz", "v1"),  # noqa
+            "tau_sf": (f"{json_mirror_taupog}/POG/TAU/{year}_{postfix_ee}/tau_DeepTau2018v2p5_2022_{postfix_ee}.json.gz", "v1"),  # noqa
 
             # tau trigger
-            "tau_trigger_sf": (f"{json_mirror_alt}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfixEE}.json", "v1"),  # noqa
+            "tau_trigger_sf": (f"{json_mirror_taupog}/POG/TAU/output/tau_trigger_DeepTau2018v2p5_{year}{postfix_ee}.json", "v1"),  # noqa
         }))
 
     # external files with more complex year dependence # TODO: check this
@@ -645,36 +646,13 @@ def add_config(
                 "golden": ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/Cert_Collisions2022_355100_362760_Golden.json", "v1"),  # noqa
                 "normtag": ("/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json", "v1"),
             },
-
-            # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
-            "pu": {
-                "json": ("/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileup_JSON.txt", "v1"),  # noqa
-                # Problem No file for 2022 --> using 2023 no matching shapes with root shape
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/203834e3ae301f2564423dd1cc84bebf660519b9/SimGeneral/MixingModule/python/Run3_2022_LHC_Simulation_10h_2h_cfi.py", "v1"),  # noqa
-                "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-69200ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-72400ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions22/pileupHistogram-Cert_Collisions2022_355100_362760_GoldenJson-13p6TeV-66000ub-100bins.root", "v1"),  # noqa
-                },
-            },
         }))
-    else:  # year 2023
+    elif year == 2023:  # year 2023
         cfg.x.external_files.update(DotDict.wrap({
             # lumi files
             "lumi": {
                 "golden": ("/afs/cern.ch/user/a/anhaddad/public/Collisions23/Cert_Collisions2023_366442_370790_Golden.json", "v1"),  # noqa
                 "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
-            },
-
-            # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
-            "pu": {
-                "json": ("/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileup_JSON.txt", "v1"),  # noqa
-                "mc_profile": ("https://raw.githubusercontent.com/cms-sw/cmssw/203834e3ae301f2564423dd1cc84bebf660519b9/SimGeneral/MixingModule/python/mix_2023_25ns_EraCD_PoissonOOTPU_cfi.py", "v1"),  # noqa
-                "data_profile": {
-                    "nominal": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-69200ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_up": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-72400ub-100bins.root", "v1"),  # noqa
-                    "minbias_xs_down": (f"/afs/cern.ch/user/a/anhaddad/public/Collisions23/pileupHistogram-Cert_Collisions2023_366442_370790_GoldenJson-13p6TeV-66000ub-100bins.root", "v1"),  # noqa
-                },
             },
         }))
 

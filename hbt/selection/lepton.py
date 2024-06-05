@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from columnflow.selection import Selector, SelectionResult, selector
 from columnflow.columnar_util import set_ak_column
-from columnflow.util import DotDict, maybe_import
+from columnflow.util import maybe_import
 
 from hbt.util import IF_NANO_V9, IF_NANO_V11, IF_NANO_V12
 from hbt.config.util import Trigger
@@ -216,8 +216,7 @@ def muon_selection(
 @selector(
     uses={
         # nano columns
-        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz", "Tau.idDeepTau2017v2p1VSe",
-        "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
+        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.dz",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
         "Electron.pt", "Electron.eta", "Electron.phi",
         "Muon.pt", "Muon.eta", "Muon.phi",
@@ -255,18 +254,10 @@ def tau_selection(
     is_cross_tau_jet = trigger.has_tag("cross_tau_tau_jet")
     is_any_cross_tau = is_cross_tau or is_cross_tau_vbf or is_cross_tau_jet
     is_2016 = self.config_inst.campaign.x.year == 2016
-    is_run3 = self.config_inst.has_tag("run3")
-    # tau id v2.1 working points (binary to int transition after nano v10)
-    if self.config_inst.campaign.x.version < 10:
-        # https://cms-nanoaod-integration.web.cern.ch/integration/master/mc94X_doc.html
-        tau_vs_e = DotDict(vvloose=2, vloose=4)
-        tau_vs_mu = DotDict(vloose=1, tight=8)
-        tau_vs_jet = DotDict(vvloose=2, loose=8, medium=16)
-    else:
-        # https://cms-nanoaod-integration.web.cern.ch/integration/cms-swmaster/data106Xul17v2_v10_doc.html#Tau
-        tau_vs_e = DotDict(vvloose=2, vloose=3)
-        tau_vs_mu = DotDict(vloose=1, tight=4)
-        tau_vs_jet = DotDict(vvloose=2, loose=4, medium=5)
+    is_run3 = self.config_inst.campaign.x.run == 3
+    get_tau_tagger = lambda tag: f"id{self.config_inst.x.tau_tagger}VS{tag}"
+
+    wp_config = self.config_inst.x.tau_id_working_points
 
     # start per-tau mask with trigger object matching per leg
     if is_cross_e or is_cross_mu:
@@ -311,9 +302,11 @@ def tau_selection(
         (abs(events.Tau.eta) < max_eta) &
         (events.Tau.pt > min_pt) &
         (abs(events.Tau.dz) < 0.2) &
-        (events.Tau.idDeepTau2017v2p1VSe >= (tau_vs_e.vvloose if is_any_cross_tau else tau_vs_e.vloose)) &
-        (events.Tau.idDeepTau2017v2p1VSmu >= (tau_vs_mu.vloose if is_any_cross_tau else tau_vs_mu.tight)) &
-        (events.Tau.idDeepTau2017v2p1VSjet >= tau_vs_jet.loose)
+        (events.Tau[get_tau_tagger("e")] >= (wp_config.tau_vs_e.vvloose if is_any_cross_tau
+                                            else wp_config.tau_vs_e.vloose)) &
+        (events.Tau[get_tau_tagger("mu")] >= (wp_config.tau_vs_mu.vloose if is_any_cross_tau
+                                            else wp_config.tau_vs_mu.tight)) &
+        (events.Tau[get_tau_tagger("jet")] >= wp_config.tau_vs_jet.loose)
     )
 
     # remove taus with too close spatial separation to previously selected leptons
@@ -337,7 +330,7 @@ def tau_selection(
     # indices for sorting first by isolation, then by pt
     # for this, combine iso and pt values, e.g. iso 255 and pt 32.3 -> 2550032.3
     f = 10 ** (np.ceil(np.log10(ak.max(events.Tau.pt))) + 1)
-    sort_key = events.Tau.idDeepTau2017v2p1VSjet * f + events.Tau.pt
+    sort_key = events.Tau[get_tau_tagger("jet")] * f + events.Tau.pt
     sorted_indices = ak.argsort(sort_key, axis=-1, ascending=False)
 
     # convert to sorted indices
@@ -345,7 +338,7 @@ def tau_selection(
     base_indices = ak.values_astype(base_indices, np.int32)
 
     # additional mask to select final, Medium isolated taus
-    iso_mask = events.Tau[base_indices].idDeepTau2017v2p1VSjet >= tau_vs_jet.medium
+    iso_mask = events.Tau[base_indices][get_tau_tagger("jet")] >= wp_config.tau_vs_jet.medium
 
     return base_indices, iso_mask
 
@@ -357,6 +350,12 @@ def tau_selection_init(self: Selector) -> None:
         shift_inst.name
         for shift_inst in self.config_inst.shifts
         if shift_inst.has_tag("tec")
+    }
+
+    # Add columns for the right tau tagger
+    self.uses |= {
+        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
+        for tag in ("e", "mu", "jet")
     }
 
 
