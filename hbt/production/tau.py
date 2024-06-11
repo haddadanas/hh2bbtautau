@@ -73,7 +73,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # the correction tool only supports flat arrays, so convert inputs to flat np view first
     pt = flat_np_view(events.Tau.pt, axis=1)
-    abseta = flat_np_view(abs(events.Tau.eta), axis=1)  # TODO check if eta and not abseta
+    abseta = flat_np_view(abs(events.Tau.eta), axis=1)
     dm = flat_np_view(events.Tau.decayMode, axis=1)
     match = flat_np_view(events.Tau.genPartFlav, axis=1)
 
