@@ -114,15 +114,9 @@ def default(
     )
 
     # create process ids
-    assigned_process_ids = False
-    if self.dataset_inst.has_tag("is_dy"):
-        # check if the dataset is covered by any id producer
-        for prod in self.process_ids_dy_classes.values():
-            if prod.dy_inclusive_dataset.has_process(self.dataset_inst.processes.get_first()):
-                events = self[prod](events, **kwargs)
-                assigned_process_ids = True
-                break
-    if not assigned_process_ids:
+    if self.process_ids_dy is not None:
+        events = self[self.process_ids_dy](events, **kwargs)
+    else:
         events = self[process_ids](events, **kwargs)
 
     # some cutflow features
@@ -193,17 +187,20 @@ def default_init(self: Selector) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
 
-    # create a process_ids_dy subclass for configured dy datasets
-    self.process_ids_dy_classes = {
-        name: process_ids_dy.derive(
-            f"process_ids_dy_{name}",
-            cls_dict={"dy_inclusive_dataset": dataset_inst},
-        )
-        for name, dataset_inst in self.config_inst.x.dy_inclusive_datasets.items()
-        if dataset_inst.has_process(self.dataset_inst.processes.get_first())
-    }
+    self.process_ids_dy = None
+    if self.dataset_inst.has_tag("is_dy"):
+        # check if this dataset is covered by any dy id producer
+        for name, dataset_inst in self.config_inst.x.dy_inclusive_datasets.items():
+            # the dataset is "covered" if is processes is a subprocess of that in the dy dataset
+            if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+                self.process_ids_dy = process_ids_dy.derive(
+                    f"process_ids_dy_{name}",
+                    cls_dict={"dy_inclusive_dataset": dataset_inst},
+                )
 
-    # add them as dependencies
-    for prod in self.process_ids_dy_classes.values():
-        self.uses.add(prod)
-        self.produces.add(prod)
+                # add it as a dependency
+                self.uses.add(self.process_ids_dy)
+                self.produces.add(self.process_ids_dy)
+
+                # stop after the first match
+                break
