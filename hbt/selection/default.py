@@ -191,7 +191,7 @@ def default_init(self: Selector) -> None:
     if self.dataset_inst.has_tag("is_dy"):
         # check if this dataset is covered by any dy id producer
         for name, dataset_inst in self.config_inst.x.dy_inclusive_datasets.items():
-            # the dataset is "covered" if is processes is a subprocess of that in the dy dataset
+            # the dataset is "covered" if its processes is a subprocess of that of the dy dataset
             if dataset_inst.has_process(self.dataset_inst.processes.get_first()):
                 self.process_ids_dy = process_ids_dy.derive(
                     f"process_ids_dy_{name}",
