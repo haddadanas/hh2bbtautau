@@ -8,10 +8,12 @@ from operator import or_
 from functools import reduce
 
 from columnflow.selection import Selector, SelectionResult, selector
+from columnflow.selection.cms.jets import jet_veto_map
 from columnflow.selection.util import sorted_indices_from_mask
 from columnflow.util import maybe_import
 from columnflow.columnar_util import set_ak_column
 
+from hbt.util import IF_RUN_2, IF_RUN_3
 from hbt.production.hhbtag import hhbtag
 
 
@@ -21,11 +23,13 @@ ak = maybe_import("awkward")
 
 @selector(
     uses={
-        hhbtag,
+        hhbtag, IF_RUN_3(jet_veto_map),
         # custom columns created upstream, probably by a selector
         "trigger_ids",
         # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
+        # "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId",
+        "Jet.{pt,eta,phi,mass,jetId}",
+        IF_RUN_2("Jet.puId"),
         "Jet.btagDeepFlavB",
         "FatJet.pt", "FatJet.eta", "FatJet.phi", "FatJet.mass", "FatJet.msoftdrop",
         "FatJet.jetId", "FatJet.subJetIdx1", "FatJet.subJetIdx2",
@@ -61,9 +65,11 @@ def jet_selection(
     # common ak4 jet mask for normal and vbf jets
     ak4_mask = (
         (events.Jet.jetId == 6) &  # tight plus lepton veto
-        # ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
+
+    if self.config_inst.campaign.x.run == 2:
+        ak4_mask = ak4_mask & ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4)))  # flipped in 2016
 
     # default jets
     default_mask = (
@@ -165,10 +171,10 @@ def jet_selection(
 
     # discard the event in case the (first) fatjet with matching subjets is found
     # but they are not b-tagged (TODO: move to deepjet when available for subjets)
-    if self.config_inst.campaign.x.year in [2016, 2017, 2018]:
+    if self.config_inst.campaign.x.run == 3:
+        wp = self.config_inst.x.btag_working_points.particleNet.loose
+    else:
         wp = self.config_inst.x.btag_working_points.deepcsv.loose
-    elif self.config_inst.campaign.x.year in [2022, 2023, 2024, 2025]:
-        wp = self.config_inst.x.btag_working_points.deepjet.loose
     subjets_btagged = ak.all(events.SubJet[ak.firsts(subjet_indices)].btagDeepB > wp, axis=1)
 
     # pt sorted indices to convert mask
@@ -197,8 +203,8 @@ def jet_selection(
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
 
-    # build and return selection results plus new columns (src -> dst -> indices)
-    return events, SelectionResult(
+    # build selection results plus new columns (src -> dst -> indices)
+    result = SelectionResult(
         steps={
             "jet": jet_sel,
             # the btag weight normalization requires a selection with everything but the bjet
@@ -228,6 +234,13 @@ def jet_selection(
             "n_central_jets": ak.num(jet_indices, axis=1),
         },
     )
+
+    # additional jet veto map, vetoing entire events
+    if self.has_dep(jet_veto_map):
+        events, veto_result = self[jet_veto_map](events, **kwargs)
+        result += veto_result
+
+    return events, result
 
 
 @jet_selection.init
