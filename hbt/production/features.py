@@ -12,9 +12,9 @@ from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.util import maybe_import
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
+
 
 # helpers
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
@@ -28,7 +28,7 @@ set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
     },
     produces={
         # new columns
-        "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
+        "n_electron", "ht", "n_jet", "n_hhbtag", "n_electron", "n_muon",
     },
 )
 def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -37,7 +37,6 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_i32(events, "n_hhbtag", ak.num(events.HHBJet.pt, axis=1))
     events = set_ak_column_i32(events, "n_electron", ak.num(events.Electron.pt, axis=1))
     events = set_ak_column_i32(events, "n_muon", ak.num(events.Muon.pt, axis=1))
-
     return events
 
 
@@ -45,7 +44,7 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     uses={
         mc_weight, category_ids,
         # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Electron.pt",
     },
     produces={
         mc_weight, category_ids,
@@ -61,13 +60,14 @@ def cutflow_features(
     object_masks: dict[str, dict[str, ak.Array]],
     **kwargs,
 ) -> ak.Array:
+    # columns required for cutflow plots
+    events = self[category_ids](events, **kwargs)
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
-    events = self[category_ids](events, **kwargs)
-
     # apply per-object selections
     selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
+    selected_ele = events.Electron[object_masks["Electron"]["Electron"]]
 
     # add feature columns
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))
@@ -82,5 +82,8 @@ def cutflow_features(
     events = set_ak_column_f32(events, "cutflow.jet4_pt", Route("Jet.pt[:,3]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.jet5_pt", Route("Jet.pt[:,4]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.jet6_pt", Route("Jet.pt[:,5]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.ht", ak.sum(selected_jet.pt, axis=1))
+    events = set_ak_column_i32(events, "cutflow.n_ele", ak.num(events.Electron, axis=1))
+    events = set_ak_column_i32(events, "cutflow.n_ele_selected", ak.num(selected_ele, axis=1))
 
     return events
