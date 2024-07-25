@@ -35,6 +35,14 @@ def add_categories(config: od.Config) -> None:
 
     add_category(
         config,
+        name="all_incl",
+        id=101,
+        selection="cat_incl",
+        label="inclusive (all)",
+    )
+
+    add_category(
+        config,
         name="2j",
         id=110,
         selection="cat_2j",
