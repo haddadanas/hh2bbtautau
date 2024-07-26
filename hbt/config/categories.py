@@ -49,6 +49,22 @@ def add_categories(config: od.Config) -> None:
         label="2 jets",
     )
 
+    add_category(
+        config,
+        name="pass",
+        id=120,
+        selection="pass_selection",
+        label="pass selection",
+    )
+
+    add_category(
+        config,
+        name="fail",
+        id=130,
+        selection="fail_selection",
+        label="fail selection",
+    )
+
     #
     # build groups
     #

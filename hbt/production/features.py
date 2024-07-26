@@ -21,6 +21,13 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 
+opt_category_ids = category_ids.derive("opt_category_ids", cls_dict={
+    "skip_category_func": (
+        lambda self, task, cat_inst: True if task.selector != "gen_default" and cat_inst.id in [120, 130] else False
+    ),
+})
+
+
 @producer(
     uses={
         # nano columns
@@ -42,12 +49,12 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        mc_weight, category_ids,
+        mc_weight, opt_category_ids,
         # nano columns
         "Jet.pt", "Jet.eta", "Jet.phi", "Electron.pt",
     },
     produces={
-        mc_weight, category_ids,
+        mc_weight, opt_category_ids,
         # new columns
         "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
         "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.n_ele",
@@ -61,7 +68,7 @@ def cutflow_features(
     **kwargs,
 ) -> ak.Array:
     # columns required for cutflow plots
-    events = self[category_ids](events, **kwargs)
+    events = self[opt_category_ids](events, **kwargs)
     if self.dataset_inst.is_mc:
         events = self[mc_weight](events, **kwargs)
 
