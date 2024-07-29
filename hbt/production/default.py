@@ -17,6 +17,7 @@ from hbt.production.weights import (
 )
 from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
+from hbt.production.pt_calculation import hbb_mjj
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 
@@ -72,5 +73,23 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
         # trigger weights
         events = self[trigger_weights](events, **kwargs)
+
+    return events
+
+
+@producer(
+    uses={
+        default, hbb_mjj,
+    },
+    produces={
+        default, hbb_mjj,
+    },
+)
+def gen_default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # default
+    events = self[default](events, **kwargs)
+
+    # hbb mjj
+    events = self[hbb_mjj](events, **kwargs)
 
     return events
