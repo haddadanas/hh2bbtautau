@@ -256,3 +256,19 @@ def add_variables(config: od.Config) -> None:
             binning=(25, 0.0, 1.0),
             x_title=rf"{proc.upper()} output node, res. pDNN$_{{m_{{HH}}=500\,GeV,s=0}}$",
         )
+
+    config.add_variable(
+        name="pt_bb",
+        expression="pt_bb",
+        binning=(100, 0, 200),
+        unit="GeV",
+        x_title=r"$p_{t, H\rightarrow bb}$",
+    )
+
+    config.add_variable(
+        name="pt_tautau",
+        expression="pt_tautau",
+        binning=(100, 0, 200),
+        unit="GeV",
+        x_title=r"$p_{t, H\rightarrow \tau\tau}$",
+    )

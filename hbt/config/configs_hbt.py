@@ -293,11 +293,11 @@ def add_config(
 
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
-    cfg.x.default_selector = "default"
-    cfg.x.default_producer = "default"
+    cfg.x.default_selector = "gen_default"
+    cfg.x.default_producer = "gen_default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "test_no_shifts"
-    cfg.x.default_categories = ("incl__os__iso",)
+    cfg.x.default_categories = ("all_incl",)
     cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh")
     cfg.x.default_weight_producer = "default"
 
