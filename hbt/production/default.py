@@ -82,7 +82,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         default, hbb_mjj,
     },
     produces={
-        default, hbb_mjj,
+        default, hbb_mjj, "selection_mask", "process_id",
     },
 )
 def gen_default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
