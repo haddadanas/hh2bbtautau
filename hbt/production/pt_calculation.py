@@ -26,7 +26,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         attach_coffea_behavior,
     },
     produces={
-        "pt_bb", "pt_tautau",
+        f"{y}_{x}" for x in ["bb", "tautau"] for y in ["pt", "dR"]
     },
 )
 def hbb_mjj(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -40,8 +40,14 @@ def hbb_mjj(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     pt_bb = b.sum(axis=-1).pt
     pt_tautau = tau.sum(axis=-1).pt
 
+    # calculate dR between jets
+    dR_bb = b[:, 0].delta_r(b[:, 1])
+    dR_tautau = tau[:, 0].delta_r(tau[:, 1])
+
     # add columns
     events = set_ak_column_f32(events, "pt_bb", pt_bb)
     events = set_ak_column_f32(events, "pt_tautau", pt_tautau)
+    events = set_ak_column_f32(events, "dR_bb", dR_bb)
+    events = set_ak_column_f32(events, "dR_tautau", dR_tautau)
 
     return events

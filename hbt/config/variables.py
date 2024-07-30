@@ -272,3 +272,17 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"$p_{t, H\rightarrow \tau\tau}$",
     )
+
+    config.add_variable(
+        name="dR_bb",
+        expression="dR_bb",
+        binning=(50, 0, 5),
+        x_title=r"$\Delta R_{bb}$",
+    )
+
+    config.add_variable(
+        name="dR_tautau",
+        expression="dR_tautau",
+        binning=(50, 0, 5),
+        x_title=r"$\Delta R_{\tau\tau}$",
+    )
