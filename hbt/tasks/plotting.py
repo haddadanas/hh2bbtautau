@@ -6,6 +6,7 @@ Tasks related to plotting selection results.
 from __future__ import annotations
 
 import law
+import luigi
 import order as od
 
 from columnflow.tasks.framework.base import Requirements
@@ -44,12 +45,6 @@ class PlotBaseHBT(
 ):
     sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/venv_columnar.sh")
     exclude_index = True
-
-    plot_function = PlotBase.plot_function.copy(
-        default="seaborn.scatterplot",
-        add_default_to_description=True,
-        description="the full path given using the dot notation of the desired plot function.",
-    )
 
     # upstream requirements
     reqs = Requirements(
@@ -179,6 +174,12 @@ class PlotScatterPlots(PlotBaseHBT):
     Task to plot scatter plots of the selection results.
     """
 
+    plot_function = PlotBase.plot_function.copy(
+        default="seaborn.scatterplot",
+        add_default_to_description=True,
+        description="the full path given using the dot notation of the desired plot function.",
+    )
+
     def call_plot_func(self, func_name: str, **kwargs) -> Any:
         plt.style.use(mplhep.style.CMS)
         plt.rcParams.update({"legend.facecolor": "white"})
@@ -198,6 +199,82 @@ class PlotScatterPlots(PlotBaseHBT):
 
     def make_pretty(
         self: PlotScatterPlots,
+        fig: plt.Figure,
+        ax: plt.Axes,
+        variable_tuples: tuple,
+        plt_title: str = "",
+        effeciency: str = "",
+    ) -> tuple[plt.Figure, plt.Axes]:
+        x_inst, y_inst = self.get_variable_insts(variable_tuples)
+        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
+        ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
+        ax.set_xlim(x_inst.x_min, x_inst.x_max)
+        ax.set_ylim(y_inst.x_min, y_inst.x_max)
+        legend = ax.get_legend()
+        legend.set_title(plt_title, prop={"size": 35})
+        legend.set_loc("lower center")
+        legend.set_bbox_to_anchor((0.5, 1.0))
+        legend.set_ncols(max(len(legend.get_texts()), 4))
+        for text in legend.get_texts():
+            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "True" else "fail")
+            text.set_fontsize(text.get_fontsize() + 4)
+        # TODO add mean and std of the variables to the axes
+        return fig, ax
+
+
+class PlotFancyPlots(PlotBaseHBT):
+    """
+    Task to plot scatter plots of the selection results.
+    """
+
+    plot_function = PlotBase.plot_function.copy(
+        default="seaborn.jointplot",
+        add_default_to_description=True,
+        description="the full path given using the dot notation of the desired plot function.",
+    )
+
+    kind = luigi.ChoiceParameter(
+        default="scatter",
+        choices=["scatter", "kde", "hist", "hex", "reg", "resid"],
+        description="The kind of plot to be created.",
+        var_type=str,
+    )
+
+    def update_plot_kwargs(self: PlotScatterPlots, kwargs: dict) -> dict:
+        kwargs = super().update_plot_kwargs(kwargs)
+        subplot_func = f"seaborn.{self.kind}plot" if True
+        allowed_kwargs = [
+            *self.get_plot_func(self.plot_function).__code__.co_varnames,
+            *self.get_plot_func(self.kind + "plot")
+        kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in self.get_plot_func(self.plot_function).__code__.co_varnames
+        }
+        return kwargs
+
+    def call_plot_func(self, func_name: str, **kwargs) -> Any:
+        plt.style.use(mplhep.style.CMS)
+        plt.rcParams.update({"legend.facecolor": "white"})
+        if "x" not in self.get_plot_func(self.plot_function).__code__.co_varnames:
+            kwargs["vars"] = [kwargs.pop("x"), kwargs.pop("y")]
+        fig_obj = super().call_plot_func(func_name, **kwargs)
+        return fig_obj
+
+    def get_plot_parameters(self: PlotFancyPlots, variable_tuple) -> dict:
+        x_inst, y_inst = self.get_variable_insts(variable_tuple)
+        params = super().get_plot_parameters()
+        params["hue"] = "selection_mask"
+        params["height"] = 15
+        params["x_lim"] = (x_inst.x_min, x_inst.x_max)
+        params["y_lim"] = (y_inst.x_min, y_inst.x_max)
+        params["binwidth"] = tuple(var.bin_width for var in (x_inst, y_inst))
+        params["log_scale"] = tuple(var.log_x for var in (x_inst, y_inst))
+        params.update(self.general_settings)
+        return params
+
+    def make_pretty(
+        self: PlotFancyPlots,
         fig: plt.Figure,
         ax: plt.Axes,
         variable_tuples: tuple,
