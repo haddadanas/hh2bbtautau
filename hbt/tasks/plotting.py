@@ -52,18 +52,18 @@ class PlotBaseHBT(
         ProduceColumns=ProduceColumns,
     )
 
-    def store_parts(self: PlotScatterPlots):
+    def store_parts(self):
         parts = super().store_parts()
         parts.insert_before("version", "plot", f"datasets_{self.datasets_repr}")
         return parts
 
-    def create_branch_map(self: PlotScatterPlots):
+    def create_branch_map(self):
         return [
             DotDict({"category": cat_name})
             for cat_name in sorted(self.categories)
         ]
 
-    def requires(self: PlotScatterPlots):
+    def requires(self):
         return {
             d: self.reqs.ProduceColumns.req(
                 self,
@@ -76,7 +76,7 @@ class PlotBaseHBT(
             for d in self.datasets
         }
 
-    def workflow_requires(self: PlotScatterPlots, only_super: bool = False):
+    def workflow_requires(self, only_super: bool = False):
         reqs = super().workflow_requires()
         if only_super:
             return reqs
@@ -85,7 +85,7 @@ class PlotBaseHBT(
 
         return reqs
 
-    def output(self: PlotScatterPlots) -> dict[str, list]:
+    def output(self) -> dict[str, list]:
         return {
             d: {
                 cat: {
@@ -100,7 +100,7 @@ class PlotBaseHBT(
             for d in self.datasets
         }
 
-    def get_input_as_df(self: PlotScatterPlots, inp: DotDict) -> pd.DataFrame:
+    def get_input_as_df(self, inp: DotDict) -> pd.DataFrame:
         # get needed columns
         variables = {val for vals in self.variable_tuples.values() for val in vals}
 
@@ -118,7 +118,7 @@ class PlotBaseHBT(
 
         return events
 
-    def get_variable_insts(self: PlotScatterPlots, variable_tuple: tuple) -> tuple[od.Variable, od.Variable]:
+    def get_variable_insts(self, variable_tuple: tuple) -> tuple[od.Variable, od.Variable]:
         return tuple(
             self.config_inst.get_variable(var_name)
             for var_name in variable_tuple
@@ -127,7 +127,7 @@ class PlotBaseHBT(
     def get_data_args(self, df: pd.DataFrame, x: str, y: str) -> dict:
         return {"data": df, "x": x, "y": y}
 
-    def update_plot_kwargs(self: PlotScatterPlots, kwargs: dict) -> dict:
+    def update_plot_kwargs(self, kwargs: dict) -> dict:
         kwargs = super().update_plot_kwargs(kwargs)
         kwargs = {
             k: v
@@ -136,9 +136,34 @@ class PlotBaseHBT(
         }
         return kwargs
 
+    def make_pretty(
+        self,
+        fig: plt.Figure,
+        ax: plt.Axes,
+        variable_tuple: tuple,
+        plt_title: str = "",
+        effeciency: str = "",
+    ) -> tuple[plt.Figure, plt.Axes]:
+        x_inst, y_inst = self.get_variable_insts(variable_tuple)
+        fig.suptitle(plt_title, size=35, va="top", ha="left")
+        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
+        ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
+        legend = ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.05),
+            fancybox=True,
+            shadow=True,
+            ncol=5,
+        )
+        for text in legend.get_texts():
+            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "True" else "fail")
+            text.set_fontsize(text.get_fontsize() + 4)
+        # TODO add mean and std of the variables to the axes
+        return fig, ax
+
     @law.decorator.log
     @view_output_plots
-    def run(self: PlotScatterPlots):
+    def run(self):
 
         for dataset, inp in self.input().items():
             print(f"plotting dataset: {dataset}")
@@ -180,14 +205,14 @@ class PlotScatterPlots(PlotBaseHBT):
         description="the full path given using the dot notation of the desired plot function.",
     )
 
-    def call_plot_func(self, func_name: str, **kwargs) -> Any:
+    def call_plot_func(self: PlotScatterPlots, func_name: str, **kwargs) -> tuple[plt.Figure, plt.Axes]:
         plt.style.use(mplhep.style.CMS)
         plt.rcParams.update({"legend.facecolor": "white"})
         fig, ax = plt.subplots(figsize=(15, 15))
         super().call_plot_func(func_name, ax=ax, **kwargs)
         return fig, ax
 
-    def get_plot_parameters(self: PlotScatterPlots, variable_tuple) -> dict:
+    def get_plot_parameters(self: PlotScatterPlots, variable_tuple: tuple) -> dict:
         x_inst, y_inst = self.get_variable_insts(variable_tuple)
         params = super().get_plot_parameters()
         params["hue"] = "selection_mask"
@@ -201,24 +226,14 @@ class PlotScatterPlots(PlotBaseHBT):
         self: PlotScatterPlots,
         fig: plt.Figure,
         ax: plt.Axes,
-        variable_tuples: tuple,
+        variable_tuple: tuple,
         plt_title: str = "",
         effeciency: str = "",
     ) -> tuple[plt.Figure, plt.Axes]:
-        x_inst, y_inst = self.get_variable_insts(variable_tuples)
-        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
-        ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
+        x_inst, y_inst = self.get_variable_insts(variable_tuple)
+        fig, ax = super().make_pretty(fig, ax, variable_tuple, plt_title, effeciency)
         ax.set_xlim(x_inst.x_min, x_inst.x_max)
         ax.set_ylim(y_inst.x_min, y_inst.x_max)
-        legend = ax.get_legend()
-        legend.set_title(plt_title, prop={"size": 35})
-        legend.set_loc("lower center")
-        legend.set_bbox_to_anchor((0.5, 1.0))
-        legend.set_ncols(max(len(legend.get_texts()), 4))
-        for text in legend.get_texts():
-            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "True" else "fail")
-            text.set_fontsize(text.get_fontsize() + 4)
-        # TODO add mean and std of the variables to the axes
         return fig, ax
 
 
@@ -240,34 +255,42 @@ class PlotFancyPlots(PlotBaseHBT):
         var_type=str,
     )
 
-    def update_plot_kwargs(self: PlotScatterPlots, kwargs: dict) -> dict:
-        kwargs = super().update_plot_kwargs(kwargs)
-        subplot_func = f"seaborn.{self.kind}plot" if True
-        allowed_kwargs = [
-            *self.get_plot_func(self.plot_function).__code__.co_varnames,
-            *self.get_plot_func(self.kind + "plot")
-        kwargs = {
+    def update_plot_kwargs(self: PlotFancyPlots, kwargs: dict) -> dict:
+        allowed_args = self.get_plot_func(self.plot_function).__code__.co_varnames
+        subplot_func = "matplotlib.pyplot.hexbin" if self.kind == "hex" else f"seaborn.{self.kind}plot"
+        if "x" not in allowed_args:
+            kwargs["vars"] = [kwargs.pop("x"), kwargs.pop("y")]
+        kwargs_cp = {
             k: v
             for k, v in kwargs.items()
-            if k in self.get_plot_func(self.plot_function).__code__.co_varnames
+            if k not in allowed_args
         }
+        kwargs["joint_kws"] = {
+            k: v
+            for k, v in kwargs_cp.items()
+            if k in self.get_plot_func(subplot_func).__code__.co_varnames
+        }
+        kwargs["diag_kws"] = {
+            k: v
+            for k, v in kwargs_cp.items()
+            if k in self.get_plot_func("seaborn.histplot").__code__.co_varnames
+        }
+        kwargs = super().update_plot_kwargs(kwargs)
         return kwargs
 
-    def call_plot_func(self, func_name: str, **kwargs) -> Any:
+    def call_plot_func(self: PlotFancyPlots, func_name: str, **kwargs) -> Any:
         plt.style.use(mplhep.style.CMS)
         plt.rcParams.update({"legend.facecolor": "white"})
-        if "x" not in self.get_plot_func(self.plot_function).__code__.co_varnames:
-            kwargs["vars"] = [kwargs.pop("x"), kwargs.pop("y")]
         fig_obj = super().call_plot_func(func_name, **kwargs)
-        return fig_obj
+        return fig_obj, None
 
     def get_plot_parameters(self: PlotFancyPlots, variable_tuple) -> dict:
         x_inst, y_inst = self.get_variable_insts(variable_tuple)
         params = super().get_plot_parameters()
         params["hue"] = "selection_mask"
         params["height"] = 15
-        params["x_lim"] = (x_inst.x_min, x_inst.x_max)
-        params["y_lim"] = (y_inst.x_min, y_inst.x_max)
+        params["xlim"] = (x_inst.x_min, x_inst.x_max)
+        params["ylim"] = (y_inst.x_min, y_inst.x_max)
         params["binwidth"] = tuple(var.bin_width for var in (x_inst, y_inst))
         params["log_scale"] = tuple(var.log_x for var in (x_inst, y_inst))
         params.update(self.general_settings)
@@ -277,22 +300,11 @@ class PlotFancyPlots(PlotBaseHBT):
         self: PlotFancyPlots,
         fig: plt.Figure,
         ax: plt.Axes,
-        variable_tuples: tuple,
+        variable_tuple: tuple,
         plt_title: str = "",
         effeciency: str = "",
     ) -> tuple[plt.Figure, plt.Axes]:
-        x_inst, y_inst = self.get_variable_insts(variable_tuples)
-        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
-        ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
-        ax.set_xlim(x_inst.x_min, x_inst.x_max)
-        ax.set_ylim(y_inst.x_min, y_inst.x_max)
-        legend = ax.get_legend()
-        legend.set_title(plt_title, prop={"size": 35})
-        legend.set_loc("lower center")
-        legend.set_bbox_to_anchor((0.5, 1.0))
-        legend.set_ncols(max(len(legend.get_texts()), 4))
-        for text in legend.get_texts():
-            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "True" else "fail")
-            text.set_fontsize(text.get_fontsize() + 4)
-        # TODO add mean and std of the variables to the axes
+        ax = fig.ax_joint
+        fig = fig.figure
+        fig, ax = super().make_pretty(fig, ax, variable_tuple, plt_title, effeciency)
         return fig, ax
