@@ -145,7 +145,7 @@ class PlotBaseHBT(
         effeciency: str = "",
     ) -> tuple[plt.Figure, plt.Axes]:
         x_inst, y_inst = self.get_variable_insts(variable_tuple)
-        fig.suptitle(plt_title, size=35, va="top", ha="left")
+        fig.suptitle(plt_title, size=35, va="top", ha="center")
         ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
         ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
         legend = ax.legend(
@@ -173,7 +173,7 @@ class PlotBaseHBT(
                 print(f"├── plotting in {category}")
 
                 for variable in self.variables:
-                    print(f"│   ├── Plotting variable: {variable}")
+                    print(f"│   ├── Plotting variable: {variable}", end="  ", flush=True)
                     variable_tuple = self.variable_tuples[variable]
                     sel_events = events.loc[events[category], ["selection_mask", *variable_tuple]]
 
@@ -190,8 +190,9 @@ class PlotBaseHBT(
                     # save the outputs
                     for outp in self.output()[dataset][category][variable]:
                         outp.dump(fig, formatter="mpl", dpi=150, bbox_inches="tight")
+                    print("✅")
 
-        print("└── Plotting complete ✅")
+        print("└── Plotting completed.")
 
 
 class PlotScatterPlots(PlotBaseHBT):
@@ -255,9 +256,17 @@ class PlotFancyPlots(PlotBaseHBT):
         var_type=str,
     )
 
+    def output(self) -> dict[str, list]:
+        if self.kind not in self.plot_suffix.rsplit("__", 1):
+            self.plot_suffix = self.kind if self.plot_suffix == "NO_STR" else f"{self.plot_suffix}__{self.kind}"
+        return super().output()
+
     def update_plot_kwargs(self: PlotFancyPlots, kwargs: dict) -> dict:
         allowed_args = self.get_plot_func(self.plot_function).__code__.co_varnames
         subplot_func = "matplotlib.pyplot.hexbin" if self.kind == "hex" else f"seaborn.{self.kind}plot"
+        kwargs["kind"] = self.kind
+        if self.kind in ["hex", "reg", "resid"]:
+            kwargs.pop("hue")
         if "x" not in allowed_args:
             kwargs["vars"] = [kwargs.pop("x"), kwargs.pop("y")]
         kwargs_cp = {
