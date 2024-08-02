@@ -106,7 +106,7 @@ class PlotBaseHBT(
 
         # read the data
         selected_columns = ["process_id", "category_ids", "selection_mask", *variables]
-        events = pd.read_parquet(inp["collection"][0]["columns"].cache_path, columns=selected_columns)
+        events = pd.read_parquet(inp["collection"][0]["columns"].copy_to_local(), columns=selected_columns)
 
         # create a column for each category
         category_insts = [self.config_inst.get_category(cat) for cat in self.categories]
