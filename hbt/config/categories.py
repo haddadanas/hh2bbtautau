@@ -18,6 +18,11 @@ def add_categories(config: od.Config) -> None:
     add_category(config, name="mutau", id=2, selection="cat_mutau", label=r"$\mu\tau_{h}$")
     add_category(config, name="tautau", id=3, selection="cat_tautau", label=r"$\tau_{h}\tau_{h}$")
 
+    # lepton channels
+    add_category(config, name="etau_incl", id=140, selection="cat_etau", label=r"$e\tau_{h}$")
+    add_category(config, name="mutau_incl", id=150, selection="cat_mutau", label=r"$\mu\tau_{h}$")
+    add_category(config, name="tautau_incl", id=160, selection="cat_tautau", label=r"$\tau_{h}\tau_{h}$")
+
     # qcd regions
     add_category(config, name="os", id=10, selection="cat_os", label="Opposite sign", tags={"os"})
     add_category(config, name="ss", id=11, selection="cat_ss", label="Same sign", tags={"ss"})

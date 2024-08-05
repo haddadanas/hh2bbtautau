@@ -74,12 +74,13 @@ def add_lazy_config(
                 campaign.copy(),
                 config_name=config_name + config_name_postfix,
                 config_id=config_id,
+                limit_dataset_files=limit_dataset_files,
                 **kwargs,
             )
         return factory
 
     analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))
-    analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 1))
+    analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 2))
 
 
 #

@@ -260,7 +260,7 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt_bb",
         expression="pt_bb",
-        binning=(50, 0, 200),
+        binning=(40, 0, 400),
         unit="GeV",
         x_title=r"$p_{t, H\rightarrow bb}$",
     )
@@ -268,7 +268,7 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt_tautau",
         expression="pt_tautau",
-        binning=(50, 0, 200),
+        binning=(40, 0, 400),
         unit="GeV",
         x_title=r"$p_{t, H\rightarrow \tau\tau}$",
     )
@@ -276,13 +276,13 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="dR_bb",
         expression="dR_bb",
-        binning=(50, 0, 5),
+        binning=(20, 0, 5),
         x_title=r"$\Delta R_{bb}$",
     )
 
     config.add_variable(
         name="dR_tautau",
         expression="dR_tautau",
-        binning=(50, 0, 5),
+        binning=(20, 0, 5),
         x_title=r"$\Delta R_{\tau\tau}$",
     )
