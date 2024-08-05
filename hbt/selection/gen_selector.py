@@ -110,6 +110,7 @@ def gen_default(
     results.event = event_sel
 
     particle_results = lepton_results + jet_results
+    particle_results.objects.update({"particle_steps": particle_results.steps})
 
     # add a dummy selection step for the whole event needed for cutflow_features
     results += SelectionResult(
