@@ -174,6 +174,9 @@ class PlotBaseHBT(
 
                 for variable in self.variables:
                     print(f"│   ├── Plotting variable: {variable}", end="  ", flush=True)
+                    if all([f.complete() for f in self.output()[dataset][category][variable]]):
+                        print("✅")
+                        continue
                     variable_tuple = self.variable_tuples[variable]
                     sel_events = events.loc[events[category], ["selection_mask", *variable_tuple]]
 
