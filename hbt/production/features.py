@@ -22,7 +22,7 @@ set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 
 opt_category_ids = category_ids.derive("opt_category_ids", cls_dict={
-    "skip_category_func": (
+    "skip_category": (
         lambda self, task, cat_inst: True if task.selector != "gen_default" and cat_inst.id in [120, 130] else False
     ),
 })
