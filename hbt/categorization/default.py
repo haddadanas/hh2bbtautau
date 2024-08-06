@@ -30,6 +30,15 @@ def cat_tautau(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array,
     return events, events.channel_id == self.config_inst.channels.n.tautau.id
 
 
+@categorizer(uses={"channel_id"})
+def cat_rest(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, (
+        (events.channel_id != self.config_inst.channels.n.tautau.id) &
+        (events.channel_id != self.config_inst.channels.n.mutau.id) &
+        (events.channel_id != self.config_inst.channels.n.etau.id)
+    )
+
+
 #
 # QCD regions
 #

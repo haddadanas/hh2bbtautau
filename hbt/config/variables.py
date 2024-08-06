@@ -138,6 +138,12 @@ def add_variables(config: od.Config) -> None:
         binning=(60, 0, 3),
         x_title="$N_{jet}$ normalized b-tag weight",
     )
+    config.add_variable(
+        name="normalization_weight",
+        expression="normalization_weight",
+        binning=(60, 0, 0.0001),
+        x_title="Normalization weight",
+    )
 
     # cutflow variables
     config.add_variable(
@@ -260,7 +266,7 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt_bb",
         expression="pt_bb",
-        binning=(40, 0, 400),
+        binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p_{t, H\rightarrow bb}$",
     )
@@ -268,7 +274,7 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt_tautau",
         expression="pt_tautau",
-        binning=(40, 0, 400),
+        binning=(40, 0, 200),
         unit="GeV",
         x_title=r"$p_{t, H\rightarrow \tau\tau}$",
     )
