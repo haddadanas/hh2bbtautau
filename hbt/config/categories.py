@@ -35,22 +35,9 @@ def add_categories(config: od.Config) -> None:
     add_category(config, name="all_incl", id=101, selection="cat_incl", label="inclusive (all)")
     add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
 
+    add_category(config, name="pass", id=120, selection="pass_selection", label="pass selection")
+    add_category(config, name="fail", id=130, selection="fail_selection", label="fail selection")
 
-    add_category(
-        config,
-        name="pass",
-        id=120,
-        selection="pass_selection",
-        label="pass selection",
-    )
-
-    add_category(
-        config,
-        name="fail",
-        id=130,
-        selection="fail_selection",
-        label="fail selection",
-    )
     #
     # build groups
     #
