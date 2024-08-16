@@ -21,7 +21,6 @@ from hbt.production.pt_calculation import hbb_mjj
 from hbt.production.reco_higgs_decay import reco_higgs
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
-
 ak = maybe_import("awkward")
 
 
