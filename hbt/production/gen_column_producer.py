@@ -51,3 +51,28 @@ def hbb_mjj(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "dR_tautau", dR_tautau)
 
     return events
+
+
+# Invariant Mass Producers
+@producer(
+    uses={
+        "gen_h_to_*", attach_coffea_behavior,
+    },
+    produces={
+        f"gen_hh.{var}"
+        for var in ["pt", "eta", "phi", "mass"]
+    },
+)
+def get_h_gen_columns(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    collections = {x: {"type_name": "GenParticle"} for x in ["gen_h_to_b", "gen_h_to_tau"]}
+    events = self[attach_coffea_behavior](events, collections=collections, **kwargs)
+
+    h_bb = events.gen_h_to_b[:, 0]
+    h_tautau = events.gen_h_to_tau[:, 0]
+
+    hh = h_bb + h_tautau
+
+    # add columns
+    for var in ["pt", "eta", "phi", "mass"]:
+        events = set_ak_column_f32(events, f"gen_hh.{var}", getattr(hh, var))
+    return events

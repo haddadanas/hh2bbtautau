@@ -17,7 +17,7 @@ from hbt.production.weights import (
 )
 from hbt.production.btag import normalized_btag_weights
 from hbt.production.tau import tau_weights, trigger_weights
-from hbt.production.pt_calculation import hbb_mjj
+from hbt.production.gen_column_producer import hbb_mjj, get_h_gen_columns
 from hbt.production.reco_higgs_decay import reco_higgs
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
@@ -79,10 +79,10 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        default, hbb_mjj, reco_higgs,
+        default, hbb_mjj, reco_higgs, get_h_gen_columns,
     },
     produces={
-        default, hbb_mjj, "selection_mask", "process_id", reco_higgs,
+        default, hbb_mjj, "selection_mask", "process_id", reco_higgs, get_h_gen_columns,
     },
 )
 def gen_default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -90,7 +90,9 @@ def gen_default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[default](events, **kwargs)
 
     # hbb mjj
-    events = self[hbb_mjj](events, **kwargs)
+    if "hh_" in self.dataset_inst.name or "h_" in self.dataset_inst.name:
+        events = self[hbb_mjj](events, **kwargs)
+        events = self[get_h_gen_columns](events, **kwargs)
 
     # reco higgs decay
     events = self[reco_higgs](events, **kwargs)

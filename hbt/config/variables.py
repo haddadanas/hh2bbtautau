@@ -300,3 +300,62 @@ def add_variables(config: od.Config) -> None:
         binning=(20, 0, 5),
         x_title=r"$\Delta R_{\tau\tau}$",
     )
+
+    for (var, nbins, bin_range, unit) in zip(
+        ["pt", "eta", "phi", "mass"],
+        [50, 20, 20, 50],
+        [(0, 300), (-3, 3), (-3.2, 3.2), (100, 600)],
+        ["GeV", "", "", "GeV"],
+    ):
+        config.add_variable(
+            name=f"gen_hh_{var}",
+            expression=f"gen_hh.{var}",
+            null_value=-10,
+            binning=(nbins, *bin_range),
+            unit=unit,
+            x_title=f"gen HH {var}",
+        )
+
+        config.add_variable(
+            name=f"reco_hh_{var}",
+            expression=f"reco_hh.{var}",
+            null_value=-10,
+            binning=(nbins, *bin_range),
+            unit=unit,
+            x_title=f"reco HH {var}",
+        )
+
+    for (var, nbins, bin_range, unit) in zip(
+        ["pt", "eta", "phi", "mass"],
+        [50, 20, 20, 50],
+        [(0, 300), (-3, 3), (-3.2, 3.2), (0, 300)],
+        ["GeV", "", "", "GeV"],
+    ):
+        # "h_tau", "h_e", "h_mu", "h_jet"
+        for higgs in ["tau", "e", "mu", "jet"]:
+            config.add_variable(
+                name=f"reco_h_{higgs}_{var}",
+                expression=f"reco_h_{higgs}.{var}",
+                null_value=-10,
+                binning=(nbins, *bin_range),
+                unit=unit,
+                x_title=rf"reco $H\rightarrow$ {higgs} {var}",
+            )
+
+        config.add_variable(
+            name=f"gen_h_to_b_{var}",
+            expression=f"gen_h_to_b.{var}",
+            null_value=-10,
+            binning=(nbins, *bin_range),
+            unit=unit,
+            x_title=rf"gen $H\rightarrow b$ {var}",
+        )
+
+        config.add_variable(
+            name=f"gen_h_to_tau_{var}",
+            expression=f"gen_h_to_tau.{var}",
+            null_value=-10,
+            binning=(nbins, *bin_range),
+            unit=unit,
+            x_title=rf"gen $H\rightarrow \tau$ {var}",
+        )
