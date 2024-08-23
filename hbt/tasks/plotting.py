@@ -22,11 +22,13 @@ from columnflow.tasks.framework.remote import RemoteWorkflow
 from columnflow.tasks.framework.decorators import view_output_plots
 from columnflow.tasks.production import ProduceColumns
 from columnflow.util import dev_sandbox, DotDict, maybe_import
+from columnflow.columnar_util import Route
 from columnflow.types import Any
 
 from hbt.tasks.base import HBTTask
 
 pd = maybe_import("pandas")
+ak = maybe_import("awkward")
 plt = maybe_import("matplotlib.pyplot")
 mplhep = maybe_import("mplhep")
 
@@ -118,10 +120,12 @@ class PlotBaseHBT(
 
         return events
 
-    def get_variable_insts(self, variable_tuple: tuple) -> tuple[od.Variable, od.Variable]:
+    def get_variable_insts(self, var_names: tuple | str) -> tuple[od.Variable, od.Variable]:
+        if isinstance(var_names, str):
+            return self.config_inst.get_variable(var_names)
         return tuple(
             self.config_inst.get_variable(var_name)
-            for var_name in variable_tuple
+            for var_name in var_names
         )
 
     def get_data_args(self, df: pd.DataFrame, x: str, y: str) -> dict:
@@ -320,3 +324,133 @@ class PlotFancyPlots(PlotBaseHBT):
         fig = fig.figure
         fig, ax = super().make_pretty(fig, ax, variable_tuple, plt_title, effeciency)
         return fig, ax
+
+
+class PlotSelectionHist(PlotBaseHBT):
+
+    plot_function = "matplotlib.pyplot.hist"
+
+    stacked = luigi.BoolParameter(
+        default=False,
+        description="If True, the histograms will be stacked.",
+    )
+
+    def get_input_as_df(self, inp: DotDict) -> pd.DataFrame:
+        # get needed columns
+        variables = {val for vals in self.variable_tuples.values() for val in vals}
+        columns = {v.expression for v in self.get_variable_insts(variables)}
+        columns |= {"category_ids", "selection_mask"}
+
+        # read the data
+        events = inp["collection"][0]["columns"].load(columns=columns)
+
+        # create a column for each category
+        category_insts = [self.config_inst.get_category(cat) for cat in self.categories]
+        events_dict = {}
+        for cat in category_insts:
+            mask = ak.any(events["category_ids"] == cat.id, axis=-1)
+            events_dict[cat.name] = ak.without_field(events[mask], "category_ids")
+
+        return events_dict
+
+    def call_plot_func(self, func_name: str, data, **kwargs) -> Any:
+        plt.style.use(mplhep.style.CMS)
+        fig, ax = plt.subplots(figsize=(15, 15))
+        kwargs = self.update_plot_kwargs(kwargs)
+        for lab, d in data.items():
+            ax.hist(d, label=lab, **kwargs)
+        return fig, ax
+
+    def get_data_args(self, array, route) -> dict:
+        mask = array["selection_mask"]
+        data = route.apply(array)
+        return {"fail": data[~mask], "pass": data[mask]}
+
+    def get_plot_parameters(self: PlotScatterPlots, variable: tuple) -> dict:
+        var = self.get_variable_insts(variable)
+        params = super().get_plot_parameters()
+        params["bins"] = var.bin_edges
+        params["log"] = var.log_x
+        params["stacked"] = self.stacked
+        params["histtype"] = "step"
+        params.update(self.general_settings)
+        return params
+
+    def make_pretty(
+        self,
+        fig: plt.Figure,
+        ax: plt.Axes,
+        variable_tuple: tuple,
+        plt_title: str = "",
+        effeciency: str = "",
+    ) -> tuple[plt.Figure, plt.Axes]:
+        x_inst = self.get_variable_insts(variable_tuple)
+        fig.suptitle(plt_title, size=35, va="top", ha="center")
+        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
+        ax.set_ylabel("Counts (Unweighted)", fontsize=ax.yaxis.label.get_size() + 4)
+        legend = ax.legend(
+            loc="upper right",
+            fancybox=True,
+            shadow=True,
+            ncol=5,
+        )
+        for text in legend.get_texts():
+            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "pass" else "fail")
+            text.set_fontsize(text.get_fontsize() + 4)
+        # TODO add mean and std of the variables to the axes
+        return fig, ax
+
+    @law.decorator.log
+    @view_output_plots
+    def run(self):
+
+        for dataset, inp in self.input().items():
+            print(f"plotting dataset: {dataset}")
+            events = self.get_input_as_df(inp)
+
+            for category in self.categories:
+                print(f"├── plotting in {category}")
+
+                for variable in self.variables:
+                    print(f"│   ├── Plotting variable: {variable}", end="  ", flush=True)
+                    if all([f.complete() for f in self.output()[dataset][category][variable]]):
+                        print("✅")
+                        continue
+                    route = Route(self.get_variable_insts(variable).expression)
+                    sel_events = events[category]
+
+                    # call the plot function
+                    fig, ax = self.call_plot_func(
+                        self.plot_function,
+                        self.get_data_args(sel_events, route),
+                        **self.get_plot_parameters(variable),
+                    )
+                    # make the plot prettier
+                    plt_title = f"{dataset} ({category})"
+                    fig, ax = self.make_pretty(fig, ax, variable, plt_title, ak.mean(sel_events["selection_mask"]))
+
+                    # save the outputs
+                    for outp in self.output()[dataset][category][variable]:
+                        outp.dump(fig, formatter="mpl", dpi=150, bbox_inches="tight")
+                    print("✅")
+
+        print("└── Plotting completed.")
+
+
+class PlotEfficiencyHist(PlotSelectionHist):
+
+    def call_plot_func(self, func_name: str, data, **kwargs) -> Any:
+        plt.style.use(mplhep.style.CMS)
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(15, 15), gridspec_kw={"height_ratios": [3, 1]})
+        kwargs = self.update_plot_kwargs(kwargs)
+        weights = {
+            lab: ak.full_like(d, 1 + ak.sum(d == -10) / ak.sum(d > 0))
+            for lab, d in data.items()
+        }
+        hists = {lab: ax0.hist(d, weights=weights[lab], label=lab, **kwargs)[0] for lab, d in data.items()}
+        eff = hists["pass"] / (hists["pass"] + hists["fail"])
+        bin_edges = kwargs["bins"]
+        bin_centers = [(bin_edges[i] + bin_edges[i + 1])/2. for i in range(len(bin_edges) - 1)]
+        ax1.step(bin_centers, eff, where="mid", color="black")
+        ax1.set_ylabel("Efficiency")
+        return fig, ax0

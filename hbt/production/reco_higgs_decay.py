@@ -48,6 +48,19 @@ def get_nu(array: ak.Array, mask: ak.Array) -> ak.Array:
     )
 
 
+def get_di_higgs(h_tautau: ak.Array, h_bb: ak.Array, mask: ak.Array) -> ak.Array:
+    """
+    Get the cosine of the angle between the visible decay products of the Higgs boson in the Higgs boson rest frame.
+    """
+    hh = ak.mask(h_tautau + h_bb, mask)
+    theta = h_tautau.theta - h_bb.theta
+    theta = ak.where(theta > np.pi / 2, theta - np.pi / 2, theta)
+    cos_theta = np.cos(theta)
+    hh = set_ak_column(hh, "cos_theta", cos_theta)
+
+    return hh
+
+
 @producer(
     uses={
         f"{part}.{var}"
@@ -61,7 +74,11 @@ def get_nu(array: ak.Array, mask: ak.Array) -> ak.Array:
     produces={
         f"reco_{higgs}.{var}"
         for var in ["pt", "eta", "phi", "mass"]
-        for higgs in ["hh", "hh_tau", "hh_e", "hh_mu", "h_tau", "h_e", "h_mu", "h_jet"]
+        for higgs in ["h_tau", "h_e", "h_mu", "h_jet"]
+    } | {
+        f"reco_{higgs}.{var}"
+        for var in ["pt", "eta", "phi", "mass", "cos_theta"]
+        for higgs in ["hh", "hh_tau", "hh_e", "hh_mu"]
     },
 )
 def reco_higgs(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -104,19 +121,27 @@ def reco_higgs(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     jet_mask = ak.num(jet) == 2
     h_jet = ak.mask(jet.sum(axis=-1), jet_mask)
 
-    hh_tau = ak.mask(h_tau + h_jet, tautau_mask & jet_mask)
-    hh_e = ak.mask(h_e + h_jet, etau_mask & jet_mask)
-    hh_mu = ak.mask(h_mu + h_jet, mutau_mask & jet_mask)
+    hh_tau = get_di_higgs(h_tau, h_jet, tautau_mask & jet_mask)
+    hh_e = get_di_higgs(h_e, h_jet, etau_mask & jet_mask)
+    hh_mu = get_di_higgs(h_mu, h_jet, mutau_mask & jet_mask)
 
     for higgs, h in zip(
-        ["hh_tau", "hh_e", "hh_mu", "h_tau", "h_e", "h_mu", "h_jet"],
-        [hh_tau, hh_e, hh_mu, h_tau, h_e, h_mu, h_jet],
+        ["h_tau", "h_e", "h_mu", "h_jet"],
+        [h_tau, h_e, h_mu, h_jet],
     ):
         for var in ["pt", "eta", "phi", "mass"]:
             array = ak.fill_none(getattr(h, var), -10)
             events = set_ak_column(events, f"reco_{higgs}.{var}", array)
 
-    for var in ["pt", "eta", "phi", "mass"]:
+    for higgs, h in zip(
+        ["hh_tau", "hh_e", "hh_mu"],
+        [hh_tau, hh_e, hh_mu],
+    ):
+        for var in ["pt", "eta", "phi", "mass", "cos_theta"]:
+            array = ak.fill_none(getattr(h, var), -10)
+            events = set_ak_column(events, f"reco_{higgs}.{var}", array)
+
+    for var in ["pt", "eta", "phi", "mass", "cos_theta"]:
         array = ak.full_like(tautau_mask, -10.0, dtype=np.float64)
         for hh, mask in zip([hh_tau, hh_e, hh_mu], [tautau_mask, etau_mask, mutau_mask]):
             array = ak.where(mask & jet_mask, getattr(hh, var), array)

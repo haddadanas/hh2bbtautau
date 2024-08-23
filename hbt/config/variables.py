@@ -304,7 +304,7 @@ def add_variables(config: od.Config) -> None:
     for (var, nbins, bin_range, unit) in zip(
         ["pt", "eta", "phi", "mass"],
         [50, 20, 20, 50],
-        [(0, 300), (-3, 3), (-3.2, 3.2), (100, 600)],
+        [(0, 300), (-3, 3), (-3.2, 3.2), (100, 800)],
         ["GeV", "", "", "GeV"],
     ):
         config.add_variable(

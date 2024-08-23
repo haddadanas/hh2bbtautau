@@ -60,7 +60,7 @@ def hbb_mjj(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     },
     produces={
         f"gen_hh.{var}"
-        for var in ["pt", "eta", "phi", "mass"]
+        for var in ["pt", "eta", "phi", "mass", "cos_theta"]
     },
 )
 def get_h_gen_columns(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -71,8 +71,13 @@ def get_h_gen_columns(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     h_tautau = events.gen_h_to_tau[:, 0]
 
     hh = h_bb + h_tautau
+    theta = abs(h_bb.theta - h_tautau.theta)
+    theta = ak.where(theta > np.pi / 2, theta - np.pi / 2, theta)
+    cos_theta = np.cos(theta)
 
     # add columns
     for var in ["pt", "eta", "phi", "mass"]:
         events = set_ak_column_f32(events, f"gen_hh.{var}", getattr(hh, var))
+    events = set_ak_column_f32(events, "gen_hh.cos_theta", cos_theta)
+
     return events

@@ -57,3 +57,14 @@ def IF_DATASET_IS_DY(
         return self.get()
 
     return self.get() if func.dataset_inst.has_tag("is_dy") else None
+
+
+@deferred_column
+def IF_SIGNAL_DATA(
+    self: ArrayFunction.DeferredColumn,
+    func: ArrayFunction,
+) -> Any | set[Any]:
+    if getattr(func, "dataset_inst", None) is None:
+        return self.get()
+
+    return self.get() if "hh_" in func.dataset_inst.name else None
