@@ -12,8 +12,8 @@ import order as od
 from columnflow.tasks.framework.base import Requirements
 from columnflow.tasks.framework.mixins import (
     # CalibratorsMixin,
-    # SelectorStepsMixin,
-    # ProducersMixin,
+    SelectorStepsMixin,
+    ProducersMixin,
     CategoriesMixin,
     WeightProducerMixin,
 )
@@ -39,8 +39,8 @@ class PlotBaseHBT(
     ProcessPlotSettingMixin,
     CategoriesMixin,
     WeightProducerMixin,
-    # ProducersMixin,
-    # SelectorStepsMixin,
+    ProducersMixin,
+    SelectorStepsMixin,
     # CalibratorsMixin,
     law.LocalWorkflow,
     RemoteWorkflow,
@@ -72,7 +72,6 @@ class PlotBaseHBT(
                 dataset=d,
                 branch=-1,
                 producer="gen_default",
-                selector="gen_default",
                 _exclude={"branches"},
             )
             for d in self.datasets
@@ -243,6 +242,100 @@ class PlotScatterPlots(PlotBaseHBT):
         ax.set_xlim(x_inst.x_min, x_inst.x_max)
         ax.set_ylim(y_inst.x_min, y_inst.x_max)
         return fig, ax
+
+
+class PlotKDEPlots(PlotScatterPlots):
+    plot_function = PlotBase.plot_function.copy(
+        default="seaborn.kdeplot",
+        add_default_to_description=True,
+        description="the full path given using the dot notation of the desired plot function.",
+    )
+
+    def get_input_as_df(self) -> pd.DataFrame:
+        # get needed columns
+        variables = {val for vals in self.variable_tuples.values() for val in vals}
+        route = {Route(self.get_variable_insts(variable).expression) for variable in variables}
+        columns = {v.expression for v in self.get_variable_insts(variables)}
+        columns |= {"category_ids"}
+        category_insts = [self.config_inst.get_category(cat) for cat in self.categories]
+
+        # create a column for each category
+        events_dict = {}
+        # read the data
+        for cat in category_insts:
+            events_dict[cat.name] = pd.DataFrame()
+            for dataset, inp in self.input().items():
+                events = inp["collection"][0]["columns"].load(columns=columns)
+                mask = ak.any(events["category_ids"] == cat.id, axis=-1)
+
+                temp = pd.DataFrame()
+                for r in route:
+                    temp[r.string_column] = r.apply(events[mask]).to_numpy()
+                    temp["dataset"] = dataset
+                events_dict[cat.name] = pd.concat([events_dict[cat.name], temp], ignore_index=True)
+        return events_dict
+
+    def get_plot_parameters(self: PlotScatterPlots, variable_tuple: tuple) -> dict:
+        x_inst, y_inst = self.get_variable_insts(variable_tuple)
+        params = super().get_plot_parameters(variable_tuple)
+        params["hue"] = "dataset"
+        params["log_scale"] = tuple(var.log_x for var in (x_inst, y_inst))
+        params.update(self.general_settings)
+        return params
+
+    def make_pretty(
+        self: PlotScatterPlots,
+        fig: plt.Figure,
+        ax: plt.Axes,
+        variable_tuple: tuple,
+        plt_title: str = "",
+    ) -> tuple[plt.Figure, plt.Axes]:
+        x_inst, y_inst = self.get_variable_insts(variable_tuple)
+        fig.suptitle(plt_title, size=35, va="top", ha="center")
+        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
+        ax.set_ylabel(y_inst.x_title, fontsize=ax.yaxis.label.get_size() + 4)
+        return fig, ax
+
+    def output(self) -> dict[str, list]:
+        return {
+            cat: {
+                var: [
+                    self.target(name)
+                    for name in self.get_plot_names(f"plot__{self.plot_function}__proc__{cat}_{var}")
+                ]
+                for var in self.variables
+            }
+            for cat in self.categories
+        }
+
+    @law.decorator.log
+    @view_output_plots
+    def run(self):
+
+        events = self.get_input_as_df()
+        for category in self.categories:
+            print(f"├── plotting in {category}")
+
+            for variable in self.variables:
+                print(f"│   ├── Plotting variable: {variable}", end="  ", flush=True)
+                variable_tuple = self.variable_tuples[variable]
+                column_names = {self.get_variable_insts(variable).expression for variable in variable_tuple}
+                # call the plot function
+                fig, ax = self.call_plot_func(
+                    self.plot_function,
+                    **self.get_data_args(events[category], *column_names),
+                    **self.get_plot_parameters(variable_tuple),
+                )
+                # make the plot prettier
+                plt_title = f"({category})"
+                fig, ax = self.make_pretty(fig, ax, variable_tuple, plt_title)
+
+                # save the outputs
+                for outp in self.output()[category][variable]:
+                    outp.dump(fig, formatter="mpl", dpi=150, bbox_inches="tight")
+                print("✅")
+
+        print("└── Plotting completed.")
 
 
 class PlotFancyPlots(PlotBaseHBT):
@@ -450,7 +543,7 @@ class PlotEfficiencyHist(PlotSelectionHist):
         hists = {lab: ax0.hist(d, weights=weights[lab], label=lab, **kwargs)[0] for lab, d in data.items()}
         eff = hists["pass"] / (hists["pass"] + hists["fail"])
         bin_edges = kwargs["bins"]
-        bin_centers = [(bin_edges[i] + bin_edges[i + 1])/2. for i in range(len(bin_edges) - 1)]
+        bin_centers = [(bin_edges[i] + bin_edges[i + 1]) / 2. for i in range(len(bin_edges) - 1)]
         ax1.step(bin_centers, eff, where="mid", color="black")
         ax1.set_ylabel("Efficiency")
         return fig, ax0
