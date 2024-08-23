@@ -28,6 +28,7 @@ from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
 from hbt.production.processes import process_ids_dy
+from hbt.production.gen_higgs_decay import gen_higgs_decay_products
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS
 
 np = maybe_import("numpy")
@@ -38,12 +39,12 @@ ak = maybe_import("awkward")
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pu_weight, btag_weights, process_ids, cutflow_features, increment_stats,
-        attach_coffea_behavior,
+        attach_coffea_behavior, gen_higgs_decay_products,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, btag_weights,
-        process_ids, cutflow_features, increment_stats,
+        process_ids, cutflow_features, increment_stats, gen_higgs_decay_products,
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -121,6 +122,9 @@ def default(
         events = self[self.process_ids_dy](events, **kwargs)
     else:
         events = self[process_ids](events, **kwargs)
+
+    # gen higgs decay products
+    events = self[gen_higgs_decay_products](events, **kwargs)
 
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
