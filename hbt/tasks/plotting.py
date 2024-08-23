@@ -318,6 +318,9 @@ class PlotKDEPlots(PlotScatterPlots):
 
             for variable in self.variables:
                 print(f"│   ├── Plotting variable: {variable}", end="  ", flush=True)
+                if all([f.complete() for f in self.output()[category][variable]]):
+                    print("✅")
+                    continue
                 variable_tuple = self.variable_tuples[variable]
                 column_names = {self.get_variable_insts(variable).expression for variable in variable_tuple}
                 # call the plot function

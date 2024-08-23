@@ -302,10 +302,10 @@ def add_variables(config: od.Config) -> None:
     )
 
     for (var, nbins, bin_range, unit) in zip(
-        ["pt", "eta", "phi", "mass"],
-        [50, 20, 20, 50],
-        [(0, 300), (-3, 3), (-3.2, 3.2), (100, 800)],
-        ["GeV", "", "", "GeV"],
+        ["pt", "eta", "phi", "mass", "cos_theta"],
+        [50, 20, 20, 50, 20],
+        [(0, 300), (-3, 3), (-3.2, 3.2), (100, 1500), (-1, 1)],
+        ["GeV", "", "", "GeV", ""],
     ):
         config.add_variable(
             name=f"gen_hh_{var}",
