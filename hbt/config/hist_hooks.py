@@ -26,10 +26,11 @@ def add_hist_hooks(config: od.Config) -> None:
     Add histogram hooks to a configuration.
     """
     # helper to convert a histogram to a number object containing bin values and uncertainties
+    # from variances stored in an array of values
     def hist_to_num(h: hist.Histogram, unc_name=str(sn.DEFAULT)) -> sn.Number:
         return sn.Number(h.values(), {unc_name: h.variances()**0.5})
 
-    # helper to integrate values stored in an array bsaed number object
+    # helper to integrate values stored in an array based number object
     def integrate_num(num: sn.Number, axis=None) -> sn.Number:
         return sn.Number(
             nominal=num.nominal.sum(axis=axis),
@@ -51,7 +52,7 @@ def add_hist_hooks(config: od.Config) -> None:
         if not qcd_proc:
             return hists
 
-        # extract all uniique category ids and verify that the axis order is exactly
+        # extract all unique category ids and verify that the axis order is exactly
         # "category -> shift -> variable" which is needed to insert values at the end
         CAT_AXIS, SHIFT_AXIS, VAR_AXIS = range(3)
         category_ids = set()
@@ -140,21 +141,36 @@ def add_hist_hooks(config: od.Config) -> None:
 
             # ABCD method
             # shape: (SHIFT, VAR)
-            os_iso_qcd = os_noniso_qcd * (int_ss_iso / int_ss_noniso)
+            os_iso_qcd = os_noniso_qcd * ((int_ss_iso / int_ss_noniso)[:, None])
 
             # combine uncertainties and store values in bare arrays
             os_iso_qcd_values = os_iso_qcd()
             os_iso_qcd_variances = os_iso_qcd(sn.UP, sn.ALL, unc=True)**2
 
+            # define uncertainties
+            unc_data = os_iso_qcd(sn.UP, ["os_noniso_data", "ss_iso_data", "ss_noniso_data"], unc=True)
+            unc_mc = os_iso_qcd(sn.UP, ["os_noniso_mc", "ss_iso_mc", "ss_noniso_mc"], unc=True)
+            unc_data_rel = abs(unc_data / os_iso_qcd_values)
+            unc_mc_rel = abs(unc_mc / os_iso_qcd_values)
+
+            # only keep the MC uncertainty if it is larger than the data uncertainty and larger than 15%
+            keep_variance_mask = (
+                np.isfinite(unc_mc_rel) &
+                (unc_mc_rel > unc_data_rel) &
+                (unc_mc_rel > 0.15)
+            )
+            os_iso_qcd_variances[keep_variance_mask] = unc_mc[keep_variance_mask]**2
+            os_iso_qcd_variances[~keep_variance_mask] = 0
+
             # retro-actively set values to zero for shifts that had negative integrals
             neg_int_mask = int_ss_iso_neg | int_ss_noniso_neg
             os_iso_qcd_values[neg_int_mask] = 1e-5
-            os_iso_qcd_variances[neg_int_mask] = 1e-5
+            os_iso_qcd_variances[neg_int_mask] = 0
 
             # residual zero filling
             zero_mask = os_iso_qcd_values <= 0
             os_iso_qcd_values[zero_mask] = 1e-5
-            os_iso_qcd_variances[zero_mask] = 1e-5
+            os_iso_qcd_variances[zero_mask] = 0
 
             # insert values into the qcd histogram
             cat_axis = qcd_hist.axes["category"]
