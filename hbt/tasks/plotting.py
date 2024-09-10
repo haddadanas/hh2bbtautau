@@ -542,7 +542,7 @@ class PlotSelectionHist(PlotBaseHBT):
         # get needed columns
         variables = {val for vals in self.variable_tuples.values() for val in vals}
         columns = {v.expression for v in self.get_variable_insts(variables)}
-        columns |= {"category_ids", "selection_mask"}
+        columns |= {"category_ids", "selection_mask", "mc_weight"}
 
         # read the data
         events = inp["collection"][0]["columns"].load(columns=columns)
@@ -567,7 +567,8 @@ class PlotSelectionHist(PlotBaseHBT):
     def get_data_args(self, array, route) -> dict:
         mask = array["selection_mask"]
         data = route.apply(array)
-        return {"fail": data[~mask], "pass": data[mask]}
+        weights = array["mc_weight"]
+        return {"fail": data[~mask], "pass": data[mask], "weights": {"pass": weights[mask], "fail": weights[~mask]}}
 
     def get_plot_parameters(self: PlotScatterPlots, variable: tuple) -> dict:
         var = self.get_variable_insts(variable)
@@ -644,12 +645,10 @@ class PlotEfficiencyHist(PlotSelectionHist):
 
     def call_plot_func(self, func_name: str, data, **kwargs) -> Any:
         plt.style.use(mplhep.style.CMS)
-        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(15, 15), gridspec_kw={"height_ratios": [3, 1]})
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(15, 15), gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
+        plt.subplots_adjust(wspace=0, hspace=0)
         kwargs = self.update_plot_kwargs(kwargs)
-        weights = {
-            lab: ak.full_like(d, 1 + ak.sum(d == -10) / ak.sum(d > 0))
-            for lab, d in data.items()
-        }
+        weights = data.pop("weights")
         hists = {lab: ax0.hist(d, weights=weights[lab], label=lab, **kwargs)[0] for lab, d in data.items()}
         eff = hists["pass"] / (hists["pass"] + hists["fail"])
         bin_edges = kwargs["bins"]
@@ -666,7 +665,22 @@ class PlotEfficiencyHist(PlotSelectionHist):
         plt_title: str = "",
         effeciency: str = "",
     ) -> tuple[plt.Figure, plt.Axes]:
-        fig, ax0 = super().make_pretty(fig, axs[0], variable_tuple, plt_title, effeciency)
-        ax1 = axs[1]
-        ax1.set_xlim(ax0.get_xlim())
-        return fig, (ax0, ax1)
+        x_inst = self.get_variable_insts(variable_tuple)
+        fig.suptitle(plt_title, size=35, va="top", ha="center")
+        ax = axs[1]
+        ax0 = axs[0]
+        ax.set_xlabel(x_inst.x_title, fontsize=ax.xaxis.label.get_size() + 4)
+        ax0.set_ylabel("Counts (Weighted)", fontsize=ax0.yaxis.label.get_size() + 4)
+        legend = ax0.legend(
+            loc="upper right",
+            fancybox=True,
+            shadow=True,
+            ncol=5,
+        )
+        for text in legend.get_texts():
+            text.set_text(f"pass ({effeciency:.2f}%)" if text.get_text() == "pass" else "fail")
+            text.set_fontsize(text.get_fontsize() + 4)
+        # TODO add mean and std of the variables to the axes
+        # fig, ax0 = super().make_pretty(fig, axs[0], variable_tuple, plt_title, effeciency)
+        ax.set_xlim(ax0.get_xlim())
+        return fig, (ax0, ax)
