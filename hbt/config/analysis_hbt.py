@@ -80,7 +80,7 @@ def add_lazy_config(
         return factory
 
     analysis_hbt.configs.add_lazy_factory(config_name, create_factory(config_id))
-    analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 2))
+    analysis_hbt.configs.add_lazy_factory(f"{config_name}_limited", create_factory(config_id + 200, "_limited", 10))
 
 
 #
@@ -121,4 +121,11 @@ add_lazy_config(
     campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
     config_name="run3_2022_preEE",
     config_id=5,
+)
+
+add_lazy_config(
+    campaign_module="cmsdb.campaigns.run3_2022_preEE_nano_uhh_v12",
+    campaign_attr="campaign_run3_2022_preEE_nano_uhh_v12",
+    config_name="local_run3",
+    config_id=6,
 )
