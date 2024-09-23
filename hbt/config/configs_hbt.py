@@ -113,6 +113,15 @@ def add_config(
     ]
     cfg.x.dy_group = dy_group
 
+    other_bg_group = [
+        "h",
+        "tt",
+        "st",
+        "v",
+        "multiboson",
+        "tt_multiboson",
+    ]
+
     # add processes we are interested in
     process_names = [
         "data",
@@ -338,6 +347,7 @@ def add_config(
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
         "dy_bg": [*dy_group, "other_bg", "data"],
+        "bg_only": other_bg_group,
         "backgrounds": (backgrounds := [
             "h",
             "tt",
