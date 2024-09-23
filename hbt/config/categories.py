@@ -17,6 +17,7 @@ def add_categories(config: od.Config) -> None:
     add_category(config, name="etau", id=1, selection="cat_etau", label=r"$e\tau_{h}$")
     add_category(config, name="mutau", id=2, selection="cat_mutau", label=r"$\mu\tau_{h}$")
     add_category(config, name="tautau", id=3, selection="cat_tautau", label=r"$\tau_{h}\tau_{h}$")
+    add_category(config, name="mumu", id=4, selection="cat_mumu", label=r"$\mu\mu$")
 
     # qcd regions
     add_category(config, name="os", id=10, selection="cat_os", label="Opposite sign", tags={"os"})
@@ -26,6 +27,7 @@ def add_categories(config: od.Config) -> None:
 
     # kinematic categories
     add_category(config, name="incl", id=100, selection="cat_incl", label="inclusive")
+    add_category(config, name="all_incl", id=101, selection="cat_incl", label="inclusive")
     add_category(config, name="2j", id=110, selection="cat_2j", label="2 jets")
 
     #
@@ -40,6 +42,15 @@ def add_categories(config: od.Config) -> None:
         # qcd regions last
         "sign": [config.get_category("os"), config.get_category("ss")],
         "tau2": [config.get_category("iso"), config.get_category("noniso")],
+    }
+
+    mumu_categories = {
+        # channels first
+        "channel": [config.get_category("mumu")],
+        # kinematic regions in the middle (to be extended)
+        "kin": [config.get_category("incl")],
+        # qcd regions last
+        "sign": [config.get_category("os"), config.get_category("ss")],
     }
 
     def name_fn(categories):
@@ -60,3 +71,4 @@ def add_categories(config: od.Config) -> None:
         }
 
     create_category_combinations(config, categories, name_fn, kwargs_fn)
+    create_category_combinations(config, mumu_categories, name_fn, kwargs_fn)

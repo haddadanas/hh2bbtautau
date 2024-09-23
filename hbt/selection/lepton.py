@@ -141,7 +141,7 @@ def electron_selection(
     uses={
         # nano columns
         "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mediumId", "Muon.tightId", "Muon.pfRelIso04_all",
-        "Muon.dxy", "Muon.dz",
+        "Muon.dxy", "Muon.dz", "Muon.puppiIsoId",
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     exposed=False,
@@ -151,6 +151,7 @@ def muon_selection(
     events: ak.Array,
     trigger: Trigger,
     leg_masks: list[ak.Array],
+    use_default_mask: bool = True,
     **kwargs,
 ) -> tuple[ak.Array, ak.Array]:
     """
@@ -192,15 +193,23 @@ def muon_selection(
             min_pt = 33.0 if is_single else 25.0
         default_mask = (
             (events.Muon.tightId == 1) &
-            (abs(events.Muon.eta) < 2.1) &
+            (abs(events.Muon.eta) < 2.4) &
             (abs(events.Muon.dxy) < 0.045) &
             (abs(events.Muon.dz) < 0.2) &
             (events.Muon.pfRelIso04_all < 0.15) &
-            (events.Muon.pt > min_pt) &
+            (events.Muon.pt > 20) &
             matches_leg0
         )
+        new_mask = (
+            (events.Muon.mediumId == 1) &
+            (abs(events.Muon.eta) < 2.4) &
+            (abs(events.Muon.dxy) < 0.045) &
+            (abs(events.Muon.dz) < 0.2) &
+            (events.Muon.pfRelIso04_all < 0.15)
+        )
         # convert to sorted indices
-        default_indices = sorted_indices[default_mask[sorted_indices]]
+        default_indices = (sorted_indices[default_mask[sorted_indices]] if use_default_mask
+                           else sorted_indices[new_mask[sorted_indices]])
         default_indices = ak.values_astype(default_indices, np.int32)
 
     # veto muon mask
@@ -393,6 +402,7 @@ def lepton_selection(
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
+    ch_mumu = self.config_inst.get_channel("mumu")
 
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
@@ -487,7 +497,28 @@ def lepton_selection(
             sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
             sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
 
-        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf", "cross_tau_tau_jet"}):
+            # expect 2 muon, 2 veto muon (the same one), 0 veto electrons
+            is_mumu = (
+                trigger_fired &
+                (ak.num(muon_indices, axis=1) >= 2) &
+                (ak.num(muon_veto_indices, axis=1) >= 2) &
+                (ak.num(electron_veto_indices, axis=1) == 0)
+                # (ak.num(tau_indices, axis=1) >= 1)
+            )
+            # is_iso = ak.sum(tau_iso_mask, axis=1) >= 1
+            # determine the os/ss charge sign relation
+            mu1_charge = ak.firsts(events.Muon[muon_indices].charge, axis=1)
+            mu2_charge = ak.firsts(events.Muon[muon_indices].charge[:, 1:], axis=1)
+            is_os = ak.fill_none(mu1_charge == -mu2_charge, False)
+            # store global variables
+            where = (channel_id == 0) & is_mumu
+            channel_id = ak.where(where, ch_mumu.id, channel_id)
+            leptons_os = ak.where(where, is_os, leptons_os)
+            single_triggered = ak.where(where & is_single, True, single_triggered)
+            cross_triggered = ak.where(where & is_cross, True, cross_triggered)
+            sel_muon_indices = ak.where(where, muon_indices, sel_muon_indices)
+
+        elif trigger.has_tag({"cross_tau_tau", "cross_tau_tau_vbf"}):
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
