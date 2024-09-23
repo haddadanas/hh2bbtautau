@@ -37,25 +37,25 @@ def stylize_processes(config: od.Config) -> None:
     dy_label = {
         "dy_m4to10": r"DY $m_{4-10}$",
         "dy_m10to50": r"DY $m_{10-50}$",
-        "dy_m50toinf": r"DY $m_{50-\infty}$",
-        "dy_m50toinf_0j": r"DY $m_{50-\infty}$ 0j",
-        "dy_m50toinf_1j_pt0to40": r"DY $m_{50-\infty}$ 1j $p_{T}^{0-40}$",
-        "dy_m50toinf_1j_pt40to100": r"DY $m_{50-\infty}$ 1j $p_{T}^{40-100}$",
-        "dy_m50toinf_1j_pt100to200": r"DY $m_{50-\infty}$ 1j $p_{T}^{100-200}$",
-        "dy_m50toinf_1j_pt200to400": r"DY $m_{50-\infty}$ 1j $p_{T}^{200-400}$",
-        "dy_m50toinf_1j_pt400to600": r"DY $m_{50-\infty}$ 1j $p_{T}^{400-600}$",
-        "dy_m50toinf_1j_pt600toinf": r"DY $m_{50-\infty}$ 1j $p_{T}^{600-\infty}$",
-        "dy_m50toinf_2j_pt0to40": r"DY $m_{50-\infty}$ 2j $p_{T}^{0-40}$",
-        "dy_m50toinf_2j_pt40to100": r"DY $m_{50-\infty}$ 2j $p_{T}^{40-100}$",
-        "dy_m50toinf_2j_pt100to200": r"DY $m_{50-\infty}$ 2j $p_{T}^{100-200}$",
-        "dy_m50toinf_2j_pt200to400": r"DY $m_{50-\infty}$ 2j $p_{T}^{200-400}$",
-        "dy_m50toinf_2j_pt400to600": r"DY $m_{50-\infty}$ 2j $p_{T}^{400-600}$",
-        "dy_m50toinf_2j_pt600toinf": r"DY $m_{50-\infty}$ 2j $p_{T}^{600-\infty}$",
+        "dy_m50toinf": r"DY $m_{>50}$",
+        "dy_m50toinf_0j": r"DY $m_{\!>\!50}$ 0j",
+        "dy_m50toinf_1j_pt0to40": r"DY $m_{\!>\!50}$ 1j $p_{T}^{0-40}$",
+        "dy_m50toinf_1j_pt40to100": r"DY $m_{>50}$ 1j $p_{T}^{40-100}$",
+        "dy_m50toinf_1j_pt100to200": r"DY $m_{>50}$ 1j $p_{T}^{100-200}$",
+        "dy_m50toinf_1j_pt200to400": r"DY $m_{>50}$ 1j $p_{T}^{200-400}$",
+        "dy_m50toinf_1j_pt400to600": r"DY $m_{>50}$ 1j $p_{T}^{400-600}$",
+        "dy_m50toinf_1j_pt600toinf": r"DY $m_{>50}$ 1j $p_{T}^{600-\infty}$",
+        "dy_m50toinf_2j_pt0to40": r"DY $m_{>50}$ 2j $p_{T}^{0-40}$",
+        "dy_m50toinf_2j_pt40to100": r"DY $m_{>50}$ 2j $p_{T}^{40-100}$",
+        "dy_m50toinf_2j_pt100to200": r"DY $m_{>50}$ 2j $p_{T}^{100-200}$",
+        "dy_m50toinf_2j_pt200to400": r"DY $m_{>50}$ 2j $p_{T}^{200-400}$",
+        "dy_m50toinf_2j_pt400to600": r"DY $m_{>50}$ 2j $p_{T}^{400-600}$",
+        "dy_m50toinf_2j_pt600toinf": r"DY $m_{>50}$ 2j $p_{T}^{600-\infty}$",
     }
 
-    for kl in ["0", "1", "2p45", "5"]:
+    for kl, color in zip(["0", "1", "2p45", "5"], cfg.x.colors.values()):
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            p.color1 = cfg.x.colors.bright_blue
+            p.color1 = color
             p.label = (
                 r"$HH_{ggf} \rightarrow bb\tau\tau$ __SCALE__"
                 "\n"

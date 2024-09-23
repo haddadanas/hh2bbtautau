@@ -355,9 +355,20 @@ def add_hist_hooks(config: od.Config) -> None:
                 h_new.variances()[ind][0][0] = h_sum.variance
             results[process] = h_new
         return results
+    
+    def equal_area(task, hists):
+
+        results = {}
+        for process, h in hists.items():
+            factor = 1.0 / h.sum().value
+            h_new = h.copy() * factor
+            results[process] = h_new
+
+        return results
 
     config.x.hist_hooks = {
         "qcd": qcd_estimation,
         "control_qcd": control_qcd_estimation,
         "avoid_plotting": avoid_plotting,
+        "equal_area": equal_area,
     }
