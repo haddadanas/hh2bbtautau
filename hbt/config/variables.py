@@ -168,6 +168,13 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 1 $\eta$",
     )
     config.add_variable(
+        name="tau1_eta",
+        expression="Tau.eta[:,0]",
+        null_value=EMPTY_FLOAT,
+        binning=(21, -4, 4),
+        x_title=r"$\eta_{\tau,1}$",
+    )
+    config.add_variable(
         name="cf_jet1_phi",
         expression="cutflow.jet1_phi",
         binning=(32, -3.2, 3.2),
@@ -246,6 +253,31 @@ def add_variables(config: od.Config) -> None:
         binning=(100, -3.0, 3.0),
         unit="GeV",
         x_title=r"$\eta$",
+    )
+    config.add_variable(
+        name="pt2mu",
+        expression="pt2mu",
+        binning=(50, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T (Z \rightarrow \mu\mu)$",
+    )
+
+    config.add_variable(
+        name="plot_pt2mu",
+        expression="plot_pt2mu",
+        binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
+                 200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
+        unit="GeV",
+        x_title=r"$p_T (Z \rightarrow \mu\mu)$",
+    )
+
+    config.add_variable(
+        name="plot_ptV",
+        expression="plot_ptV",
+        binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
+                 200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
+        unit="GeV",
+        x_title=r"$p_T (Z \rightarrow \mu\mu)$",
     )
 
     for proc in ["hh", "tt", "dy"]:

@@ -28,7 +28,30 @@ def stylize_processes(config: od.Config) -> None:
         teal="#92dadd",
         grey="#94a4a2",
         brown="#a96b59",
+        color1="#ff0000",
+        color2="#00ff00",
+        color3="#0000ff",
+        color4="#4d6b43",
     )
+
+    dy_label = {
+        "dy_m4to10": r"DY $m_{4-10}$",
+        "dy_m10to50": r"DY $m_{10-50}$",
+        "dy_m50toinf": r"DY $m_{50-\infty}$",
+        "dy_m50toinf_0j": r"DY $m_{50-\infty}$ 0j",
+        "dy_m50toinf_1j_pt0to40": r"DY $m_{50-\infty}$ 1j $p_{T}^{0-40}$",
+        "dy_m50toinf_1j_pt40to100": r"DY $m_{50-\infty}$ 1j $p_{T}^{40-100}$",
+        "dy_m50toinf_1j_pt100to200": r"DY $m_{50-\infty}$ 1j $p_{T}^{100-200}$",
+        "dy_m50toinf_1j_pt200to400": r"DY $m_{50-\infty}$ 1j $p_{T}^{200-400}$",
+        "dy_m50toinf_1j_pt400to600": r"DY $m_{50-\infty}$ 1j $p_{T}^{400-600}$",
+        "dy_m50toinf_1j_pt600toinf": r"DY $m_{50-\infty}$ 1j $p_{T}^{600-\infty}$",
+        "dy_m50toinf_2j_pt0to40": r"DY $m_{50-\infty}$ 2j $p_{T}^{0-40}$",
+        "dy_m50toinf_2j_pt40to100": r"DY $m_{50-\infty}$ 2j $p_{T}^{40-100}$",
+        "dy_m50toinf_2j_pt100to200": r"DY $m_{50-\infty}$ 2j $p_{T}^{100-200}$",
+        "dy_m50toinf_2j_pt200to400": r"DY $m_{50-\infty}$ 2j $p_{T}^{200-400}$",
+        "dy_m50toinf_2j_pt400to600": r"DY $m_{50-\infty}$ 2j $p_{T}^{400-600}$",
+        "dy_m50toinf_2j_pt600toinf": r"DY $m_{50-\infty}$ 2j $p_{T}^{600-\infty}$",
+    }
 
     for kl in ["0", "1", "2p45", "5"]:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
@@ -96,3 +119,8 @@ def stylize_processes(config: od.Config) -> None:
 
     if (p := config.get_process("qcd", default=None)):
         p.color1 = cfg.x.colors.red
+
+    for dy, col in zip(cfg.x.dy_group, cfg.x.colors.values()):
+        if (p := config.get_process(dy, default=None)):
+            p.color1 = col
+            p.label = dy_label[dy]

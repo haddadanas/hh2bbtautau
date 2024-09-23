@@ -93,6 +93,25 @@ def add_config(
         label=r"$t\bar{t}$ + Multiboson",
         processes=[procs.n.ttv, procs.n.ttvv],
     )
+    cfg.add_process(
+        name="other_bg",
+        id=8000,
+        label="Other Backgrounds",
+        processes=[procs.n.h, procs.n.tt, procs.n.st, procs.n.w, procs.n.z, procs.n.vv, procs.n.vvv,
+            procs.n.ttv, procs.n.ttvv],
+    )
+
+    dy_group = [
+        "dy_m4to10",
+        "dy_m10to50",
+        # "dy_m50toinf",
+        "dy_m50toinf_0j",
+        "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200", "dy_m50toinf_1j_pt200to400",
+        "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+        "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200", "dy_m50toinf_2j_pt200to400",
+        "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+    ]
+    cfg.x.dy_group = dy_group
 
     # add processes we are interested in
     process_names = [
@@ -100,6 +119,7 @@ def add_config(
         "tt",
         "st",
         "dy",
+        *dy_group,
         "v",
         "multiboson",
         "tt_multiboson",
@@ -172,23 +192,23 @@ def add_config(
             "hh_ggf_hbb_htt_kl0_kt1_powheg",
             "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
             "hh_ggf_hbb_htt_kl5_kt1_powheg",
-            # vbf
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
-            "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
-            "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
-            "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
-            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
-            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
-            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
-            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
-            "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
-            # some resonances
-            "graviton_hh_ggf_hbb_htt_m450_madgraph",
-            "graviton_hh_ggf_hbb_htt_m1200_madgraph",
-            "radion_hh_ggf_hbb_htt_m700_madgraph",
+            # # vbf
+            # "hh_vbf_hbb_htt_kv1_k2v1_kl1_madgraph",
+            # "hh_vbf_hbb_htt_kv1_k2v1_kl2_madgraph",
+            # "hh_vbf_hbb_htt_kv1_k2v0_kl1_madgraph",
+            # "hh_vbf_hbb_htt_kv1_k2v2_kl1_madgraph",
+            # "hh_vbf_hbb_htt_kv1p74_k2v1p37_kl14p4_madgraph",
+            # "hh_vbf_hbb_htt_kvm0p012_k2v0p03_kl10p2_madgraph",
+            # "hh_vbf_hbb_htt_kvm0p758_k2v1p44_klm19p3_madgraph",
+            # "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_madgraph",
+            # "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_madgraph",
+            # "hh_vbf_hbb_htt_kvm2p12_k2v3p87_klm5p96_madgraph",
+            # # some resonances
+            # "graviton_hh_ggf_hbb_htt_m450_madgraph",
+            # "graviton_hh_ggf_hbb_htt_m1200_madgraph",
+            # "radion_hh_ggf_hbb_htt_m700_madgraph",
         ]),
 
         # backgrounds
@@ -317,6 +337,7 @@ def add_config(
             "hh_ggf_hbb_htt_kl2p45_kt1",
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
+        "dy_bg": [*dy_group, "other_bg", "data"],
         "backgrounds": (backgrounds := [
             "h",
             "tt",
@@ -382,7 +403,7 @@ def add_config(
     }
     cfg.x.default_custom_style_config = "small_legend"
 
-    cfg.x.default_blinding_threshold = 3e-4
+    cfg.x.default_blinding_threshold = None
 
     ################################################################################################
     # luminosity and normalization
@@ -1014,7 +1035,8 @@ def add_config(
             "Tau.*",
             "MET.{pt,phi,significance,covXX,covXY,covYY}",
             "PV.npvs",
-            "FatJet.*",
+            "deterministic_seed",
+            "LHE.Vpt",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),
@@ -1060,7 +1082,7 @@ def add_config(
     cfg.add_channel(name="mutau", id=1)
     cfg.add_channel(name="etau", id=2)
     cfg.add_channel(name="tautau", id=3)
-    # cfg.add_channel(name="mumu", id=4)
+    cfg.add_channel(name="mumu", id=4)
 
     # add categories
     from hbt.config.categories import add_categories
