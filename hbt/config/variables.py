@@ -257,7 +257,8 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt2mu",
         expression="pt2mu",
-        binning=(50, 0, 500.0),
+        binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
+                 200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
         unit="GeV",
         x_title=r"$p_T (Z \rightarrow \mu\mu)$",
     )
