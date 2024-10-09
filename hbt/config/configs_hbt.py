@@ -999,7 +999,7 @@ def add_config(
             # mandatory
             ColumnCollection.MANDATORY_COFFEA,
             # object info
-            "Jet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
+            "Jet.*",
             "HHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
             "NonHHBJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
             "VBFJet.{pt,eta,phi,mass,hadronFlavour,puId,hhbtag,btagPNet*,btagDeep*}",
@@ -1011,6 +1011,7 @@ def add_config(
             "MET.{pt,phi,significance,covXX,covXY,covYY}",
             "PV.npvs",
             "FatJet.*",
+            "deterministic_seed",
             # keep all columns added during selection, but skip cutflow feature
             ColumnCollection.ALL_FROM_SELECTOR,
             skip_column("cutflow.*"),
