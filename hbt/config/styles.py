@@ -81,7 +81,7 @@ def stylize_processes(config: od.Config) -> None:
         p.color1 = cfg.x.colors.aubergine
 
     if (p := config.get_process("dy", default=None)):
-        p.color1 = cfg.x.colors.dark_orange
+        p.color1 = cfg.x.colors.bright_blue
 
     if (p := config.get_process("vv", default=None)):
         p.color1 = cfg.x.colors.yellow

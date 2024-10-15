@@ -346,6 +346,23 @@ def add_config(
             "hh_ggf_hbb_htt_kl2p45_kt1",
             "hh_ggf_hbb_htt_kl5_kt1",
         ],
+        "dy_sub": [
+            "dy_m50toinf_0j", "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+            "dy_m50toinf_ge3j",
+        ],
+        "dy0j": ["dy_m50toinf_0j"],
+        "dy1j": [
+            "dy_m50toinf_1j_pt0to40", "dy_m50toinf_1j_pt40to100", "dy_m50toinf_1j_pt100to200",
+            "dy_m50toinf_1j_pt200to400", "dy_m50toinf_1j_pt400to600", "dy_m50toinf_1j_pt600toinf",
+        ],
+        "dy2j": [
+            "dy_m50toinf_2j_pt0to40", "dy_m50toinf_2j_pt40to100", "dy_m50toinf_2j_pt100to200",
+            "dy_m50toinf_2j_pt200to400", "dy_m50toinf_2j_pt400to600", "dy_m50toinf_2j_pt600toinf",
+        ],
+        "dy_merged": ["dy", "tt", "st", "v", "multiboson", "tt_multiboson", "data"],
         "dy_bg": [*dy_group, "other_bg", "data"],
         "bg_only": other_bg_group,
         "backgrounds": (backgrounds := [
