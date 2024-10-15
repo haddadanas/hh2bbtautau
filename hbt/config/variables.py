@@ -260,7 +260,15 @@ def add_variables(config: od.Config) -> None:
         binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
                  200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
         unit="GeV",
-        x_title=r"$p_T (Z \rightarrow \mu\mu)$",
+        x_title=r"$p_T (\mu\mu)$",
+    )
+
+    config.add_variable(
+        name="m2mu",
+        expression="m2mu",
+        binning=(20, 50, 200.0),
+        unit="GeV",
+        x_title=r"$m_{\mu\mu}$",
     )
 
     config.add_variable(
@@ -275,8 +283,7 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="plot_ptV",
         expression="plot_ptV",
-        binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
-                 200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
+        binning=[0, 40, 100, 200, 400, 600, 1000],
         unit="GeV",
         x_title=r"$p_T (Z \rightarrow \mu\mu)$",
     )

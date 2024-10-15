@@ -93,7 +93,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         }
     ),
     produces={
-        "pt2mu", "plot_pt2mu", "plot_ptV",
+        "pt2mu", "plot_pt2mu", "plot_ptV", "m2mu",
     },
 )
 def muons_pt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -122,16 +122,22 @@ def muons_pt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     di_muon_pt = ak.where(cut, di_muon.pt, EMPTY_FLOAT)
     di_muon_pt = ak.fill_none(di_muon_pt, EMPTY_FLOAT)
     di_muon_pt = ak.nan_to_num(di_muon_pt, nan=EMPTY_FLOAT)
+
+    di_muon_mass = ak.where(cut, di_muon.mass, EMPTY_FLOAT)
+    di_muon_mass = ak.fill_none(di_muon_mass, EMPTY_FLOAT)
+    di_muon_mass = ak.nan_to_num(di_muon_mass, nan=EMPTY_FLOAT)
+
     if self.dataset_inst.has_tag("is_dy"):
         plot_pt2mu = ak.sum(events.gen_z_to_mu.pt[:, :1], axis=-1)
         plot_pt2mu = ak.where(plot_pt2mu > 0, plot_pt2mu, EMPTY_FLOAT)
         events = set_ak_column_f32(events, "plot_pt2mu", plot_pt2mu)
         events = set_ak_column_f32(events, "plot_ptV", events.LHE.Vpt)
-        
+
     else:
         events = set_ak_column_f32(events, "plot_pt2mu", di_muon_pt)
         events = set_ak_column_f32(events, "plot_ptV", di_muon_pt)
     # write the invariant mass to the events
     events = set_ak_column_f32(events, "pt2mu", di_muon_pt)
+    events = set_ak_column_f32(events, "m2mu", di_muon_mass)
 
     return events
