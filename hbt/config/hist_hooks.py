@@ -616,7 +616,7 @@ def add_hist_hooks(config: od.Config) -> None:
 
     def avoid_plotting(task, hists):
         cats = [
-            task.config_inst.get_category(c) 
+            task.config_inst.get_category(c)
             for c in [f"incl__{a}__{b}" for a in ["os", "ss"] for b in ["iso", "noniso"]]
         ]
 
@@ -639,7 +639,7 @@ def add_hist_hooks(config: od.Config) -> None:
                 h_new.variances()[ind][0][0] = h_sum.variance
             results[process] = h_new
         return results
-    
+
     def equal_area(task, hists):
 
         results = {}

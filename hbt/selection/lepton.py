@@ -187,10 +187,7 @@ def muon_selection(
     default_mask = None
     default_indices = None
     if is_single or is_cross:
-        if is_2016:
-            min_pt = 23.0 if is_single else 20.0
-        else:
-            min_pt = 33.0 if is_single else 25.0
+
         default_mask = (
             (events.Muon.tightId == 1) &
             (abs(events.Muon.eta) < 2.4) &
