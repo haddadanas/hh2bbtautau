@@ -64,3 +64,9 @@ normalization_only = default.derive(
     "normalization_only",
     cls_dict={"keep_weights": "normalization_weight"},
 )
+
+
+inclusive_only = default.derive(
+    "inclusive_only",
+    cls_dict={"keep_weights": "normalization_weight_incl"},
+)

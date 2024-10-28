@@ -188,6 +188,21 @@ def add_variables(config: od.Config) -> None:
         x_title=r"Jet 2 $p_{T}$",
     )
 
+    config.add_variable(
+        name="mu1_pt",
+        expression="Muon.pt[:,0]",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Muon 1 $p_{T}$",
+    )
+    config.add_variable(
+        name="mu2_pt",
+        expression="Muon.pt[:,1]",
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Muon 2 $p_{T}$",
+    )
+
     # variables of interest
     config.add_variable(
         name="hh_mass",
