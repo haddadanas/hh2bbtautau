@@ -258,10 +258,10 @@ def add_config(
             "dy_m50toinf_2j_pt400to600_amcatnlo",
             "dy_m50toinf_2j_pt600toinf_amcatnlo",
             "w_lnu_amcatnlo",
-            "z_qq_pt100to200_1j_amcatnlo",
-            "z_qq_pt100to200_2j_amcatnlo",
-            "z_qq_pt200to400_1j_amcatnlo",
-            "z_qq_pt200to400_2j_amcatnlo",  # literally no events selected above 400 GeV
+            "z_qq_1j_pt100to200_amcatnlo",
+            "z_qq_2j_pt100to200_amcatnlo",
+            "z_qq_1j_pt200to400_amcatnlo",
+            "z_qq_2j_pt200to400_amcatnlo",  # literally no events selected above 400 GeV
             "zz_pythia",
             "wz_pythia",
             "ww_pythia",
@@ -1084,11 +1084,12 @@ def add_config(
     # (this info is used by weight producers)
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
+        # "normalization_weight_incl": [],
         "normalization_weight": [],
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
+        "normalized_btag_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),

@@ -109,6 +109,18 @@ def add_variables(config: od.Config) -> None:
         x_title="MC weight",
     )
     config.add_variable(
+        name="normalization",
+        expression="normalization_weight",
+        binning=(200, -2, 2),
+        x_title="MC weight",
+    )
+    config.add_variable(
+        name="normalization_incl",
+        expression="normalization_weight_incl",
+        binning=(200, -2, 2),
+        x_title="MC weight",
+    )
+    config.add_variable(
         name="pu_weight",
         expression="pu_weight",
         binning=(40, 0, 2),
@@ -195,6 +207,25 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"Muon 1 $p_{T}$",
     )
+    from functools import reduce
+    from operator import mul
+    weight_names = [
+        "pdf_weight",
+        "murmuf_weight",
+        "normalized_pu_weight",
+        "normalized_njet_btag_weight",
+        "electron_weight",
+        "muon_weight",
+        "tau_weight",
+        "tau_trigger_weight",
+    ]
+    config.add_variable(
+        name="mul_weights",
+        expression=(lambda events: reduce(mul, [events[name] for name in weight_names])),
+        binning=(100, -1, 3),
+        x_title="mul_weights",
+    )
+
     config.add_variable(
         name="mu2_pt",
         expression="Muon.pt[:,1]",
@@ -272,16 +303,41 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="pt2mu",
         expression="pt2mu",
-        binning=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180,
-                 200, 225, 250, 275, 300, 325, 350, 375, 400, 450, 500],
+        binning=(50, 0, 500.0),
         unit="GeV",
         x_title=r"$p_T (\mu\mu)$",
     )
-
+    config.add_variable(
+        name="pt2mu_40",
+        expression="pt2mu",
+        selection="Muon.pt[:, 0] > 40",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T (\mu\mu)$",
+    )
+    config.add_variable(
+        name="pt2mu_50",
+        expression="pt2mu",
+        selection="Muon.pt[:, 0] > 50",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T (\mu\mu)$",
+    )
+    config.add_variable(
+        name="pt2mu_80",
+        expression="pt2mu",
+        selection="Muon.pt[:, 0] > 80",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0, 500.0),
+        unit="GeV",
+        x_title=r"$p_T (\mu\mu)$",
+    )
     config.add_variable(
         name="m2mu",
         expression="m2mu",
-        binning=(20, 50, 200.0),
+        binning=(40, 0, 200.0),
         unit="GeV",
         x_title=r"$m_{\mu\mu}$",
     )

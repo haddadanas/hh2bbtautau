@@ -3,6 +3,7 @@
 """
 Default event weight definitions.
 """
+import law
 
 from columnflow.weight import WeightProducer, weight_producer
 from columnflow.columnar_util import Route
@@ -10,6 +11,16 @@ from columnflow.util import maybe_import, pattern_matcher
 
 ak = maybe_import("awkward")
 np = maybe_import("numpy")
+
+logger = law.logger.get_logger(__name__)
+
+
+def ensure_list(obj):
+    if obj is None:
+        return []
+    if isinstance(obj, list):
+        return obj
+    return [obj]
 
 
 @weight_producer(
@@ -35,9 +46,19 @@ def default_init(self: WeightProducer) -> None:
     # weight producer instance, store weight_columns, used columns, and shifts
     self.weight_columns = []
 
+    # cast keep_weights and drop_weights to lists
+    self.keep_weights = ensure_list(self.keep_weights)
+    self.drop_weights = ensure_list(self.drop_weights)
+
     # helpers to match to kept or dropped weights
     do_keep = pattern_matcher(self.keep_weights) if self.keep_weights else (lambda _: True)
     do_drop = pattern_matcher(self.drop_weights) if self.drop_weights else (lambda _: False)
+
+    for weight_name in list(self.keep_weights):
+        if weight_name not in self.config_inst.x.event_weights:
+            # raise ValueError(f"Unknown weight name: {weight_name}")
+            self.config_inst.x.event_weights.update({weight_name: []})
+            logger.info(f"Did not find weight {weight_name} in config, adding it!")
 
     for weight_name in self.config_inst.x.event_weights:
         if not do_keep(weight_name) or do_drop(weight_name):
@@ -69,4 +90,10 @@ normalization_only = default.derive(
 inclusive_only = default.derive(
     "inclusive_only",
     cls_dict={"keep_weights": "normalization_weight_incl"},
+)
+
+
+no_weight = default.derive(
+    "no_weight",
+    cls_dict={"skip_func": (lambda self: True), "mc_only": None},
 )

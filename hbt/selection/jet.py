@@ -191,7 +191,7 @@ def jet_selection(
     # final event selection
     jet_sel = (
         (ak.sum(default_mask, axis=1) >= 2) &
-        ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
+        True  # ak.fill_none(subjets_btagged, True)  # was none for events with no matched fatjet
     )
 
     # some final type conversions
