@@ -29,6 +29,7 @@ from columnflow.types import Iterable
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
+from hbt.selection.lepton_loose import lepton_loose_selection
 from hbt.selection.jet import jet_selection
 import hbt.production.processes as process_producers
 from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
@@ -83,17 +84,18 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
 
 @selector(
     uses={
-        json_filter, hbt_met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection,
+        json_filter, hbt_met_filters, IF_RUN_3(jet_veto_map), trigger_selection,
         jet_selection, mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet),
         process_ids, cutflow_features, increment_stats, attach_coffea_behavior,
         patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
-        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight,
+        trigger_selection, jet_selection, mc_weight, pu_weight,
         btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
         increment_stats, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
+    use_loose_lepton_selection=False,
 )
 def default(
     self: Selector,
@@ -142,7 +144,10 @@ def default(
     results += trigger_results
 
     # lepton selection
-    events, lepton_results = self[lepton_selection](events, trigger_results, **kwargs)
+    if self.use_loose_lepton_selection:
+        events, lepton_results = self[lepton_loose_selection](events, trigger_results, **kwargs)
+    else:
+        events, lepton_results = self[lepton_selection](events, trigger_results, **kwargs)
     results += lepton_results
 
     # jet selection
@@ -233,6 +238,13 @@ def default_init(self: Selector) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
 
+    if self.use_loose_lepton_selection:
+        self.uses.add(lepton_loose_selection)
+        self.produces.add(lepton_loose_selection)
+    else:
+        self.uses.add(lepton_selection)
+        self.produces.add(lepton_selection)
+
     # build and store derived process id producers
     for tag in ("dy", "w_lnu"):
         prod_name = f"process_ids_{tag}"
@@ -262,6 +274,7 @@ def default_init(self: Selector) -> None:
             setattr(self, prod_name, prod)
 
 
+loose = default.derive("loose", cls_dict={"use_loose_lepton_selection": True})
 empty = default.derive("empty", cls_dict={})
 
 

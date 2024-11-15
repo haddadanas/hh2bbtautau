@@ -55,6 +55,11 @@ def cat_emu(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak
     return events, events.channel_id == self.config_inst.channels.n.emu.id
 
 
+@categorizer(uses={"channel_id"})
+def cat_rest(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id == 0
+
+
 #
 # QCD regions
 #
