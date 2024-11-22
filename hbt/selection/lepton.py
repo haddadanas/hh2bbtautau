@@ -92,7 +92,8 @@ def update_channel_ids(
     },
     produces={
         IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90,mvaIso}"),
-    ),
+        "Electron.{pt,eta,dxy,dz}",
+    },
     exposed=False,
 )
 def electron_selection(
@@ -191,7 +192,7 @@ def electron_trigger_matching(
 
 @selector(
     uses={"Muon.{pt,eta,phi,looseId,mediumId,tightId,pfRelIso04_all,dxy,dz}"},
-    produces={"Muon.{looseId,mediumId,tightId}"},
+    produces={"Muon.{looseId,mediumId,tightId,pt,eta,dxy,dz,pfRelIso04_all}"},
     exposed=False,
 )
 def muon_selection(
@@ -436,6 +437,10 @@ def tau_selection_init(self: Selector) -> None:
     self.produces |= {
         f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
         for tag in ("e", "mu", "jet")
+    }
+
+    self.produces |= {
+        f"Tau.{var}" for var in ("pt", "eta", "dz")
     }
 
 
