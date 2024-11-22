@@ -88,8 +88,11 @@ def update_channel_ids(
     uses={
         "Electron.{pt,eta,phi,dxy,dz,pfRelIso03_all,seediEtaOriX,seediPhiOriY}",
         IF_NANO_V9("Electron.mvaFall17V2{Iso_WP80,Iso_WP90}"),
-        IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90}"),
+        IF_NANO_GE_V10("Electron.{mvaIso,mvaIso_WP80,mvaIso_WP90}"),
     },
+    produces={
+        IF_NANO_GE_V10("Electron.{mvaIso_WP80,mvaIso_WP90,mvaIso}"),
+    ),
     exposed=False,
 )
 def electron_selection(
@@ -187,7 +190,8 @@ def electron_trigger_matching(
 
 
 @selector(
-    uses={"Muon.{pt,eta,phi,mediumId,tightId,pfRelIso04_all,dxy,dz}"},
+    uses={"Muon.{pt,eta,phi,looseId,mediumId,tightId,pfRelIso04_all,dxy,dz}"},
+    produces={"Muon.{looseId,mediumId,tightId}"},
     exposed=False,
 )
 def muon_selection(
@@ -425,6 +429,11 @@ def tau_selection_init(self: Selector) -> None:
 
     # Add columns for the right tau tagger
     self.uses |= {
+        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
+        for tag in ("e", "mu", "jet")
+    }
+
+    self.produces |= {
         f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
         for tag in ("e", "mu", "jet")
     }
