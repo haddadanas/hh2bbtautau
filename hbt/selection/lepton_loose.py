@@ -75,6 +75,8 @@ def update_channel_ids(
     },
     produces={
         IF_NANO_V12("Electron.mvaIso_WP80", "Electron.mvaIso"),
+    } | {
+        f"Electron.{var}" for var in ("pt", "eta", "dz", "dxy")
     },
     exposed=False,
 )
@@ -128,11 +130,11 @@ def electron_selection(
     default_mask = None
     default_indices = ak.without_parameters(events.Electron.charge[:, :0])
     if is_single or is_cross:
-        min_pt = 26.0 if is_2016 else (33.0 if is_single else 25.0)
+        min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
         default_mask = (
             (mva_iso_wp90 == 1) &
-            (abs(events.Electron.eta) < 2.1) &
-            (abs(events.Electron.dxy) < 0.045) &
+            (abs(events.Electron.eta) < 2.4) &
+            (abs(events.Electron.dxy) < 0.1) &
             (abs(events.Electron.dz) < 0.2) &
             (events.Electron.pt > min_pt) &
             matches_leg0
@@ -150,7 +152,7 @@ def electron_selection(
             # ((mva_noniso_wp90 == 1) & (events.Electron.pfRelIso03_all < 0.3))
         ) &
         (abs(events.Electron.eta) < 2.5) &
-        (abs(events.Electron.dxy) < 0.045) &
+        (abs(events.Electron.dxy) < 0.1) &
         (abs(events.Electron.dz) < 0.2) &
         (events.Electron.pt > 10.0)
     )
@@ -169,7 +171,9 @@ def electron_selection(
         "TrigObj.pt", "TrigObj.eta", "TrigObj.phi",
     },
     produces={
-        "Muon.looseId", "Muon.mediumId", "Muon.tightId",
+        f"Muon.{var}" for var in (
+            "pt", "eta", "dz", "dxy", "looseId", "mediumId", "tightId", "pfRelIso04_all"
+        )
     },
     exposed=False,
 )
@@ -216,13 +220,13 @@ def muon_selection(
         if is_2016:
             min_pt = 23.0 if is_single else 20.0
         else:
-            min_pt = 33.0 if is_single else 25.0
+            min_pt = 26.0 if is_single else 22.0
         default_mask = (
             (events.Muon.looseId == 1) &
-            (abs(events.Muon.eta) < 2.1) &
-            (abs(events.Muon.dxy) < 0.045) &
-            (abs(events.Muon.dz) < 0.2) &
-            (events.Muon.pfRelIso04_all < 0.15) &
+            (abs(events.Muon.eta) < 2.4) &
+            (abs(events.Muon.dxy) < 0.2) &
+            (abs(events.Muon.dz) < 0.5) &
+            (events.Muon.pfRelIso04_all < 0.25) &
             (events.Muon.pt > min_pt) &
             matches_leg0
         )
@@ -234,9 +238,9 @@ def muon_selection(
     veto_mask = (
         (events.Muon.looseId == 1) &
         (abs(events.Muon.eta) < 2.4) &
-        (abs(events.Muon.dxy) < 0.045) &
-        (abs(events.Muon.dz) < 0.2) &
-        (events.Muon.pfRelIso04_all < 0.3) &
+        (abs(events.Muon.dxy) < 0.2) &
+        (abs(events.Muon.dz) < 0.5) &
+        (events.Muon.pfRelIso04_all < 0.4) &
         (events.Muon.pt > 10)
     )
     # convert to sorted indices
@@ -313,24 +317,24 @@ def tau_selection(
     # determine minimum pt and maximum eta
     if is_single_e or is_single_mu:
         min_pt = 20.0
-        max_eta = 2.3
+        max_eta = 2.5
     elif is_cross_e:
         # only existing after 2016
-        min_pt = 0.0 if is_2016 else 35.0
-        max_eta = 2.1
+        min_pt = 0.0 if is_2016 else 30.0
+        max_eta = 2.5
     elif is_cross_mu:
-        min_pt = 25.0 if is_2016 else 32.0
-        max_eta = 2.1
+        min_pt = 25.0 if is_2016 else 27.0
+        max_eta = 2.5
     elif is_cross_tau:
-        min_pt = 40.0
-        max_eta = 2.1
+        min_pt = 20.0
+        max_eta = 2.5
     elif is_cross_tau_vbf:
         # only existing after 2016
-        min_pt = 0.0 if is_2016 else 25.0
-        max_eta = 2.1
+        min_pt = 0.0 if is_2016 else 20.0
+        max_eta = 2.5
     elif is_cross_tau_jet:
-        min_pt = None if not is_run3 else 35.0
-        max_eta = 2.1
+        min_pt = None if not is_run3 else 20.0
+        max_eta = 2.5
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
@@ -395,6 +399,10 @@ def tau_selection_init(self: Selector) -> None:
     self.produces |= {
         f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
         for tag in ("e", "mu", "jet")
+    }
+
+    self.produces |= {
+        f"Tau.{var}" for var in ("pt", "eta", "dz")
     }
 
 
@@ -470,6 +478,7 @@ def lepton_loose_selection(
         )
 
         # lepton pair selecton per trigger via lepton counting
+
         if trigger.has_tag({"single_e", "cross_e_tau"}):
             # expect 1 electron, 1 veto electron (the same one), 0 veto muons, and at least one tau
             is_etau = (
@@ -525,12 +534,10 @@ def lepton_loose_selection(
                 (ak.num(tau_indices, axis=1) >= 2) &
                 (ak.sum(tau_iso_mask, axis=1) >= 1)
             )
-
             # special case for cross tau vbf trigger:
             # to avoid overlap, with non-vbf triggers, only one tau is allowed to have pt > 40
             if trigger.has_tag("cross_tau_tau_vbf"):
                 is_tautau = is_tautau & (ak.sum(events.Tau[tau_indices].pt > 40, axis=1) <= 1)
-
             is_iso = ak.sum(tau_iso_mask, axis=1) >= 2
             # tau_indices are sorted by highest isolation as cond. 1 and highest pt as cond. 2, so
             # the first two indices are exactly those selected by the full-blown pairing algorithm
