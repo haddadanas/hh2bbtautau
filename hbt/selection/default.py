@@ -191,12 +191,12 @@ def default(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
-    elif self.process_ids_w_lnu is not None:
-        events = self[self.process_ids_w_lnu](events, **kwargs)
-    else:
-        events = self[process_ids](events, **kwargs)
+    # if self.process_ids_dy is not None:
+    #     events = self[self.process_ids_dy](events, **kwargs)
+    # elif self.process_ids_w_lnu is not None:
+    #     events = self[self.process_ids_w_lnu](events, **kwargs)
+    # else:
+    events = self[process_ids](events, **kwargs)
 
     # some cutflow features
     events = self[cutflow_features](events, results.objects, **kwargs)
@@ -245,33 +245,33 @@ def default_init(self: Selector) -> None:
         self.uses.add(lepton_selection)
         self.produces.add(lepton_selection)
 
-    # build and store derived process id producers
-    for tag in ("dy", "w_lnu"):
-        prod_name = f"process_ids_{tag}"
-        setattr(self, prod_name, None)
-        if not self.dataset_inst.has_tag(tag):
-            continue
-        # check if the producer was already created and saved in the config
-        if (prod := self.config_inst.x(prod_name, None)) is None:
-            # check if this dataset is covered by any dy id producer
-            for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
-                incl_dataset_inst = cfg["inclusive_dataset"]
-                # the dataset is "covered" if its process is a subprocess of that of the dy dataset
-                if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
-                    base_prod = getattr(process_producers, prod_name)
-                    prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={
-                        "leaf_processes": cfg["leaf_processes"],
-                    })
-                    # cache it
-                    self.config_inst.set_aux(prod_name, prod)
-                    # stop after the first match
-                    break
-        if prod is not None:
-            # add it as a dependency
-            self.uses.add(prod)
-            self.produces.add(prod)
-            # save it as an attribute
-            setattr(self, prod_name, prod)
+    # # build and store derived process id producers
+    # for tag in ("dy", "w_lnu"):
+    #     prod_name = f"process_ids_{tag}"
+    #     setattr(self, prod_name, None)
+    #     if not self.dataset_inst.has_tag(tag):
+    #         continue
+    #     # check if the producer was already created and saved in the config
+    #     if (prod := self.config_inst.x(prod_name, None)) is None:
+    #         # check if this dataset is covered by any dy id producer
+    #         for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
+    #             incl_dataset_inst = cfg["inclusive_dataset"]
+    #             # the dataset is "covered" if its process is a subprocess of that of the dy dataset
+    #             if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
+    #                 base_prod = getattr(process_producers, prod_name)
+    #                 prod = base_prod.derive(f"{prod_name}_{stitch_name}", cls_dict={
+    #                     "leaf_processes": cfg["leaf_processes"],
+    #                 })
+    #                 # cache it
+    #                 self.config_inst.set_aux(prod_name, prod)
+    #                 # stop after the first match
+    #                 break
+    #     if prod is not None:
+    #         # add it as a dependency
+    #         self.uses.add(prod)
+    #         self.produces.add(prod)
+    #         # save it as an attribute
+    #         setattr(self, prod_name, prod)
 
 
 loose = default.derive("loose", cls_dict={"use_loose_lepton_selection": True})

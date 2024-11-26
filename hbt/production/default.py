@@ -5,7 +5,7 @@ Wrappers for some default sets of producers.
 """
 
 from columnflow.production import Producer, producer
-from columnflow.production.normalization import stitched_normalization_weights
+from columnflow.production.normalization import normalization_weights
 from columnflow.production.categories import category_ids
 from columnflow.production.cms.electron import electron_weights
 from columnflow.production.cms.muon import muon_weights
@@ -44,7 +44,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        events = self[stitched_normalization_weights](events, **kwargs)
+        events = self[normalization_weights](events, **kwargs)
 
         # normalized pdf weight
         if self.has_dep(normalized_pdf_weight):
