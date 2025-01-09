@@ -48,7 +48,7 @@ def get_ak_field_names(array: ak.Array):
     return fields
 
 
-class Dataset:
+class DataContainer:
 
     # Keep track of assigned ids
     assigned_ids = []
@@ -71,15 +71,14 @@ class Dataset:
         self.channel_id = None
         self.process_id = None
         self.weights = None
-        self.features: ak.Array | None = None
         self.feature_names = []
 
         # Assign an id to the dataset
         if cls_id is not None:
             self.id = cls_id
         else:
-            self.id = Dataset.assigned_ids[-1] + 1 if Dataset.assigned_ids else 0
-        Dataset.assigned_ids.append(self.id)
+            self.id = DataContainer.assigned_ids[-1] + 1 if DataContainer.assigned_ids else 0
+        DataContainer.assigned_ids.append(self.id)
 
         if array is not None:
             self._dataset_from_array(array, channel_id, process_id, weights)
@@ -107,7 +106,7 @@ class Dataset:
     def get_sub_dataset(self, features: list | None = None):
         if not features:
             return self
-        return Dataset(
+        return DataContainer(
             is_signal=self.is_signal,
             name=self.name,
             array=self.get_features(features),
