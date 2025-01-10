@@ -125,12 +125,14 @@ def prepare_input(
     training["dataset_id"] = np.concatenate(training["dataset_id"])
     training["weight"] = merge_weight_and_class_weights(training, class_weight)
 
+    # Shuffle the training data
+    shuffle = np.random.permutation(len(training["target"]))
     # create ML tensors
     train_tensor = {
-        "inp_embed": [val for key, val in training.items() if key.startswith("embed")],
-        "inp_num": np.concatenate([val for key, val in training.items() if key.startswith("events_")], axis=1),
-        "target": training["target"],
-        "weight": training["weight"],
+        "inp_embed": [val[shuffle] for key, val in training.items() if key.startswith("embed")],
+        "inp_num": np.concatenate([val for key, val in training.items() if key.startswith("events_")], axis=1)[shuffle],
+        "target": training["target"][shuffle],
+        "weight": training["weight"][shuffle],
     }
 
     # create an output for the fit function of ML

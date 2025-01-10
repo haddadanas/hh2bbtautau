@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import SGD
+from torch.utils.data import DataLoader
 
 from src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device
 
@@ -129,7 +130,11 @@ class Fitting:
     def _predict(self, dataloader, batch_size=32):
         self.model.eval()
         r, n = 0, len(dataloader.dataset)
-        for batch_data in dataloader:
+
+        # Rebuild DataLoader with turned off shuffling to keep the order
+        _dataloader = DataLoader(dataloader.dataset, batch_size=batch_size, shuffle=False)
+
+        for batch_data in _dataloader:
             # Predict on batch
             embed_batch, num_batch = batch_data[0]
             X_embed_batch = [Variable(embed) for embed in embed_batch]

@@ -18,6 +18,7 @@ inp, fields = prepare_input(CONFIG, SETUP['datasets'])
 # Get the model
 model = CustomModel(fields)
 model.to(device)
+model.compile(backend="aot_eager")
 
 
 # define easy metrices
