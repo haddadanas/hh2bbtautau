@@ -1,11 +1,10 @@
 from src.utils import load_setup, get_device
 from src.preprocessing import prepare_input
-from src.ml_utils import Fitting, roc_curve_auc, signal_purity, signal_acceptance, selection_efficiency
+from src.ml_utils import Fitting, MLPLotting, roc_curve_auc, signal_purity, signal_acceptance, selection_efficiency
 from models.ml_model import CustomModel, CONFIG
 
-import matplotlib
-import matplotlib.pyplot as plt
-matplotlib.use("module://imgcat")
+# import matplotlib
+# matplotlib.use("module://imgcat")
 
 # Load some configuration
 SETUP = load_setup()
@@ -18,29 +17,30 @@ inp, fields = prepare_input(CONFIG, SETUP['datasets'])
 # Get the model
 model = CustomModel(fields)
 model.to(device)
-model.compile(backend="aot_eager")
+# model.compile(backend="aot_eager")
 
 
-# define easy metrices
-def AUC(y_true, y_pred):
-    return roc_curve_auc(y_true, y_pred)[2].item()
-
-
-def plot_ROC(y_true, y_pred):
+# Define the plotting
+def plot_ROC(y_true, y_pred, ax):
     fpr, tpr, auc = roc_curve_auc(y_true, y_pred)
-    plt.plot(fpr, tpr, label=f"AUC: {auc}")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC curve")
-    plt.legend()
-    plt.show()
+    ax.plot(fpr, tpr, label=f"AUC: {auc:.3f}")
+    return fpr, tpr, auc
 
+
+roc_plot = MLPLotting(
+    title="ROC curve",
+    xlabel="False positive rate",
+    ylabel="True positive rate",
+    plot_func=plot_ROC,
+    validation=True,
+)
 
 # Fit the model
 fitting = Fitting(model, device)
 logs = fitting.fit(
     training_data=inp['x'],
     validation_data=inp['validation_data'],
-    metrics=[signal_purity, signal_acceptance, selection_efficiency, plot_ROC],
+    metrics=[signal_purity, signal_acceptance, selection_efficiency],
+    plots=[roc_plot],
     **CONFIG,
 )

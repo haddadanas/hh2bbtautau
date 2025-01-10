@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from functools import partial
+from typing import Callable
 
 import torch
 from torch import Tensor
@@ -9,6 +10,8 @@ from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
+
+import matplotlib.pyplot as plt
 
 from src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device
 
@@ -38,6 +41,7 @@ class Fitting:
         loss=DEFAULT_LOSS,
         optimizer=DEFAULT_OPTIMIZER,
         metrics=None,
+        plots: None | list[MLPLotting] = None,
         **kwargs,
     ):
         """Trains the model similar to Keras' .fit(...) method
@@ -114,6 +118,11 @@ class Fitting:
                 _, Y_train, _ = train_data.dataset.get_data()  # type: ignore
                 y_train_pred = self._predict(train_data, batch_size)
                 add_metrics_to_log(log, metrics, Y_train, y_train_pred)
+            if plots:
+                _, Y_train, _ = train_data.dataset.get_data()  # type: ignore
+                y_train_pred = self._predict(train_data, batch_size)
+                for plot in plots:
+                    plot.update(Y_train, y_train_pred, mode="train")
             if valid_data:
                 _, Y_val, weight_val = valid_data.dataset.get_data()  # type: ignore
                 y_val_pred = self._predict(valid_data, batch_size)
@@ -122,6 +131,9 @@ class Fitting:
                 log['val_loss'] = val_loss.item()
                 if metrics:
                     add_metrics_to_log(log, metrics, Y_val, y_val_pred, 'val_')
+                if plots:
+                    for plot in plots:
+                        plot.update(Y_val, y_val_pred, mode="valid")
             logs.append(log)
             if verbose:
                 pb.close(log_to_message(log))
@@ -178,6 +190,112 @@ class Fitting:
             y_pred[r: min(n, r + batch_size)] = y_batch_pred
             r += batch_size
         return y_pred
+
+
+class MLPLotting:
+    """Plotting class for Training and Validation metrics"""
+    def __init__(
+            self,
+            title: str,
+            xlabel: str,
+            ylabel: str,
+            plot_func: Callable,
+            validation: bool = False,
+            data_metric: str = "max",
+    ) -> None:
+        """
+        Initializes the plotting utility with the given parameters.
+        Args:
+            title (str): The title of the plot.
+            xlabel (str): The label for the x-axis.
+            ylabel (str): The label for the y-axis.
+            plot_func (Callable): The function used to generate the plot.
+                The function should have the signature
+                `plot_func(y_true: Tensor, y_pred: Tensor, ax: Axes) -> result array, metric score`.
+            validation (bool, optional): If True, creates an additional subplot for validation. Defaults to False.
+            data_metric (str, optional): The metric to use for saving the best data. Either "max" or "min".
+                Defaults to "max".
+        """
+        self.title = title
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.fig, axs = plt.subplots(
+            1,
+            2 if validation else 1,
+            figsize=(12 if validation else 6, 6),
+            dpi=150,
+            sharey=True,
+        )
+        if validation:
+            self.ax, self.ax_val = axs
+            self.ax_val.set_title(f"Validation {title}")
+            self.ax_val.set_xlabel(xlabel)
+            self.ax_val.set_ylabel(ylabel)
+            self.ax_val.grid()
+        else:
+            self.ax = axs
+        self.ax.set_title(title)
+        self.ax.set_xlabel(xlabel)
+        self.ax.set_ylabel(ylabel)
+        self.ax.grid()
+        self.plot_func = plot_func
+        self.data_metric = data_metric
+        self.prev_train = None
+        self.prev_valid = None
+        self.best_train = None
+        self.best_valid = None
+
+        self.fig.tight_layout()
+        self.fig.show()
+
+    def _get_best_data(self, mode, x, y, metric_score: dict) -> dict:
+        best = getattr(self, f"best_{mode}")
+        if self.data_metric == "max":
+            if best is None or metric_score > best["metric"]:
+                return {"x": x, "y": y, "metric": metric_score}
+        elif self.data_metric == "min":
+            if best is None or metric_score < best["metric"]:
+                return {"x": x, "y": y, "metric": metric_score}
+        return best  # type: ignore
+
+    def _update_state(self, mode, ax, x, y, metric_score):
+        prev = getattr(self, f"prev_{mode}")
+        best = getattr(self, f"best_{mode}")
+        if prev is not None:
+            ax.plot(
+                prev["x"],
+                prev["y"], "k--",
+                alpha=0.5,
+                label=f"last epoch AUC {prev['metric']:.3f}",
+            )
+        setattr(self, f"prev_{mode}", {"x": x, "y": y, "metric": metric_score})
+        setattr(self, f"best_{mode}", self._get_best_data(mode, x, y, metric_score))
+        if best is not None:
+            ax.plot(
+                best["x"],
+                best["y"],
+                "g--",
+                alpha=0.7,
+                label=f"Best: {best['metric']:.3f}",
+                color="green",
+            )
+
+    def update(self, y_true: Tensor, y_pred: Tensor, mode: str = "train") -> None:
+        """
+        Updates the plot with the given data.
+        Args:
+            data (dict): The data to plot.
+            epoch (int): The epoch number.
+            best (bool, optional): If True, saves the data as the best data. Defaults to False.
+        """
+        ax = self.ax_val if mode == "valid" else self.ax
+        ax.cla()
+        x, y, metric_score = self.plot_func(y_true, y_pred, ax)
+        self._update_state(mode, ax, x, y, metric_score)
+
+        ax.legend(loc="lower left")
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
 
 # torch scripts
