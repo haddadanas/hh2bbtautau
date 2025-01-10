@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import sys
+import os
 import yaml
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from dataset import DataContainer
+from src.dataset import DataContainer
 
 __all__ = [
     "load_setup", "load_config", "get_loader", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device"
@@ -76,7 +77,8 @@ def get_config_loader():
 
 def load_setup():
     """Load setup.yaml file."""
-    with open('../setup.yaml') as f:
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    with open(f'{current_dir}/../setup.yaml') as f:
         config = yaml.load(f, Loader=get_setup_loader())
     return config
 
@@ -106,15 +108,21 @@ def get_loader(
     """ Create a Tensor with predefined settings, e.g. shuffle, batch, prefetch. """
     class InputData(Dataset):
         def __init__(self, device, inp_embed, inp_num, target=None, weight=None):
-            to_tensor_f32 = lambda x: torch.from_numpy(np.astype(x, np.float32))
+            to_tensor_f32 = lambda x: (
+                torch.from_numpy(np.astype(x, np.float32)) if isinstance(x, np.ndarray) else x
+            )
+            to_tensor_i32 = lambda x: (
+                torch.from_numpy(np.astype(x, np.int32)) if isinstance(x, np.ndarray) else x
+            )
+
             self.num_data = to_tensor_f32(inp_num).to(device)
             self.embed_data = (
-                [to_tensor_f32(d).to(device) for d in inp_embed] if isinstance(inp_embed, list)
-                else to_tensor_f32(inp_embed).to(device)
+                [to_tensor_i32(d).to(device) for d in inp_embed] if isinstance(inp_embed, list)
+                else to_tensor_i32(inp_embed).to(device)
             )
             size = self.num_data.size(0)
-            self.target = torch.Tensor(size, device=device) if target is None else to_tensor_f32(target).to(device)
-            self.weight = torch.ones(size, device=device) if weight is None else to_tensor_f32(weight).to(device)
+            self.target = torch.Tensor(size) if target is None else to_tensor_f32(target).to(device)
+            self.weight = torch.ones(size) if weight is None else to_tensor_f32(weight).to(device)
 
         def get_data(self):
             return (self.embed_data, self.num_data), self.target, self.weight
@@ -135,13 +143,16 @@ def get_loader(
 def add_metrics_to_log(log, metrics, y_true, y_pred, prefix=''):
     for metric in metrics:
         q = metric(y_true, y_pred)
-        log[prefix + metric.__name__] = q
+        if q is None:
+            continue
+        metric_name = metric.name if hasattr(metric, 'name') else metric.__name__
+        log[prefix + metric_name] = q
     return log
 
 
 def log_to_message(log, precision=4):
     fmt = "{0}: {1:." + str(precision) + "f}"
-    return "    ".join(fmt.format(k, v) for k, v in log.items())
+    return "    ".join(fmt.format(k, v) for k, v in log.items() if isinstance(v, (int, float)))
 
 
 class ProgressBar(object):

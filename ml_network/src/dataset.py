@@ -124,14 +124,14 @@ class DataContainer:
         remove_fields = [f for f in self.feature_names if f not in keep_features]
         return remove_ak_fields(self.features, remove_fields)
 
-    def get_column(self, column: str):
+    def get_column(self, column: str) -> ak.Array:
         if column in ["channel_id", "process_id", "weights"]:
             return getattr(self, column)
         if not column.count('.'):
-            return self.features[column]
+            return getattr(self.features, column)
         array = self.features
         for field in column.split('.'):
-            array = array[field]
+            array = getattr(array, field)
         return array
 
     @property
