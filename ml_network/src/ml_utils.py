@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from functools import partial
 from typing import Callable
+import pickle
 
 import torch
 from torch import Tensor
@@ -191,6 +192,17 @@ class Fitting:
             r += batch_size
         return y_pred
 
+    def save_model(self) -> None:
+        path = f"{self.model.save_path}/{self.model.model_name}.pt"
+        torch.save(self.model, path)
+        print(f"Model saved to {path}")
+
+    def save_logs(self, logs: list[dict]) -> None:
+        path = f"{self.model.save_path}/{self.model.model_name}_logs.pickle"
+        with open(path, "wb") as f:
+            pickle.dump(logs, f)
+        print(f"Logs saved to {path}")
+
 
 class MLPLotting:
     """Plotting class for Training and Validation metrics"""
@@ -228,16 +240,11 @@ class MLPLotting:
         )
         if validation:
             self.ax, self.ax_val = axs
-            self.ax_val.set_title(f"Validation {title}")
-            self.ax_val.set_xlabel(xlabel)
-            self.ax_val.set_ylabel(ylabel)
-            self.ax_val.grid()
+            self._set_up_axes(self.ax)
+            self._set_up_axes(self.ax_val, validation=True)
         else:
             self.ax = axs
-        self.ax.set_title(title)
-        self.ax.set_xlabel(xlabel)
-        self.ax.set_ylabel(ylabel)
-        self.ax.grid()
+            self._set_up_axes(self.ax)
         self.plot_func = plot_func
         self.data_metric = data_metric
         self.prev_train = None
@@ -247,6 +254,12 @@ class MLPLotting:
 
         self.fig.tight_layout()
         self.fig.show()
+
+    def _set_up_axes(self, ax, validation=False):
+        ax.set_title(f"{self.title} {'(Validation)' if validation else ''}")
+        ax.set_xlabel(self.xlabel)
+        ax.set_ylabel(self.ylabel)
+        ax.grid()
 
     def _get_best_data(self, mode, x, y, metric_score: dict) -> dict:
         best = getattr(self, f"best_{mode}")
@@ -260,7 +273,6 @@ class MLPLotting:
 
     def _update_state(self, mode, ax, x, y, metric_score):
         prev = getattr(self, f"prev_{mode}")
-        best = getattr(self, f"best_{mode}")
         if prev is not None:
             ax.plot(
                 prev["x"],
@@ -270,6 +282,7 @@ class MLPLotting:
             )
         setattr(self, f"prev_{mode}", {"x": x, "y": y, "metric": metric_score})
         setattr(self, f"best_{mode}", self._get_best_data(mode, x, y, metric_score))
+        best = getattr(self, f"best_{mode}")
         if best is not None:
             ax.plot(
                 best["x"],
@@ -277,7 +290,6 @@ class MLPLotting:
                 "g--",
                 alpha=0.7,
                 label=f"Best: {best['metric']:.3f}",
-                color="green",
             )
 
     def update(self, y_true: Tensor, y_pred: Tensor, mode: str = "train") -> None:
@@ -288,8 +300,13 @@ class MLPLotting:
             epoch (int): The epoch number.
             best (bool, optional): If True, saves the data as the best data. Defaults to False.
         """
-        ax = self.ax_val if mode == "valid" else self.ax
+        if mode not in ["train", "valid"]:
+            raise ValueError(f"mode must be either 'train' or 'valid', got {mode}")
+
+        is_validation = mode == "valid"
+        ax = self.ax_val if is_validation else self.ax
         ax.cla()
+        self._set_up_axes(ax, validation=is_validation)
         x, y, metric_score = self.plot_func(y_true, y_pred, ax)
         self._update_state(mode, ax, x, y, metric_score)
 

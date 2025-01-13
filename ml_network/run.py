@@ -10,14 +10,16 @@ from models.ml_model import CustomModel, CONFIG
 SETUP = load_setup()
 device = get_device()
 print(f"Using {device} device")
-
+base_name = f"ml_{SETUP['used_selector']}__datasets_{len(SETUP['datasets'])}"
+if "limit_dataset" in SETUP:
+    base_name += f"__limit_{SETUP['limit_dataset']}"
 
 # Prepare the input
 inp, fields = prepare_input(CONFIG, SETUP['datasets'])
 # Get the model
-model = CustomModel(fields)
+model = CustomModel(base_name, fields, save_path=SETUP["model_save_path"])
 model.to(device)
-# model.compile(backend="aot_eager")
+model.compile(backend="aot_eager")
 
 
 # Define the plotting
@@ -44,3 +46,11 @@ logs = fitting.fit(
     plots=[roc_plot],
     **CONFIG,
 )
+
+
+# Save the model and logs
+fitting.save_model()
+fitting.save_logs(logs)
+
+
+input("Press Enter to end...")
