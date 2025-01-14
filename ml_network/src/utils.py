@@ -127,6 +127,9 @@ def get_loader(
         def get_data(self):
             return (self.embed_data, self.num_data), self.target, self.weight
 
+        def get_target(self):
+            return self.target
+
         def __len__(self):
             return self.num_data.size(0)
 

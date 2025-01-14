@@ -95,17 +95,18 @@ class Fitting:
 
             log = OrderedDict()
             epoch_loss = 0.0
+            self.model.train()
             # Run batches
             for batch_i, batch_data in enumerate(train_data):
                 # Get batch data
-                X_embed_batch = batch_data[0][0]
+                X_embed_batch = batch_data[0][0]  # No need to require grad since tensors are integers
                 X_batch = batch_data[0][1].requires_grad_(True)
-                y_batch = batch_data[1].requires_grad_(True)
-                weight_batch = batch_data[2].requires_grad_(True)
+                Y_batch = batch_data[1].requires_grad_(True)
+                W_batch = batch_data[2].requires_grad_(True)
                 # Backprop
                 opt.zero_grad()
-                y_batch_pred = self.model(X_embed_batch, X_batch)
-                batch_loss_array = loss(y_batch_pred, y_batch) * weight_batch
+                Y_batch_pred = self.model(X_embed_batch, X_batch)
+                batch_loss_array = loss(Y_batch_pred, Y_batch) * W_batch
                 batch_loss = batch_loss_array.mean()
                 batch_loss.backward()
                 opt.step()
@@ -114,36 +115,36 @@ class Fitting:
                 log['loss'] = float(epoch_loss) / (batch_i + 1)
                 if verbose:
                     pb.bar(batch_i, log_to_message(log))
-            # Run metrics
+
+            # Run metrics and plots
+            if metrics or plots:
+                Y_train = train_data.dataset.get_target()  # type: ignore
+                y_train_pred, _ = self._predict(train_data, batch_size * 2)
             if metrics:
-                _, Y_train, _ = train_data.dataset.get_data()  # type: ignore
-                y_train_pred = self._predict(train_data, batch_size)
                 add_metrics_to_log(log, metrics, Y_train, y_train_pred)
             if plots:
-                _, Y_train, _ = train_data.dataset.get_data()  # type: ignore
-                y_train_pred = self._predict(train_data, batch_size)
                 for plot in plots:
                     plot.update(Y_train, y_train_pred, mode="train")
+
+            # Run validation
             if valid_data:
-                _, Y_val, weight_val = valid_data.dataset.get_data()  # type: ignore
-                y_val_pred = self._predict(valid_data, batch_size)
-                val_loss_arr = loss(Variable(y_val_pred), Variable(Y_val)) * Variable(weight_val)
-                val_loss = val_loss_arr.mean()
-                log['val_loss'] = val_loss.item()
+                Y_val = valid_data.dataset.get_target()  # type: ignore
+                Y_val_pred, val_loss = self._predict(valid_data, batch_size * 2, loss_func=loss)
+                log['val_loss'] = val_loss
                 if metrics:
-                    add_metrics_to_log(log, metrics, Y_val, y_val_pred, 'val_')
+                    add_metrics_to_log(log, metrics, Y_val, Y_val_pred, 'val_')
                 if plots:
                     for plot in plots:
-                        plot.update(Y_val, y_val_pred, mode="valid")
+                        plot.update(Y_val, Y_val_pred, mode="valid")
             logs.append(log)
             if verbose:
                 pb.close(log_to_message(log))
         return logs
 
-    def _predict(self, dataloader, batch_size=32):
+    def _predict(self, dataloader, batch_size=32, loss_func=None) -> tuple[Tensor, float]:
         self.model.eval()
         r, n = 0, len(dataloader.dataset)
-
+        loss = 0.0
         # Rebuild DataLoader with turned off shuffling to keep the order
         _dataloader = DataLoader(dataloader.dataset, batch_size=batch_size, shuffle=False)
 
@@ -153,13 +154,23 @@ class Fitting:
             X_embed_batch = [Variable(embed) for embed in embed_batch]
             X_num_batch = Variable(num_batch)
             y_batch_pred = self.model(X_embed_batch, X_num_batch).data
+
+            # Calculate loss
+            if loss_func:
+                y_batch = Variable(batch_data[1])
+                w_batch = Variable(batch_data[2])
+                batch_loss_array = loss_func(y_batch_pred, y_batch) * w_batch
+                batch_loss = batch_loss_array.mean()
+                loss += batch_loss.item()
+
             # Infer prediction shape
             if r == 0:
                 y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
             # Add to prediction tensor
             y_pred[r: min(n, r + batch_size)] = y_batch_pred
             r += batch_size
-        return y_pred
+
+        return y_pred, loss / len(_dataloader)
 
     def predict(self, X_embed, X_num, batch_size=32):
         """Generates output predictions for the input samples.

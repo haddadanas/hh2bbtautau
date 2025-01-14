@@ -10,7 +10,7 @@ from models.ml_model import CustomModel, CONFIG
 SETUP = load_setup()
 device = get_device()
 print(f"Using {device} device")
-base_name = f"ml_{SETUP['used_selector']}__datasets_{len(SETUP['datasets'])}"
+base_name = f"ml_{SETUP['used_selector']}__datasets_{len(SETUP['datasets'])}__{SETUP['model_suffix']}"
 if "limit_dataset" in SETUP:
     base_name += f"__limit_{SETUP['limit_dataset']}"
 
