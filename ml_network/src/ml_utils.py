@@ -147,28 +147,28 @@ class Fitting:
         loss = 0.0
         # Rebuild DataLoader with turned off shuffling to keep the order
         _dataloader = DataLoader(dataloader.dataset, batch_size=batch_size, shuffle=False)
+        with torch.no_grad():
+            for batch_data in _dataloader:
+                # Predict on batch
+                embed_batch, num_batch = batch_data[0]
+                X_embed_batch = [Variable(embed) for embed in embed_batch]
+                X_num_batch = Variable(num_batch)
+                y_batch_pred = self.model(X_embed_batch, X_num_batch).data
 
-        for batch_data in _dataloader:
-            # Predict on batch
-            embed_batch, num_batch = batch_data[0]
-            X_embed_batch = [Variable(embed) for embed in embed_batch]
-            X_num_batch = Variable(num_batch)
-            y_batch_pred = self.model(X_embed_batch, X_num_batch).data
+                # Calculate loss
+                if loss_func:
+                    y_batch = Variable(batch_data[1])
+                    w_batch = Variable(batch_data[2])
+                    batch_loss_array = loss_func(y_batch_pred, y_batch) * w_batch
+                    batch_loss = batch_loss_array.mean()
+                    loss += batch_loss.item()
 
-            # Calculate loss
-            if loss_func:
-                y_batch = Variable(batch_data[1])
-                w_batch = Variable(batch_data[2])
-                batch_loss_array = loss_func(y_batch_pred, y_batch) * w_batch
-                batch_loss = batch_loss_array.mean()
-                loss += batch_loss.item()
-
-            # Infer prediction shape
-            if r == 0:
-                y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
-            # Add to prediction tensor
-            y_pred[r: min(n, r + batch_size)] = y_batch_pred
-            r += batch_size
+                # Infer prediction shape
+                if r == 0:
+                    y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
+                # Add to prediction tensor
+                y_pred[r: min(n, r + batch_size)] = y_batch_pred
+                r += batch_size
 
         return y_pred, loss / len(_dataloader)
 
