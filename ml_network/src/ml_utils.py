@@ -225,12 +225,11 @@ class Fitting:
 
     def save_model(self) -> None:
         path = f"{self.model.save_path}/{self.model.model_name}.pt"
-        torch.save(self.model.to("cpu"), path)
-        self.model.to(self.device)
+        torch.save(self.model.state_dict(), path)
         print(f"Model saved to {path}")
 
-    def save_logs(self, logs: list[dict]) -> None:
-        path = f"{self.model.save_path}/{self.model.model_name}_logs.pickle"
+    def save_logs(self, logs: list[dict], suffix: str = "logs") -> None:
+        path = f"{self.model.save_path}/{self.model.model_name}_{suffix}.pickle"
         with open(path, "wb") as f:
             pickle.dump(logs, f)
         print(f"Logs saved to {path}")

@@ -18,6 +18,8 @@ if "limit_dataset" in SETUP:
 
 # Prepare the input
 inp, fields = prepare_input(CONFIG, SETUP['datasets'])
+CONFIG["feature_names"] = fields
+
 # Get the model
 model = CustomModel(base_name, fields, save_path=SETUP["model_save_path"])
 model.to(device)
@@ -53,6 +55,6 @@ logs = fitting.fit(
 # Save the model and logs
 fitting.save_model()
 fitting.save_logs(logs)
-
+fitting.save_logs(CONFIG, suffix="config")
 
 input("Press Enter to end...")

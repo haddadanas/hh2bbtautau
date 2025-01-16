@@ -23,7 +23,7 @@ def remove_ak_fields(array: ak.Array, fields: list[str] | str) -> ak.Array:
             super_fields.add(field[0])
         array = ak.without_field(array, field)
     for field in super_fields:
-        if array[field].fields:
+        if array[field].fields:  # type: ignore
             continue
         array = ak.without_field(array, field)
 
@@ -134,6 +134,9 @@ class DataContainer:
         for field in column.split('.'):
             array = getattr(array, field)
         return array
+
+    def get_features_dict(self):
+        return {f: self.get_column(f) for f in sorted(self.feature_names)}
 
     @property
     def n_fields(self):

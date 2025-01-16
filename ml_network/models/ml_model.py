@@ -7,7 +7,7 @@ CONFIG = {
     "target": ["signal_node"],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
     "loss": nn.BCELoss(reduction="none"),
-    "epochs": 50,
+    "epochs": 30,
     "batch_size": 265,
 }
 
@@ -17,7 +17,7 @@ class CustomModel(nn.Module):
         super(CustomModel, self).__init__()
         self.model_name = name
         self.save_path = save_path
-        self.input_length = sum(len(input_spec) for input_spec in input_features)
+        self.input_length = len(input_features)
         self.embedding_out = 2
         self.input_dim = self.input_length + self.embedding_out
 

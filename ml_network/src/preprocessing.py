@@ -4,21 +4,10 @@ from collections import defaultdict
 
 import awkward as ak
 import numpy as np
-import numpy.lib.recfunctions as nprec
 
 from ml_network.src.dataset import DataContainer
 
 EMPTY_FLOAT = -99999.0
-
-
-def build_field_names(dtype) -> list[str]:
-    fields = []
-    for (field, typ) in dtype.descr:
-        if isinstance(typ, list):
-            fields.extend([f"{field}_{subfield[0]}" for subfield in typ])
-        else:
-            fields.append(field.replace("_", ".", 1))
-    return fields
 
 
 def merge_weight_and_class_weights(data: dict, class_weight: dict[DataContainer, float]) -> np.ndarray:
@@ -37,12 +26,12 @@ def prepare_input(
     inputs: dict[str, DataContainer],
     target_mapping: Callable = lambda target, inp: int(inp.is_signal),
     validation_split: float | None = 0.2,
+    fields: list[str] | None = None,
 ) -> (dict[str, tuple], list[str]):
     """ Prepare the input for the ML model. """
     weight_sum: dict[str, float] = {}
     training: defaultdict[str, list] = defaultdict(list)
     valid: defaultdict[str, list] = defaultdict(list)
-    fields: list | None = None
 
     # get needed config inforamtion
     target_nodes = config["target"]
@@ -65,11 +54,10 @@ def prepare_input(
             ind = np.zeros(len(inp), dtype=bool)
             ind[choice] = True
 
-        for field in inp.array.fields:
-            column = inp.get_column(field)
-            arr_fields.append([f"{field}_{subfield}" for subfield in column.fields])
+        for field_name, column in inp.get_features_dict().items():
+            arr_fields.append(field_name)
             arr = ak.to_numpy(column, allow_missing=False)
-            arr = nprec.structured_to_unstructured(arr)
+            # arr = nprec.structured_to_unstructured(arr)
 
             # set EMPTY_FLOAT to -10
             if np.any(arr == EMPTY_FLOAT):
@@ -77,8 +65,23 @@ def prepare_input(
 
             if validation_split:
                 val_features.append(arr[ind])
-                arr = arr[~ind]
+                arr = arr[np.logical_not(ind)]
             inp_features.append(arr)
+
+        # for field in inp.array.fields:
+        #     column = inp.get_column(field)
+        #     arr_fields.append([f"{field}_{subfield}" for subfield in column.fields])
+        #     arr = ak.to_numpy(column, allow_missing=False)
+        #     arr = nprec.structured_to_unstructured(arr)
+
+        #     # set EMPTY_FLOAT to -10
+        #     if np.any(arr == EMPTY_FLOAT):
+        #         arr[arr == EMPTY_FLOAT] = -10
+
+        #     if validation_split:
+        #         val_features.append(arr[ind])
+        #         arr = arr[np.logical_not(ind)]
+        #     inp_features.append(arr)
 
         # check for infinite values in weights
         if np.any(~np.isfinite(weights)):
@@ -92,13 +95,13 @@ def prepare_input(
             for i, val in enumerate(val_features):
                 valid[f"events_{i}"].append(val)
             valid["target"].append(target[ind])
-            target = target[~ind]
+            target = target[np.logical_not(ind)]
             valid["weight"].append(weights[ind])
-            weights = weights[~ind]
+            weights = weights[np.logical_not(ind)]
             valid["channel_id"].append(channel_id[ind])
-            channel_id = channel_id[~ind]
+            channel_id = channel_id[np.logical_not(ind)]
             valid["dataset_id"].append(dataset_id[ind])
-            dataset_id = dataset_id[~ind]
+            dataset_id = dataset_id[np.logical_not(ind)]
 
             print(f"*{inp}* is split into {len(target)} training and {split}"
                 " validation events")
@@ -111,9 +114,11 @@ def prepare_input(
 
         if not fields:
             fields = arr_fields
+        else:
+            assert fields == arr_fields, "Fields are not the same"
 
     # Merge over datasets
-    mean_weight: np.ndarray = np.mean(list(weight_sum.values()))
+    mean_weight: np.ndarray = np.mean(list(weight_sum.values()))  # type: ignore
     class_weight = {d: mean_weight / w for d, w in weight_sum.items()}
 
     # concatenate all events and targets
@@ -130,7 +135,7 @@ def prepare_input(
     # create ML tensors
     train_tensor = {
         "inp_embed": [val[shuffle] for key, val in training.items() if key.startswith("embed")],
-        "inp_num": np.concatenate([val for key, val in training.items() if key.startswith("events_")], axis=1)[shuffle],
+        "inp_num": np.stack([val for key, val in training.items() if key.startswith("events_")], axis=1)[shuffle],
         "target": training["target"][shuffle],
         "weight": training["weight"][shuffle],
     }
@@ -149,7 +154,7 @@ def prepare_input(
 
         valid_tensor = {
             "inp_embed": [val for key, val in valid.items() if key.startswith("embed")],
-            "inp_num": np.concatenate([val for key, val in valid.items() if key.startswith("events_")], axis=1),
+            "inp_num": np.stack([val for key, val in valid.items() if key.startswith("events_")], axis=1),
             "target": valid["target"],
             "weight": valid["weight"],
         }
