@@ -11,10 +11,11 @@ from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 import matplotlib.pyplot as plt
 
-from src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device
+from ml_network.src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device
 
 device = get_device()
 
@@ -43,6 +44,7 @@ class Fitting:
         optimizer=DEFAULT_OPTIMIZER,
         metrics=None,
         plots: None | list[MLPLotting] = None,
+        tensorboard: bool = True,
         **kwargs,
     ):
         """Trains the model similar to Keras' .fit(...) method
@@ -74,6 +76,8 @@ class Fitting:
         if seed and seed >= 0:
             torch.manual_seed(seed)
 
+        if tensorboard:
+            self._tensorboard_setup()
         # Prepare validation data
         if validation_data:
             valid_data = get_loader(**validation_data, batch_size=batch_size, shuffle=False, device=self.device)
@@ -136,9 +140,19 @@ class Fitting:
                 if plots:
                     for plot in plots:
                         plot.update(Y_val, Y_val_pred, mode="valid")
+
+            if tensorboard:
+                for key, value in log.items():
+                    self.writer.add_scalar(key, value, t)
+
             logs.append(log)
             if verbose:
                 pb.close(log_to_message(log))
+        if tensorboard:
+            if plots:
+                for plot in plots:
+                    self.writer.add_figure(plot.title, plot.fig, t)
+            self.writer.flush()
         return logs
 
     def _predict(self, dataloader, batch_size=32, loss_func=None) -> tuple[Tensor, float]:
@@ -172,6 +186,11 @@ class Fitting:
 
         return y_pred, loss / len(_dataloader)
 
+    def _tensorboard_setup(self) -> None:
+        path = f"{self.model.save_path}/{self.model.model_name}_tb_logs"
+        self.writer = SummaryWriter(path)
+        print(f"Tensorboard logs are saved to {path}")
+
     def predict(self, X_embed, X_num, batch_size=32):
         """Generates output predictions for the input samples.
 
@@ -189,23 +208,25 @@ class Fitting:
         # Batch prediction
         self.model.eval()
         r, n = 0, X_num.size()[0]
-        for batch_data in data:
-            # Predict on batch
-            embed_batch, num_batch = batch_data[0]
-            X_embed_batch = [Variable(embed) for embed in embed_batch]
-            X_num_batch = Variable(num_batch)
-            y_batch_pred = self.model(X_embed_batch, X_num_batch).data
-            # Infer prediction shape
-            if r == 0:
-                y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
-            # Add to prediction tensor
-            y_pred[r: min(n, r + batch_size)] = y_batch_pred
-            r += batch_size
+        with torch.no_grad():
+            for batch_data in data:
+                # Predict on batch
+                embed_batch, num_batch = batch_data[0]
+                X_embed_batch = [Variable(embed) for embed in embed_batch]
+                X_num_batch = Variable(num_batch)
+                y_batch_pred = self.model(X_embed_batch, X_num_batch).data
+                # Infer prediction shape
+                if r == 0:
+                    y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
+                # Add to prediction tensor
+                y_pred[r: min(n, r + batch_size)] = y_batch_pred
+                r += batch_size
         return y_pred
 
     def save_model(self) -> None:
         path = f"{self.model.save_path}/{self.model.model_name}.pt"
-        torch.save(self.model, path)
+        torch.save(self.model.to("cpu"), path)
+        self.model.to(self.device)
         print(f"Model saved to {path}")
 
     def save_logs(self, logs: list[dict]) -> None:

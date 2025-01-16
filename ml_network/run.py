@@ -1,7 +1,9 @@
-from src.utils import load_setup, get_device
-from src.preprocessing import prepare_input
-from src.ml_utils import Fitting, MLPLotting, roc_curve_auc, signal_purity, signal_acceptance, selection_efficiency
-from models.ml_model import CustomModel, CONFIG
+from ml_network.src.utils import load_setup, get_device
+from ml_network.src.preprocessing import prepare_input
+from ml_network.src.ml_utils import (
+    Fitting, MLPLotting, roc_curve_auc, signal_purity, signal_acceptance, selection_efficiency,
+)
+from ml_network.models.ml_model import CustomModel, CONFIG
 
 # import matplotlib
 # matplotlib.use("module://imgcat")

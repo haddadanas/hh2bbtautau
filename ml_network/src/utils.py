@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from src.dataset import DataContainer
+from ml_network.src.dataset import DataContainer
 
 __all__ = [
     "load_setup", "load_config", "get_loader", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device"

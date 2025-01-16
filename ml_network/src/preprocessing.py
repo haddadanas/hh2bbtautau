@@ -6,7 +6,7 @@ import awkward as ak
 import numpy as np
 import numpy.lib.recfunctions as nprec
 
-from src.dataset import DataContainer
+from ml_network.src.dataset import DataContainer
 
 EMPTY_FLOAT = -99999.0
 

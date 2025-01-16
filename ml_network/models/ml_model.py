@@ -6,9 +6,9 @@ from torch import nn
 CONFIG = {
     "target": ["signal_node"],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
-    "loss": torch.nn.BCELoss(reduction="none"),
-    "epochs": 30,
-    "batch_size": 128,
+    "loss": nn.BCELoss(reduction="none"),
+    "epochs": 50,
+    "batch_size": 265,
 }
 
 
@@ -30,19 +30,19 @@ class CustomModel(nn.Module):
         # define the layers
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(self.input_dim, 64),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(64, 256),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(256, 512),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(512, 512),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(512, 128),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(128, 32),
-            nn.ReLU(),
+            nn.PReLU(),
             nn.Linear(32, 1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, X_embed, X_num):
