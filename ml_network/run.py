@@ -17,7 +17,7 @@ if "limit_dataset" in SETUP:
     base_name += f"__limit_{SETUP['limit_dataset']}"
 
 # Prepare the input
-inp, fields = prepare_input(CONFIG, SETUP['datasets'])
+inp, fields = prepare_input(**CONFIG, inputs=SETUP['datasets'])
 CONFIG["feature_names"] = fields
 
 # Get the model

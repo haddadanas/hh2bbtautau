@@ -17,6 +17,9 @@
 *.pb
 *.out
 *.parquet
+*.pickle
+*.pt
+*.0
 .env_*.sh
 .env_*.sh.tmp
 .coverage

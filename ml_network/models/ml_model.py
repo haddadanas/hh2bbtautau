@@ -4,7 +4,8 @@ import torch
 from torch import nn
 
 CONFIG = {
-    "target": ["signal_node"],
+    "target_nodes": ["signal_node"],
+    "embedding_fields": ["channel_id"],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
     "loss": nn.BCELoss(reduction="none"),
     "epochs": 30,
@@ -17,7 +18,9 @@ class CustomModel(nn.Module):
         super(CustomModel, self).__init__()
         self.model_name = name
         self.save_path = save_path
-        self.input_length = len(input_features)
+        self.input_length = (
+            len(input_features["num_fields"]) if isinstance(input_features, dict) else len(input_features)
+        )
         self.embedding_out = 2
         self.input_dim = self.input_length + self.embedding_out
 

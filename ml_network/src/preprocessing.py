@@ -22,19 +22,20 @@ def merge_weight_and_class_weights(data: dict, class_weight: dict[DataContainer,
 
 
 def prepare_input(
-    config: dict,
+    target_nodes: list[str],
     inputs: dict[str, DataContainer],
     target_mapping: Callable = lambda target, inp: int(inp.is_signal),
     validation_split: float | None = 0.2,
-    fields: list[str] | None = None,
+    fields: dict[str, list] | None = None,
+    embedding_fields: list[str] = [],
+    *args,
+    **kwargs,
 ) -> (dict[str, tuple], list[str]):
     """ Prepare the input for the ML model. """
     weight_sum: dict[str, float] = {}
     training: defaultdict[str, list] = defaultdict(list)
     valid: defaultdict[str, list] = defaultdict(list)
 
-    # get needed config inforamtion
-    target_nodes = config["target"]
 
     for name, inp in inputs.items():
         # calculate the sum of weights for each dataset
@@ -44,8 +45,11 @@ def prepare_input(
         channel_id = ak.to_numpy(inp.channel_id)
         dataset_id = np.full(len(inp), inp.id, dtype=np.int32)
         inp_features = []
+        embed_features = []
         val_features = []
-        arr_fields = []
+        val_embed_features = []
+        num_fields = []
+        embed_fields = []
 
         # split into training and validation set
         if validation_split:
@@ -55,7 +59,6 @@ def prepare_input(
             ind[choice] = True
 
         for field_name, column in inp.get_features_dict().items():
-            arr_fields.append(field_name)
             arr = ak.to_numpy(column, allow_missing=False)
             # arr = nprec.structured_to_unstructured(arr)
 
@@ -64,24 +67,17 @@ def prepare_input(
                 arr[arr == EMPTY_FLOAT] = -10
 
             if validation_split:
-                val_features.append(arr[ind])
+                if field_name in embedding_fields:
+                    val_embed_features.append(arr[ind])
+                else:
+                    val_features.append(arr[ind])
                 arr = arr[np.logical_not(ind)]
-            inp_features.append(arr)
-
-        # for field in inp.array.fields:
-        #     column = inp.get_column(field)
-        #     arr_fields.append([f"{field}_{subfield}" for subfield in column.fields])
-        #     arr = ak.to_numpy(column, allow_missing=False)
-        #     arr = nprec.structured_to_unstructured(arr)
-
-        #     # set EMPTY_FLOAT to -10
-        #     if np.any(arr == EMPTY_FLOAT):
-        #         arr[arr == EMPTY_FLOAT] = -10
-
-        #     if validation_split:
-        #         val_features.append(arr[ind])
-        #         arr = arr[np.logical_not(ind)]
-        #     inp_features.append(arr)
+            if field_name in embedding_fields:
+                embed_fields.append(field_name)
+                embed_features.append(arr)
+            else:
+                num_fields.append(field_name)
+                inp_features.append(arr)
 
         # check for infinite values in weights
         if np.any(~np.isfinite(weights)):
@@ -91,40 +87,55 @@ def prepare_input(
         target = np.zeros((len(inp), len(target_nodes)), dtype=np.int32)
         target[:, :] = target_mapping(target, inp)
 
+        # treat the channel_id in a special way as it can be a categorical variable
+        if validation_split:
+            valid["channel_id"].append(channel_id[ind])
+            channel_id = channel_id[np.logical_not(ind)]
+
+        if "channel_id" in embedding_fields:
+            embed_fields.append("channel_id")
+            embed_features.append(channel_id)
+            val_embed_features.append(valid["channel_id"][-1])
+
         if validation_split:
             for i, val in enumerate(val_features):
                 valid[f"events_{i}"].append(val)
+            for i, val in enumerate(val_embed_features):
+                valid[f"embed_{i}"].append(val)
             valid["target"].append(target[ind])
             target = target[np.logical_not(ind)]
             valid["weight"].append(weights[ind])
             weights = weights[np.logical_not(ind)]
-            valid["channel_id"].append(channel_id[ind])
-            channel_id = channel_id[np.logical_not(ind)]
             valid["dataset_id"].append(dataset_id[ind])
             dataset_id = dataset_id[np.logical_not(ind)]
 
             print(f"*{inp}* is split into {len(target)} training and {split}"
                 " validation events")
+
         for i, inp_feature in enumerate(inp_features):
             training[f"events_{i}"].append(inp_feature)
+        for i, embed_feature in enumerate(embed_features):
+            training[f"embed_{i}"].append(embed_feature)
         training["target"].append(target)
         training["weight"].append(weights)
         training["channel_id"].append(channel_id)
         training["dataset_id"].append(dataset_id)
 
         if not fields:
-            fields = arr_fields
+            fields = {"num_fields": num_fields, "embed_fields": embed_fields}
         else:
-            assert fields == arr_fields, "Fields are not the same"
+            assert fields["num_fields"] == num_fields, "Numerical Fields are not the same"
+            assert fields["embed_fields"] == embed_fields, "Embedding Fields are not the same"
 
     # Merge over datasets
     mean_weight: np.ndarray = np.mean(list(weight_sum.values()))  # type: ignore
     class_weight = {d: mean_weight / w for d, w in weight_sum.items()}
 
     # concatenate all events and targets
-    for i in range(len(fields)):
+    for i in range(len(num_fields)):  # type: ignore
         training[f"events_{i}"] = np.concatenate(training[f"events_{i}"])
-    training["embed_1"] = np.concatenate(training["channel_id"])
+    for i in range(len(embed_fields)):  # type: ignore
+        training[f"embed_{i}"] = np.concatenate(training[f"embed_{i}"])
     training["target"] = np.concatenate(training["target"])
     training["weight"] = np.concatenate(training["weight"])
     training["dataset_id"] = np.concatenate(training["dataset_id"])
@@ -144,9 +155,10 @@ def prepare_input(
     result = {"x": train_tensor}  # weights are included in the training tensor
 
     if validation_split:
-        for i in range(len(fields)):
+        for i in range(len(num_fields)):  # type: ignore
             valid[f"events_{i}"] = np.concatenate(valid[f"events_{i}"])
-        valid["embed_1"] = np.concatenate(valid["channel_id"])
+        for i in range(len(embed_fields)):  # type: ignore
+            valid[f"embed_{i}"] = np.concatenate(valid[f"embed_{i}"])
         valid["target"] = np.concatenate(valid["target"])
         valid["weight"] = np.concatenate(valid["weight"])
         valid["dataset_id"] = np.concatenate(valid["dataset_id"])
