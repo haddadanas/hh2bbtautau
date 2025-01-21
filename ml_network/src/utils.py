@@ -144,9 +144,9 @@ def get_loader(
 
 # Logging
 
-def add_metrics_to_log(log, metrics, y_true, y_pred, prefix=''):
+def add_metrics_to_log(log, metrics, y_pred, y_true, prefix=''):
     for metric in metrics:
-        q = metric(y_true, y_pred)
+        q = metric(y_pred, y_true)
         if q is None:
             continue
         metric_name = metric.name if hasattr(metric, 'name') else metric.__name__

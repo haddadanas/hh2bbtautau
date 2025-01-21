@@ -68,7 +68,7 @@ class Fitting:
             seed: random seed.
             loss: training loss
             optimizer: training optimizer
-            metrics: list of functions with signatures `metric(y_true, y_pred)`
+            metrics: list of functions with signatures `metric(y_pred, y_true)`
             where y_true and y_pred are both Tensors
 
         # Returns
@@ -126,10 +126,10 @@ class Fitting:
                 Y_train = train_data.dataset.get_target()  # type: ignore
                 y_train_pred, _ = self._predict(train_data, batch_size * 2)
             if metrics:
-                add_metrics_to_log(log, metrics, Y_train, y_train_pred)
+                add_metrics_to_log(log, metrics, y_train_pred, Y_train)
             if plots:
                 for plot in plots:
-                    plot.update(Y_train, y_train_pred, mode="train")
+                    plot.update(y_train_pred, Y_train, mode="train")
 
             # Run validation
             if valid_data:
@@ -137,10 +137,10 @@ class Fitting:
                 Y_val_pred, val_loss = self._predict(valid_data, batch_size * 2, loss_func=loss)
                 log['val_loss'] = val_loss
                 if metrics:
-                    add_metrics_to_log(log, metrics, Y_val, Y_val_pred, 'val_')
+                    add_metrics_to_log(log, metrics, Y_val_pred, Y_val, 'val_')
                 if plots:
                     for plot in plots:
-                        plot.update(Y_val, Y_val_pred, mode="valid")
+                        plot.update(Y_val_pred, Y_val, mode="valid")
 
             if tensorboard:
                 for key, value in log.items():
@@ -332,7 +332,7 @@ class MLPLotting:
                 label=f"Best: {best['metric']:.3f}",
             )
 
-    def update(self, y_true: Tensor, y_pred: Tensor, mode: str = "train") -> None:
+    def update(self, y_pred: Tensor, y_true: Tensor, mode: str = "train") -> None:
         """
         Updates the plot with the given data.
         Args:
@@ -347,7 +347,7 @@ class MLPLotting:
         ax = self.ax_val if is_validation else self.ax
         ax.cla()
         self._set_up_axes(ax, validation=is_validation)
-        x, y, metric_score = self.plot_func(y_true, y_pred, ax)
+        x, y, metric_score = self.plot_func(y_pred, y_true, ax)
         self._update_state(mode, ax, x, y, metric_score)
 
         ax.legend(loc="lower left")
@@ -357,11 +357,13 @@ class MLPLotting:
 
 # torch scripts
 @torch.jit.script
-def selection_efficiency(y_true: Tensor, y_pred: Tensor) -> float:
+def selection_efficiency(y_pred: Tensor, y_true: Tensor,) -> float:
     threshold = 0.5  # torch.linspace(0, 1, 101)
     # selection_efficiencies = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()
@@ -376,11 +378,13 @@ def selection_efficiency(y_true: Tensor, y_pred: Tensor) -> float:
 
 
 @torch.jit.script
-def signal_acceptance(y_true: Tensor, y_pred: Tensor) -> float:
+def signal_acceptance(y_pred: Tensor, y_true: Tensor) -> float:
     threshold = 0.5  # torch.linspace(0, 1, 101)
     # signal_acceptances = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()
@@ -397,11 +401,13 @@ def signal_acceptance(y_true: Tensor, y_pred: Tensor) -> float:
 
 
 @torch.jit.script
-def signal_purity(y_true: Tensor, y_pred: Tensor) -> float:
+def signal_purity(y_pred: Tensor, y_true: Tensor) -> float:
     threshold = 0.5  # torch.linspace(0, 1, 101)
     # signal_purities = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()
@@ -418,11 +424,13 @@ def signal_purity(y_true: Tensor, y_pred: Tensor) -> float:
 
 
 @torch.jit.script
-def background_rejection(y_true: Tensor, y_pred: Tensor) -> Tensor:
+def background_rejection(y_pred: Tensor, y_true: Tensor) -> Tensor:
     thresholds = torch.linspace(0, 1, 101)
     background_rejections = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()
@@ -439,12 +447,14 @@ def background_rejection(y_true: Tensor, y_pred: Tensor) -> Tensor:
 
 
 @torch.jit.script
-def roc_curve(y_true: Tensor, y_pred: Tensor) -> tuple[Tensor, Tensor]:
+def roc_curve(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor]:
     thresholds = torch.linspace(0, 1, 101)
     tpr = torch.zeros(101)
     fpr = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()
@@ -464,12 +474,14 @@ def roc_curve(y_true: Tensor, y_pred: Tensor) -> tuple[Tensor, Tensor]:
 
 
 @torch.jit.script
-def roc_curve_auc(y_true: Tensor, y_pred: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+def roc_curve_auc(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     thresholds = torch.linspace(0, 1, 101)
     tpr = torch.zeros(101)
     fpr = torch.zeros(101)
 
-    if y_pred.ndim > 1:
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
         y_pred = y_pred.flatten()
     if y_true.ndim > 1:
         y_true = y_true.flatten()

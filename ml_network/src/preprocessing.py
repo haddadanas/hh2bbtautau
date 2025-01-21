@@ -36,7 +36,6 @@ def prepare_input(
     training: defaultdict[str, list] = defaultdict(list)
     valid: defaultdict[str, list] = defaultdict(list)
 
-
     for name, inp in inputs.items():
         # calculate the sum of weights for each dataset
         weight_sum[inp] = ak.sum(inp.weights)

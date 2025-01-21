@@ -25,8 +25,8 @@ model.compile(backend="aot_eager")
 
 
 # Define the plotting
-def plot_ROC(y_true, y_pred, ax):
-    fpr, tpr, auc = roc_curve_auc(y_true, y_pred)
+def plot_ROC(y_pred, y_true, ax):
+    fpr, tpr, auc = roc_curve_auc(y_pred, y_true)
     ax.plot(fpr, tpr, label=f"AUC: {auc:.3f}")
     return fpr, tpr, auc
 
