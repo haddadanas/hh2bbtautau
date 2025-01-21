@@ -3,11 +3,13 @@ from functools import partial
 import torch
 from torch import nn
 
+from ml_network.models.losses import sigmoid_focal_loss
+
 CONFIG = {
     "target_nodes": ["signal_node"],
     "embedding_fields": ["channel_id"] + [f"l{n}.tauVS{var}" for n in [1, 2] for var in ["jet", "e", "mu"]],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
-    "loss": nn.BCELoss(reduction="none"),
+    "loss": partial(sigmoid_focal_loss, reduction="none"),  # nn.BCELoss(reduction="none"),
     "epochs": 30,
     "batch_size": 265,
 }
@@ -21,45 +23,24 @@ class CustomModel(nn.Module):
         self.input_length = (
             len(input_features["num_fields"]) if isinstance(input_features, dict) else len(input_features)
         )
-        self.embedding_out = {
-            "channel_id": 2,
-            "tauVSjet": 6,
-            "tauVSe": 6,
-            "tauVSmu": 3,
+        embedding_out = {
+            "channel_id": (3, 2),
+            "tauVSjet": (10, 6),
+            "tauVSe": (10, 6),
+            "tauVSmu": (5, 3),
         }
-        self.input_dim = self.input_length + 2 * sum(self.embedding_out.values()) - self.embedding_out["channel_id"]
+        self.input_dim = (
+            self.input_length + 2 * sum(v[1] for v in embedding_out.values()) - embedding_out["channel_id"][1]
+        )
 
         # embedding layers
         self.embed = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Embedding(10, self.embedding_out["tauVSe"]),
+                    nn.Embedding(*embedding_out[feat.split(".")[-1]]),
                     nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(10, self.embedding_out["tauVSjet"]),
-                    nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(5, self.embedding_out["tauVSmu"]),
-                    nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(10, self.embedding_out["tauVSe"]),
-                    nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(10, self.embedding_out["tauVSjet"]),
-                    nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(5, self.embedding_out["tauVSmu"]),
-                    nn.Flatten(),
-                ),
-                nn.Sequential(
-                    nn.Embedding(3, self.embedding_out["channel_id"]),
-                    nn.Flatten(),
-                ),
+                )
+                for feat in input_features["embed_fields"]
             ]
         )
 

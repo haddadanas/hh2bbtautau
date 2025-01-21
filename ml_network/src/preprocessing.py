@@ -95,7 +95,8 @@ def prepare_input(
         if "channel_id" in embedding_fields:
             embed_fields.append("channel_id")
             embed_features.append(channel_id)
-            val_embed_features.append(valid["channel_id"][-1])
+            if validation_split:
+                val_embed_features.append(valid["channel_id"][-1])
 
         if validation_split:
             for i, val in enumerate(val_features):

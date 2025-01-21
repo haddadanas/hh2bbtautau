@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import copy
 from functools import partial
 from typing import Callable
-import pickle
 
 import torch
 from torch import Tensor
@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 import matplotlib.pyplot as plt
 
-from ml_network.src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device
+from ml_network.src.utils import add_metrics_to_log, get_loader, log_to_message, ProgressBar, get_device, make_dir
 
 device = get_device()
 
@@ -29,6 +29,7 @@ class Fitting:
         model.to(device)
         self.model = model
         self.device = device
+        self.path = make_dir(f"{self.model.save_path}/{self.model.model_name}_logs")
 
     def fit(
         self,
@@ -144,14 +145,14 @@ class Fitting:
             if tensorboard:
                 for key, value in log.items():
                     self.writer.add_scalar(key, value, t)
+                if plots:
+                    for plot in plots:
+                        self.writer.add_figure(plot.title, copy.deepcopy(plot.fig), t)
 
             logs.append(log)
             if verbose:
                 pb.close(log_to_message(log))
         if tensorboard:
-            if plots:
-                for plot in plots:
-                    self.writer.add_figure(plot.title, plot.fig, t)
             self.writer.flush()
         return logs
 
@@ -187,9 +188,8 @@ class Fitting:
         return y_pred, loss / len(_dataloader)
 
     def _tensorboard_setup(self) -> None:
-        path = f"{self.model.save_path}/{self.model.model_name}_tb_logs"
-        self.writer = SummaryWriter(path)
-        print(f"Tensorboard logs are saved to {path}")
+        self.writer = SummaryWriter(self.path)
+        print(f"Tensorboard logs are saved to {self.path}")
 
     def predict(self, X_embed, X_num, batch_size=32):
         """Generates output predictions for the input samples.
@@ -224,15 +224,24 @@ class Fitting:
         return y_pred
 
     def save_model(self) -> None:
-        path = f"{self.model.save_path}/{self.model.model_name}.pt"
+        path = f"{self.path}/model.pt"
         torch.save(self.model.state_dict(), path)
         print(f"Model saved to {path}")
 
     def save_logs(self, logs: list[dict], suffix: str = "logs") -> None:
-        path = f"{self.model.save_path}/{self.model.model_name}_{suffix}.pickle"
+        import pickle
+        path = f"{self.path}/{suffix}.pickle"
         with open(path, "wb") as f:
             pickle.dump(logs, f)
         print(f"Logs saved to {path}")
+
+    def save_config(self, logs: dict, suffix: str = "config") -> None:
+        import json
+        path = f"{self.path}/{suffix}.json"
+        str_dict = {k: (str(v) if isinstance(v, Callable) else v) for k, v in logs.items()}
+        with open(path, "w") as f:
+            json.dump(str_dict, f)
+        print(f"JSON saved to {path}")
 
 
 class MLPLotting:

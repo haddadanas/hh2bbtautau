@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Type
 import sys
 import os
 import yaml
@@ -184,3 +185,26 @@ class ProgressBar(object):
         self.bar(self.n - 1)
         sys.stdout.write("{0}\n\n".format(message))
         sys.stdout.flush()
+
+
+def build_model_name(setup: dict, model: Type) -> str:
+    """
+    Build the model name based on the setup and the model
+    """
+    model_name = f"{model.__module__.split('.')[-1]}__"
+    model_name += f"{setup['used_selector']}__datasets_{len(setup['datasets'])}__{setup['model_suffix']}"
+    if "limit_dataset" in setup:
+        model_name += f"__limit_{setup['limit_dataset']}"
+    return model_name
+
+
+def make_dir(path: str) -> str:
+    """
+    Create the directory if it does not exist
+    """
+    import time
+    current_time = time.strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(path, current_time)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path

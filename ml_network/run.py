@@ -1,9 +1,9 @@
-from ml_network.src.utils import load_setup, get_device
+from ml_network.src.utils import load_setup, get_device, build_model_name
 from ml_network.src.preprocessing import prepare_input
 from ml_network.src.ml_utils import (
     Fitting, MLPLotting, roc_curve_auc, signal_purity, signal_acceptance, selection_efficiency,
 )
-from ml_network.models.ml_model import CustomModel, CONFIG
+from ml_network.models.ml_model_batch_norm import CONFIG, CustomModel as Model
 
 # import matplotlib
 # matplotlib.use("module://imgcat")
@@ -12,16 +12,14 @@ from ml_network.models.ml_model import CustomModel, CONFIG
 SETUP = load_setup()
 device = get_device()
 print(f"Using {device} device")
-base_name = f"ml_{SETUP['used_selector']}__datasets_{len(SETUP['datasets'])}__{SETUP['model_suffix']}"
-if "limit_dataset" in SETUP:
-    base_name += f"__limit_{SETUP['limit_dataset']}"
 
 # Prepare the input
 inp, fields = prepare_input(**CONFIG, inputs=SETUP['datasets'])
 CONFIG["feature_names"] = fields
 
 # Get the model
-model = CustomModel(base_name, fields, save_path=SETUP["model_save_path"])
+model_name = build_model_name(SETUP, Model)
+model = Model(model_name, fields, save_path=SETUP["model_save_path"])
 model.to(device)
 model.compile(backend="aot_eager")
 
@@ -55,6 +53,6 @@ logs = fitting.fit(
 # Save the model and logs
 fitting.save_model()
 fitting.save_logs(logs)
-fitting.save_logs(CONFIG, suffix="config")
+fitting.save_config(CONFIG, suffix="config")
 
 input("Press Enter to end...")
