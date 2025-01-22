@@ -64,8 +64,8 @@ class CustomModel(nn.Module):
             nn.Linear(128, 32),
             nn.BatchNorm1d(32),
             nn.PReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
+            nn.Linear(32, 2),
+            nn.Softmax(1),
         )
 
     def forward(self, X_embed, X_num):

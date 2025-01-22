@@ -26,18 +26,33 @@ model.compile(backend="aot_eager")
 
 # Define the plotting
 def plot_ROC(y_pred, y_true, ax):
-    fpr, tpr, auc = roc_curve_auc(y_pred, y_true)
-    ax.plot(fpr, tpr, label=f"AUC: {auc:.3f}")
-    return fpr, tpr, auc
+    tpr, tnr, auc = roc_curve_auc(y_pred, y_true)
+    ax.plot(tpr, tnr, label=f"AUC: {auc:.3f}")
+    return tpr, tnr, auc
+
+
+# def plt_ROC_log(y_pred, y_true, ax):
+#     tpr, e_bkg, auc = roc_curve_auc_log(y_pred, y_true)
+#     ax.plot(tpr, e_bkg, label=f"AUC: {auc:.3f}")
+#     return tpr, e_bkg, auc
 
 
 roc_plot = MLPLotting(
     title="ROC curve",
-    xlabel="False positive rate",
-    ylabel="True positive rate",
+    xlabel="True positive rate",
+    ylabel="True negative rate",
     plot_func=plot_ROC,
     validation=True,
 )
+
+# roc_log_plot = MLPLotting(
+#     title="ROC Log",
+#     xlabel="True positive rate",
+#     ylabel=r"Background rejection $\frac{1}{FPR}$",
+#     plot_func=plt_ROC_log,
+#     log_axis=True,
+#     validation=True,
+# )
 
 # Fit the model
 fitting = Fitting(model, device)

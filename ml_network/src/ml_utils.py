@@ -252,6 +252,7 @@ class MLPLotting:
             xlabel: str,
             ylabel: str,
             plot_func: Callable,
+            log_axis: bool = False,
             validation: bool = False,
             data_metric: str = "max",
     ) -> None:
@@ -271,6 +272,7 @@ class MLPLotting:
         self.title = title
         self.xlabel = xlabel
         self.ylabel = ylabel
+        self.log_axis = log_axis
         self.fig, axs = plt.subplots(
             1,
             2 if validation else 1,
@@ -299,6 +301,7 @@ class MLPLotting:
         ax.set_title(f"{self.title} {'(Validation)' if validation else ''}")
         ax.set_xlabel(self.xlabel)
         ax.set_ylabel(self.ylabel)
+        ax.set_yscale("log" if self.log_axis else "linear")
         ax.grid()
 
     def _get_best_data(self, mode, x, y, metric_score: dict) -> dict:
@@ -474,7 +477,7 @@ def roc_curve(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor]:
 
 
 @torch.jit.script
-def roc_curve_auc(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+def roc_curve_auc_wiki(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     thresholds = torch.linspace(0, 1, 101)
     tpr = torch.zeros(101)
     fpr = torch.zeros(101)
@@ -503,3 +506,68 @@ def roc_curve_auc(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tenso
     auc = torch.abs(torch.sum(fpr_diff * tpr_sum) / 2)
 
     return fpr, tpr, auc
+
+
+@torch.jit.script
+def roc_curve_auc(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    thresholds = torch.linspace(0, 1, 101)
+    tpr = torch.zeros(101)
+    tnr = torch.zeros(101)
+
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
+        y_pred = y_pred.flatten()
+    if y_true.ndim > 1:
+        y_true = y_true.flatten()
+    if y_true.size() != y_pred.size():
+        raise ValueError("y_true and y_pred must have the same shape")
+
+    positive = y_true.to(torch.bool)
+    negative = ~positive
+    for i, threshold in enumerate(thresholds):
+        predicted_positive = y_pred > threshold
+        tp = predicted_positive[positive]
+        tn = ~predicted_positive[negative]
+        tpr[i] = torch.mean(tp.float(), dim=0)
+        tnr[i] = torch.mean(tn.float(), dim=0)
+
+    # calculate the area under the curve
+    tpr_diff = tpr[1:] - tpr[:-1]
+    tnr_sum = tnr[1:] + tnr[:-1]
+    auc = torch.abs(torch.sum(tpr_diff * tnr_sum) / 2)
+
+    return tpr, tnr, auc
+
+
+@torch.jit.script
+def roc_curve_auc_log(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    thresholds = torch.linspace(0, 1, 101)
+    tpr = torch.zeros(101)
+    fpr = torch.zeros(101)
+
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
+        y_pred = y_pred.flatten()
+    if y_true.ndim > 1:
+        y_true = y_true.flatten()
+    if y_true.size() != y_pred.size():
+        raise ValueError("y_true and y_pred must have the same shape")
+
+    positive = y_true.to(torch.bool)
+    negative = ~positive
+    for i, threshold in enumerate(thresholds):
+        predicted_positive = y_pred > threshold
+        tp = predicted_positive[positive]
+        fp = predicted_positive[negative]
+        tpr[i] = torch.mean(tp.float(), dim=0)
+        fpr[i] = torch.mean(fp.float(), dim=0)
+    eps_b = 1 / (fpr + 1e-5)
+
+    # calculate the area under the curve
+    fpr_diff = fpr[1:] - fpr[:-1]
+    tpr_sum = tpr[1:] + tpr[:-1]
+    auc = torch.abs(torch.sum(fpr_diff * tpr_sum) / 2)
+
+    return tpr, eps_b, auc
