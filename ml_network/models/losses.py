@@ -52,3 +52,25 @@ def sigmoid_focal_loss(
             f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
         )
     return loss
+
+
+def NLLLoss(inputs: torch.Tensor, targets: torch.Tensor, reduction: str = "none") -> torch.Tensor:
+    """
+    Negative Log Likelihood Loss.
+
+    Args:
+        inputs (Tensor): A float tensor of arbitrary shape.
+                The predictions for each example.
+        targets (Tensor): A long tensor of the same shape as inputs.
+                Stores the class index for each input.
+        reduction (string): ``'none'`` | ``'mean'`` | ``'sum'``
+                ``'none'``: No reduction will be applied to the output.
+                ``'mean'``: The output will be averaged.
+                ``'sum'``: The output will be summed. Default: ``'none'``.
+    Returns:
+        Loss tensor with the reduction option applied.
+    """
+    targets = targets.squeeze(1)
+    inputs = inputs.log()
+    loss = F.nll_loss(inputs, targets, reduction=reduction)
+    return loss

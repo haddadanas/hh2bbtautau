@@ -461,16 +461,16 @@ def roc_curve(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor]:
     if y_true.size() != y_pred.size():
         raise ValueError("y_true and y_pred must have the same shape")
 
-    signal_mask = y_true.to(torch.bool)
-    background_mask = ~y_true.to(torch.bool)
+    positive = y_true.to(torch.bool)
+    negative = ~positive
     for i, threshold in enumerate(thresholds):
-        mask = y_pred > threshold
-        signal_selection_mask = mask[signal_mask]
-        background_rejection_mask = ~mask[background_mask]
-        tpr[i] = torch.mean(signal_selection_mask.float(), dim=0)
-        fpr[i] = torch.mean(background_rejection_mask.float(), dim=0)
+        predicted_positive = y_pred > threshold
+        tp = predicted_positive[positive]
+        fp = predicted_positive[negative]
+        tpr[i] = torch.mean(tp.float(), dim=0)
+        fpr[i] = torch.mean(fp.float(), dim=0)
 
-    return tpr, fpr
+    return fpr, tpr
 
 
 @torch.jit.script
@@ -488,18 +488,18 @@ def roc_curve_auc(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, Tenso
     if y_true.size() != y_pred.size():
         raise ValueError("y_true and y_pred must have the same shape")
 
-    signal_mask = y_true.to(torch.bool)
-    background_mask = ~y_true.to(torch.bool)
+    positive = y_true.to(torch.bool)
+    negative = ~positive
     for i, threshold in enumerate(thresholds):
-        mask = y_pred > threshold
-        signal_selection_mask = mask[signal_mask]
-        background_rejection_mask = ~mask[background_mask]
-        tpr[i] = torch.mean(signal_selection_mask.float(), dim=0)
-        fpr[i] = torch.mean(background_rejection_mask.float(), dim=0)
+        predicted_positive = y_pred > threshold
+        tp = predicted_positive[positive]
+        fp = predicted_positive[negative]
+        tpr[i] = torch.mean(tp.float(), dim=0)
+        fpr[i] = torch.mean(fp.float(), dim=0)
 
     # calculate the area under the curve
-    tpr_diff = tpr[1:] - tpr[:-1]
-    fpr_sum = fpr[1:] + fpr[:-1]
-    auc = torch.abs(torch.sum(tpr_diff * fpr_sum) / 2)
+    fpr_diff = fpr[1:] - fpr[:-1]
+    tpr_sum = tpr[1:] + tpr[:-1]
+    auc = torch.abs(torch.sum(fpr_diff * tpr_sum) / 2)
 
-    return tpr, fpr, auc
+    return fpr, tpr, auc
