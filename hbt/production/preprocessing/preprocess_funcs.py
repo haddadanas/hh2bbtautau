@@ -133,7 +133,7 @@ def pp_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         pp_jets, pp_leptons, pp_channel_id, hh_mass, normalization_weights, process_ids
     },
     produces={
-        pp_jets, pp_leptons, pp_channel_id, hh_mass, normalization_weights, process_ids
+        pp_jets, pp_leptons, pp_channel_id, hh_mass, normalization_weights, process_ids, "n_bjets", "n_taus"
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -150,5 +150,11 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[pp_leptons](events)
 
     events = self[pp_channel_id](events)
+
+    n_bjets = ak.num(events.HHBJet, axis=1)
+    n_taus = ak.num(events.Tau, axis=1)
+
+    events = set_ak_column_f32(events, "n_bjets", n_bjets)
+    events = set_ak_column_f32(events, "n_taus", n_taus)
 
     return events
