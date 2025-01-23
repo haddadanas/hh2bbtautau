@@ -61,6 +61,7 @@ logs = fitting.fit(
     validation_data=inp['validation_data'],
     metrics=[signal_purity, signal_acceptance, selection_efficiency],
     plots=[roc_plot],
+    use_weights=SETUP["use_weights"],
     **CONFIG,
 )
 

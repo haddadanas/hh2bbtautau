@@ -38,6 +38,7 @@ class Fitting:
         epochs=1,
         verbose=1,
         validation_data=None,
+        use_weights=False,
         shuffle=True,
         initial_epoch=0,
         seed=None,
@@ -57,22 +58,23 @@ class Fitting:
             over the training data arrays.
             verbose: 0, 1. Verbosity mode.
             0 = silent, 1 = verbose.
-            validation_data: tuple (X_val, y_val, weight_val) on which to evaluate
-            the loss and any model metrics
-            at the end of each epoch. The model will not
-            be trained on this data.
+            validation_data: dictionary containing validation data.
+            use_weights: boolean, whether to use weights in the loss calculation.
             shuffle: boolean, whether to shuffle the training data
             before each epoch.
             initial_epoch: epoch at which to start training
             (useful for resuming a previous training run)
             seed: random seed.
-            loss: training loss
-            optimizer: training optimizer
+            loss: training loss function.
+            optimizer: training optimizer.
             metrics: list of functions with signatures `metric(y_pred, y_true)`
-            where y_true and y_pred are both Tensors
+            where y_true and y_pred are both Tensors.
+            plots: list of MLPLotting objects for visualizing metrics.
+            tensorboard: boolean, whether to use TensorBoard for logging.
+            **kwargs: additional arguments.
 
         # Returns
-            list of OrderedDicts with training metrics
+            list of OrderedDicts with training metrics.
         """
         if seed and seed >= 0:
             torch.manual_seed(seed)
@@ -91,12 +93,17 @@ class Fitting:
         # Run training loop
         logs = []
         self.model.train()
+        # torch.autograd.detect_anomaly(True)
+
+        # define usefull functions
+        loss_func = self._build_loss_function(loss, use_weights)
+        split_data = self._split_data_tuple(use_weights)
+
         for t in range(initial_epoch, epochs):
             if verbose:
+                print("Epoch {0} / {1}".format(t + 1, epochs))
                 # Setup logger
                 pb = ProgressBar(len(train_data))
-
-                print("Epoch {0} / {1}".format(t + 1, epochs))
 
             log = OrderedDict()
             epoch_loss = 0.0
@@ -104,15 +111,11 @@ class Fitting:
             # Run batches
             for batch_i, batch_data in enumerate(train_data):
                 # Get batch data
-                X_embed_batch = batch_data[0][0]  # No need to require grad since tensors are integers
-                X_batch = batch_data[0][1].requires_grad_(True)
-                Y_batch = batch_data[1].requires_grad_(True)
-                W_batch = batch_data[2].requires_grad_(True)
+                X_embed_batch, X_batch, Y_batch, W_batch = split_data(batch_data)
                 # Backprop
                 opt.zero_grad()
                 Y_batch_pred = self.model(X_embed_batch, X_batch)
-                batch_loss_array = loss(Y_batch_pred, Y_batch) * W_batch
-                batch_loss = batch_loss_array.mean()
+                batch_loss = loss_func(Y_batch_pred, Y_batch, W_batch)
                 batch_loss.backward()
                 opt.step()
                 # Update status
@@ -134,7 +137,9 @@ class Fitting:
             # Run validation
             if valid_data:
                 Y_val = valid_data.dataset.get_target()  # type: ignore
-                Y_val_pred, val_loss = self._predict(valid_data, batch_size * 2, loss_func=loss)
+                Y_val_pred, val_loss = self._predict(
+                    valid_data, batch_size * 2, loss_func=loss_func, use_weights=use_weights,
+                )
                 log['val_loss'] = val_loss
                 if metrics:
                     add_metrics_to_log(log, metrics, Y_val_pred, Y_val, 'val_')
@@ -156,7 +161,7 @@ class Fitting:
             self.writer.flush()
         return logs
 
-    def _predict(self, dataloader, batch_size=32, loss_func=None) -> tuple[Tensor, float]:
+    def _predict(self, dataloader, batch_size=32, loss_func=None, use_weights: bool = False) -> tuple[Tensor, float]:
         self.model.eval()
         r, n = 0, len(dataloader.dataset)
         loss = 0.0
@@ -173,9 +178,8 @@ class Fitting:
                 # Calculate loss
                 if loss_func:
                     y_batch = Variable(batch_data[1])
-                    w_batch = Variable(batch_data[2])
-                    batch_loss_array = loss_func(y_batch_pred, y_batch) * w_batch
-                    batch_loss = batch_loss_array.mean()
+                    w_batch = None if not use_weights else Variable(batch_data[2])
+                    batch_loss = loss_func(y_batch_pred, y_batch, w_batch)
                     loss += batch_loss.item()
 
                 # Infer prediction shape
@@ -186,6 +190,20 @@ class Fitting:
                 r += batch_size
 
         return y_pred, loss / len(_dataloader)
+
+    def _build_loss_function(self, loss: Callable, use_weights: bool = False) -> Callable:
+        if use_weights:
+            def weighted_loss(y_pred, y_true, weight):
+                return torch.mean(loss(y_pred, y_true) * weight)
+            return weighted_loss
+        return lambda y_pred, y_true, weight: loss(y_pred, y_true)
+
+    def _split_data_tuple(self, use_weights: bool) -> Callable:
+        if use_weights:
+            return lambda data: (
+                data[0][0], data[0][1].requires_grad_(True), data[1].requires_grad_(True), data[2].requires_grad_(True)
+            )
+        return lambda data: (data[0][0], data[0][1].requires_grad_(True), data[1].requires_grad_(True), None)
 
     def _tensorboard_setup(self) -> None:
         self.writer = SummaryWriter(self.path)

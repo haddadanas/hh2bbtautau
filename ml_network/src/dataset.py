@@ -65,6 +65,7 @@ class DataContainer:
             weights: ak.Array = None,
             cls_id: int = None,
             drop_fields: list[str] = [],
+            use_weights: bool = True,
     ):
         self.name = name
         self.path = path
@@ -85,15 +86,16 @@ class DataContainer:
             self._dataset_from_array(array, channel_id, process_id, weights)
         else:
             # Load the dataset
-            self._load_dataset(max_events=max_events, drop_fields=drop_fields)
+            self._load_dataset(max_events=max_events, drop_fields=drop_fields, use_weights=use_weights)
 
-    def _load_dataset(self, max_events: int = None, drop_fields: list[str] = []):
+    def _load_dataset(self, max_events: int = None, drop_fields: list[str] = [], use_weights: bool = True):
         array = ak.from_parquet(self.path)
         if max_events:
             array = array[:max_events]
         self.channel_id = array.channel_id
         self.process_id = array.process_id
-        self.weights = array.normalization_weight
+        if use_weights:
+            self.weights = array.normalization_weight
         self.features = remove_ak_fields(array, ['channel_id', 'process_id', 'normalization_weight'] + drop_fields)
         self.feature_names = get_ak_field_names(self.features)
 

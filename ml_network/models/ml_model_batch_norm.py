@@ -10,7 +10,7 @@ CONFIG = {
     "target_nodes": ["signal_node"],
     "embedding_fields": ["channel_id"] + [f"l{n}.tauVS{var}" for n in [1, 2] for var in ["jet", "e", "mu"]],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
-    "loss": partial(NLL_Focal_Loss, reduction="none"),
+    "loss": partial(NLL_Focal_Loss, reduction="mean"),
     "epochs": 30,
     "batch_size": 265,
 }

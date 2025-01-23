@@ -38,9 +38,12 @@ def prepare_input(
 
     for name, inp in inputs.items():
         # calculate the sum of weights for each dataset
-        weight_sum[inp] = ak.sum(inp.weights)
+        use_weights = False
+        if inp.weights is not None:
+            weight_sum[inp] = ak.sum(inp.weights)
+            weights = ak.to_numpy(inp.weights)
+            use_weights = True
 
-        weights = ak.to_numpy(inp.weights)
         channel_id = ak.to_numpy(inp.channel_id)
         dataset_id = np.full(len(inp), inp.id, dtype=np.int32)
         inp_features = []
@@ -79,7 +82,7 @@ def prepare_input(
                 inp_features.append(arr)
 
         # check for infinite values in weights
-        if np.any(~np.isfinite(weights)):
+        if use_weights and np.any(~np.isfinite(weights)):
             raise Exception(f"Infinite values found in weights from {inp}")
 
         # create target array
@@ -104,10 +107,11 @@ def prepare_input(
                 valid[f"embed_{i}"].append(val)
             valid["target"].append(target[ind])
             target = target[np.logical_not(ind)]
-            valid["weight"].append(weights[ind])
-            weights = weights[np.logical_not(ind)]
             valid["dataset_id"].append(dataset_id[ind])
             dataset_id = dataset_id[np.logical_not(ind)]
+            if use_weights:
+                valid["weight"].append(weights[ind])
+                weights = weights[np.logical_not(ind)]
 
             print(f"*{inp}* is split into {len(target)} training and {split}"
                 " validation events")
@@ -117,9 +121,10 @@ def prepare_input(
         for i, embed_feature in enumerate(embed_features):
             training[f"embed_{i}"].append(embed_feature)
         training["target"].append(target)
-        training["weight"].append(weights)
         training["channel_id"].append(channel_id)
         training["dataset_id"].append(dataset_id)
+        if use_weights:
+            training["weight"].append(weights)
 
         if not fields:
             fields = {"num_fields": num_fields, "embed_fields": embed_fields}
@@ -128,8 +133,9 @@ def prepare_input(
             assert fields["embed_fields"] == embed_fields, "Embedding Fields are not the same"
 
     # Merge over datasets
-    mean_weight: np.ndarray = np.mean(list(weight_sum.values()))  # type: ignore
-    class_weight = {d: mean_weight / w for d, w in weight_sum.items()}
+    if use_weights:
+        mean_weight: np.ndarray = np.mean(list(weight_sum.values()))  # type: ignore
+        class_weight = {d: mean_weight / w for d, w in weight_sum.items()}
 
     # concatenate all events and targets
     for i in range(len(num_fields)):  # type: ignore
@@ -137,9 +143,7 @@ def prepare_input(
     for i in range(len(embed_fields)):  # type: ignore
         training[f"embed_{i}"] = np.concatenate(training[f"embed_{i}"])
     training["target"] = np.concatenate(training["target"])
-    training["weight"] = np.concatenate(training["weight"])
     training["dataset_id"] = np.concatenate(training["dataset_id"])
-    training["weight"] = merge_weight_and_class_weights(training, class_weight)
 
     # Shuffle the training data
     shuffle = np.random.permutation(len(training["target"]))
@@ -148,8 +152,11 @@ def prepare_input(
         "inp_embed": [val[shuffle] for key, val in training.items() if key.startswith("embed")],
         "inp_num": np.stack([val for key, val in training.items() if key.startswith("events_")], axis=1)[shuffle],
         "target": training["target"][shuffle],
-        "weight": training["weight"][shuffle],
     }
+    if use_weights:
+        training["weight"] = np.concatenate(training["weight"])
+        training["weight"] = merge_weight_and_class_weights(training, class_weight)
+        train_tensor["weight"] = training["weight"][shuffle]
 
     # create an output for the fit function of ML
     result = {"x": train_tensor}  # weights are included in the training tensor
@@ -160,16 +167,18 @@ def prepare_input(
         for i in range(len(embed_fields)):  # type: ignore
             valid[f"embed_{i}"] = np.concatenate(valid[f"embed_{i}"])
         valid["target"] = np.concatenate(valid["target"])
-        valid["weight"] = np.concatenate(valid["weight"])
         valid["dataset_id"] = np.concatenate(valid["dataset_id"])
-        valid["weight"] = merge_weight_and_class_weights(valid, class_weight)
 
         valid_tensor = {
             "inp_embed": [val for key, val in valid.items() if key.startswith("embed")],
             "inp_num": np.stack([val for key, val in valid.items() if key.startswith("events_")], axis=1),
             "target": valid["target"],
-            "weight": valid["weight"],
         }
+        if use_weights:
+            valid["weight"] = np.concatenate(valid["weight"])
+            valid["weight"] = merge_weight_and_class_weights(valid, class_weight)
+            valid_tensor["weight"] = valid["weight"]
+
         result["validation_data"] = valid_tensor
 
     return result, fields

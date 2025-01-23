@@ -123,7 +123,13 @@ def get_loader(
             )
             size = self.num_data.size(0)
             self.target = torch.Tensor(size) if target is None else to_tensor_f32(target).to(device)
-            self.weight = torch.ones(size) if weight is None else to_tensor_f32(weight).to(device)
+
+            self.weight = None if weight is None else to_tensor_f32(weight).to(device)
+            # Dynamically set the __getitem__ method
+            if weight is None:
+                self._getitem = self._getitem_no_weight
+            else:
+                self._getitem = self._getitem_with_weight
 
         def get_data(self):
             return (self.embed_data, self.num_data), self.target, self.weight
@@ -131,11 +137,22 @@ def get_loader(
         def get_target(self):
             return self.target
 
+        def _getitem_no_weight(self, idx) -> tuple:
+            return (([d[idx] for d in self.embed_data], self.num_data[idx]), self.target[idx])
+
+        def _getitem_with_weight(self, idx):
+            return (
+                ([d[idx] for d in self.embed_data],
+                self.num_data[idx]),
+                self.target[idx],
+                self.weight[idx],  # type: ignore
+            )
+
         def __len__(self):
             return self.num_data.size(0)
 
-        def __getitem__(self, idx):
-            return (([d[idx] for d in self.embed_data], self.num_data[idx]), self.target[idx], self.weight[idx])
+        def __getitem__(self, idx) -> tuple:
+            return self._getitem(idx)
 
     tensor = InputData(device=device, inp_embed=inp_embed, inp_num=inp_num, target=target, weight=weight)
     dataloader = DataLoader(tensor, batch_size=batch_size, shuffle=shuffle)
