@@ -23,9 +23,9 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
     _add_category(config, name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)
     _add_category(config, name="tautau", id=3, selection="cat_tautau", label=config.channels.n.tautau.label)
-    _add_category(config, name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
-    _add_category(config, name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
-    _add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
+    # _add_category(config, name="ee", id=4, selection="cat_ee", label=config.channels.n.ee.label)
+    # _add_category(config, name="mumu", id=5, selection="cat_mumu", label=config.channels.n.mumu.label)
+    # _add_category(config, name="emu", id=6, selection="cat_emu", label=config.channels.n.emu.label)
 
     # qcd regions
     _add_category(config, name="os", id=10, selection="cat_os", label="OS", tags={"os"})
