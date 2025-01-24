@@ -459,9 +459,9 @@ def lepton_selection(
     ch_etau = self.config_inst.get_channel("etau")
     ch_mutau = self.config_inst.get_channel("mutau")
     ch_tautau = self.config_inst.get_channel("tautau")
-    ch_ee = self.config_inst.get_channel("ee")
-    ch_mumu = self.config_inst.get_channel("mumu")
-    ch_emu = self.config_inst.get_channel("emu")
+    # ch_ee = self.config_inst.get_channel("ee")
+    # ch_mumu = self.config_inst.get_channel("mumu")
+    # ch_emu = self.config_inst.get_channel("emu")
 
     # prepare vectors for output vectors
     false_mask = (abs(events.event) < 0)
@@ -678,171 +678,171 @@ def lepton_selection(
             sel_tau_mask = ak.where(is_tautau, trig_tau_mask, sel_tau_mask)
             leading_taus = ak.where(is_tautau, sorted_sel_taus[:, :2], leading_taus)
 
-        # ee channel
-        if trigger.has_tag("single_e") and (
-            self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("ee")
-        ):
-            # fold trigger matching into the selection
-            trig_electron_mask = (
-                electron_mask &
-                self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
-            )
+        # # ee channel
+        # if trigger.has_tag("single_e") and (
+        #     self.dataset_inst.is_mc or
+        #     self.dataset_inst.has_tag("ee")
+        # ):
+        #     # fold trigger matching into the selection
+        #     trig_electron_mask = (
+        #         electron_mask &
+        #         self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+        #     )
 
-            # check if the first (hardest) electron matched
-            electron_sorting_indices = ak.argsort(events.Electron.pt, axis=1, ascending=False)
-            leading_electron_matched = ak.fill_none(
-                ak.firsts(trig_electron_mask[electron_sorting_indices[electron_mask[electron_sorting_indices]]], axis=1),  # noqa: E501
-                False,
-            )
+        #     # check if the first (hardest) electron matched
+        #     electron_sorting_indices = ak.argsort(events.Electron.pt, axis=1, ascending=False)
+        #     leading_electron_matched = ak.fill_none(
+        #         ak.firsts(trig_electron_mask[electron_sorting_indices[electron_mask[electron_sorting_indices]]], axis=1),  # noqa: E501
+        #         False,
+        #     )
 
-            # expect 2 electrons, 2 veto electrons, 0 veto muons, and ignore the taus
-            is_ee = (
-                trigger_fired &
-                (ak.sum(electron_mask, axis=1) == 2) &
-                leading_electron_matched &
-                (ak.sum(electron_veto_mask, axis=1) == 2) &
-                (ak.sum(muon_veto_mask, axis=1) == 0)
-            )
+        #     # expect 2 electrons, 2 veto electrons, 0 veto muons, and ignore the taus
+        #     is_ee = (
+        #         trigger_fired &
+        #         (ak.sum(electron_mask, axis=1) == 2) &
+        #         leading_electron_matched &
+        #         (ak.sum(electron_veto_mask, axis=1) == 2) &
+        #         (ak.sum(muon_veto_mask, axis=1) == 0)
+        #     )
 
-            # get selected, sorted electrons to obtain quantities
-            # (this will be correct for events for which is_ee is actually True)
-            sorted_sel_electrons = events.Electron[electron_sorting_indices][electron_mask[electron_sorting_indices]]
-            # determine the relative charge
-            e1_charge = ak.firsts(sorted_sel_electrons.charge, axis=1)
-            e2_charge = ak.firsts(sorted_sel_electrons.charge[:, 1:], axis=1)
-            is_os = e1_charge == -e2_charge
-            # store global variables
-            channel_id = update_channel_ids(events, channel_id, ch_ee.id, is_ee)
-            leptons_os = ak.where(is_ee, is_os, leptons_os)
-            single_triggered = ak.where(is_ee & is_single, True, single_triggered)
-            cross_triggered = ak.where(is_ee & is_cross, True, cross_triggered)
-            sel_electron_mask = ak.where(is_ee, electron_mask, sel_electron_mask)
+        #     # get selected, sorted electrons to obtain quantities
+        #     # (this will be correct for events for which is_ee is actually True)
+        #     sorted_sel_electrons = events.Electron[electron_sorting_indices][electron_mask[electron_sorting_indices]]
+        #     # determine the relative charge
+        #     e1_charge = ak.firsts(sorted_sel_electrons.charge, axis=1)
+        #     e2_charge = ak.firsts(sorted_sel_electrons.charge[:, 1:], axis=1)
+        #     is_os = e1_charge == -e2_charge
+        #     # store global variables
+        #     channel_id = update_channel_ids(events, channel_id, ch_ee.id, is_ee)
+        #     leptons_os = ak.where(is_ee, is_os, leptons_os)
+        #     single_triggered = ak.where(is_ee & is_single, True, single_triggered)
+        #     cross_triggered = ak.where(is_ee & is_cross, True, cross_triggered)
+        #     sel_electron_mask = ak.where(is_ee, electron_mask, sel_electron_mask)
 
-        # mumu channel
-        if trigger.has_tag("single_mu") and (
-            self.dataset_inst.is_mc or
-            self.dataset_inst.has_tag("mumu")
-        ):
-            # fold trigger matching into the selection
-            trig_muon_mask = (
-                muon_mask &
-                self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
-            )
+        # # mumu channel
+        # if trigger.has_tag("single_mu") and (
+        #     self.dataset_inst.is_mc or
+        #     self.dataset_inst.has_tag("mumu")
+        # ):
+        #     # fold trigger matching into the selection
+        #     trig_muon_mask = (
+        #         muon_mask &
+        #         self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+        #     )
 
-            # check if the first (hardest) muon matched
-            muon_sorting_indices = ak.argsort(events.Muon.pt, axis=1, ascending=False)
-            leading_muon_matched = ak.fill_none(
-                ak.firsts(trig_muon_mask[muon_sorting_indices[muon_mask[muon_sorting_indices]]], axis=1),
-                False,
-            )
+        #     # check if the first (hardest) muon matched
+        #     muon_sorting_indices = ak.argsort(events.Muon.pt, axis=1, ascending=False)
+        #     leading_muon_matched = ak.fill_none(
+        #         ak.firsts(trig_muon_mask[muon_sorting_indices[muon_mask[muon_sorting_indices]]], axis=1),
+        #         False,
+        #     )
 
-            # expect 2 muons, 2 veto muons, 0 veto electrons, and ignore the taus
-            is_mumu = (
-                trigger_fired &
-                (ak.sum(muon_mask, axis=1) == 2) &
-                leading_muon_matched &
-                (ak.sum(muon_veto_mask, axis=1) == 2) &
-                (ak.sum(electron_veto_mask, axis=1) == 0)
-            )
+        #     # expect 2 muons, 2 veto muons, 0 veto electrons, and ignore the taus
+        #     is_mumu = (
+        #         trigger_fired &
+        #         (ak.sum(muon_mask, axis=1) == 2) &
+        #         leading_muon_matched &
+        #         (ak.sum(muon_veto_mask, axis=1) == 2) &
+        #         (ak.sum(electron_veto_mask, axis=1) == 0)
+        #     )
 
-            # get selected, sorted muons to obtain quantities
-            # (this will be correct for events for which is_mumu is actually True)
-            sorted_sel_muons = events.Muon[muon_sorting_indices][muon_mask[muon_sorting_indices]]
-            # determine the relative charge
-            mu1_charge = ak.firsts(sorted_sel_muons.charge, axis=1)
-            mu2_charge = ak.firsts(sorted_sel_muons.charge[:, 1:], axis=1)
-            is_os = mu1_charge == -mu2_charge
-            # store global variables
-            channel_id = update_channel_ids(events, channel_id, ch_mumu.id, is_mumu)
-            leptons_os = ak.where(is_mumu, is_os, leptons_os)
-            single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
-            cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
-            sel_muon_mask = ak.where(is_mumu, muon_mask, sel_muon_mask)
+        #     # get selected, sorted muons to obtain quantities
+        #     # (this will be correct for events for which is_mumu is actually True)
+        #     sorted_sel_muons = events.Muon[muon_sorting_indices][muon_mask[muon_sorting_indices]]
+        #     # determine the relative charge
+        #     mu1_charge = ak.firsts(sorted_sel_muons.charge, axis=1)
+        #     mu2_charge = ak.firsts(sorted_sel_muons.charge[:, 1:], axis=1)
+        #     is_os = mu1_charge == -mu2_charge
+        #     # store global variables
+        #     channel_id = update_channel_ids(events, channel_id, ch_mumu.id, is_mumu)
+        #     leptons_os = ak.where(is_mumu, is_os, leptons_os)
+        #     single_triggered = ak.where(is_mumu & is_single, True, single_triggered)
+        #     cross_triggered = ak.where(is_mumu & is_cross, True, cross_triggered)
+        #     sel_muon_mask = ak.where(is_mumu, muon_mask, sel_muon_mask)
 
-        # emu channel
-        if (
-            (emu_from_e := (
-                trigger.has_tag("single_e") and
-                (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_e"))
-            )) or (
-                trigger.has_tag("single_mu") and
-                (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_mu"))
-            )
-        ):
-            if emu_from_e:
-                emu_electron_mask = electron_mask
-                # fold trigger matching into the selection
-                trig_electron_mask = (
-                    electron_mask &
-                    self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
-                )
-                # for muons, loop over triggers, find single triggers and make sure none of them
-                # fired in order to avoid double counting
-                emu_muon_mask = False
-                mu_trig_fired = full_like(events.event, False, dtype=bool)
-                for _trigger, _trigger_fired, _ in trigger_results.x.trigger_data:
-                    if not _trigger.has_tag("single_mu"):
-                        continue
-                    # evaluate the muon selection once (it is the same for all single triggers)
-                    if emu_muon_mask is False:
-                        emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
-                    # store the trigger decision
-                    mu_trig_fired = mu_trig_fired | _trigger_fired
-                # muons obey the trigger rules if no single trigger fired
-                trig_muon_mask = emu_muon_mask & ~mu_trig_fired
+        # # emu channel
+        # if (
+        #     (emu_from_e := (
+        #         trigger.has_tag("single_e") and
+        #         (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_e"))
+        #     )) or (
+        #         trigger.has_tag("single_mu") and
+        #         (self.dataset_inst.is_mc or self.dataset_inst.has_tag("emu_from_mu"))
+        #     )
+        # ):
+        #     if emu_from_e:
+        #         emu_electron_mask = electron_mask
+        #         # fold trigger matching into the selection
+        #         trig_electron_mask = (
+        #             electron_mask &
+        #             self[electron_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+        #         )
+        #         # for muons, loop over triggers, find single triggers and make sure none of them
+        #         # fired in order to avoid double counting
+        #         emu_muon_mask = False
+        #         mu_trig_fired = full_like(events.event, False, dtype=bool)
+        #         for _trigger, _trigger_fired, _ in trigger_results.x.trigger_data:
+        #             if not _trigger.has_tag("single_mu"):
+        #                 continue
+        #             # evaluate the muon selection once (it is the same for all single triggers)
+        #             if emu_muon_mask is False:
+        #                 emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
+        #             # store the trigger decision
+        #             mu_trig_fired = mu_trig_fired | _trigger_fired
+        #         # muons obey the trigger rules if no single trigger fired
+        #         trig_muon_mask = emu_muon_mask & ~mu_trig_fired
 
-            else:
-                emu_muon_mask = muon_mask
-                # fold trigger matching into the selection
-                trig_muon_mask = (
-                    muon_mask &
-                    self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
-                )
-                # for electrons, loop over triggers, find single triggers and check the matching
-                # only in case a trigger fired
-                emu_electron_mask = False
-                e_trig_fired = full_like(events.event, False, dtype=bool)
-                e_match_mask = full_like(events.Electron.pt, False, dtype=bool)
-                for _trigger, _trigger_fired, _leg_masks in trigger_results.x.trigger_data:
-                    if not _trigger.has_tag("single_e"):
-                        continue
-                    # evaluate the electron selection once (it is the same for all single triggers)
-                    if emu_electron_mask is False:
-                        emu_electron_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)
-                    # store the trigger decision
-                    e_trig_fired = e_trig_fired | _trigger_fired
-                    # evaluate the matching
-                    e_match_mask = e_match_mask | (
-                        self[electron_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs) &
-                        _trigger_fired
-                    )
-                # for events in which no single e trigger fired, consider the matching as successful
-                e_match_mask = e_match_mask | ~e_trig_fired
-                trig_electron_mask = emu_electron_mask & e_match_mask
+        #     else:
+        #         emu_muon_mask = muon_mask
+        #         # fold trigger matching into the selection
+        #         trig_muon_mask = (
+        #             muon_mask &
+        #             self[muon_trigger_matching](events, trigger, trigger_fired, leg_masks, **sel_kwargs)
+        #         )
+        #         # for electrons, loop over triggers, find single triggers and check the matching
+        #         # only in case a trigger fired
+        #         emu_electron_mask = False
+        #         e_trig_fired = full_like(events.event, False, dtype=bool)
+        #         e_match_mask = full_like(events.Electron.pt, False, dtype=bool)
+        #         for _trigger, _trigger_fired, _leg_masks in trigger_results.x.trigger_data:
+        #             if not _trigger.has_tag("single_e"):
+        #                 continue
+        #             # evaluate the electron selection once (it is the same for all single triggers)
+        #             if emu_electron_mask is False:
+        #                 emu_electron_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)
+        #             # store the trigger decision
+        #             e_trig_fired = e_trig_fired | _trigger_fired
+        #             # evaluate the matching
+        #             e_match_mask = e_match_mask | (
+        #                 self[electron_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs) &
+        #                 _trigger_fired
+        #             )
+        #         # for events in which no single e trigger fired, consider the matching as successful
+        #         e_match_mask = e_match_mask | ~e_trig_fired
+        #         trig_electron_mask = emu_electron_mask & e_match_mask
 
-            # expect 1 electron, 1 muon, 1 veto electron, 1 veto muon, and ignore taus
-            is_emu = (
-                trigger_fired &
-                (ak.sum(emu_electron_mask, axis=1) == 1) &
-                (ak.sum(trig_electron_mask, axis=1) == 1) &
-                (ak.sum(electron_veto_mask, axis=1) == 1) &
-                (ak.sum(emu_muon_mask, axis=1) == 1) &
-                (ak.sum(trig_muon_mask, axis=1) == 1) &
-                (ak.sum(muon_veto_mask, axis=1) == 1)
-            )
+        #     # expect 1 electron, 1 muon, 1 veto electron, 1 veto muon, and ignore taus
+        #     is_emu = (
+        #         trigger_fired &
+        #         (ak.sum(emu_electron_mask, axis=1) == 1) &
+        #         (ak.sum(trig_electron_mask, axis=1) == 1) &
+        #         (ak.sum(electron_veto_mask, axis=1) == 1) &
+        #         (ak.sum(emu_muon_mask, axis=1) == 1) &
+        #         (ak.sum(trig_muon_mask, axis=1) == 1) &
+        #         (ak.sum(muon_veto_mask, axis=1) == 1)
+        #     )
 
-            # determine the relative charge
-            e_charge = ak.firsts(events.Electron[trig_electron_mask].charge, axis=1)
-            mu_charge = ak.firsts(events.Muon[trig_muon_mask].charge, axis=1)
-            is_os = e_charge == -mu_charge
-            # store global variables
-            channel_id = update_channel_ids(events, channel_id, ch_emu.id, is_emu)
-            leptons_os = ak.where(is_emu, is_os, leptons_os)
-            single_triggered = ak.where(is_emu & is_single, True, single_triggered)
-            cross_triggered = ak.where(is_emu & is_cross, True, cross_triggered)
-            sel_electron_mask = ak.where(is_emu, trig_electron_mask, sel_electron_mask)
-            sel_muon_mask = ak.where(is_emu, trig_muon_mask, sel_muon_mask)
+        #     # determine the relative charge
+        #     e_charge = ak.firsts(events.Electron[trig_electron_mask].charge, axis=1)
+        #     mu_charge = ak.firsts(events.Muon[trig_muon_mask].charge, axis=1)
+        #     is_os = e_charge == -mu_charge
+        #     # store global variables
+        #     channel_id = update_channel_ids(events, channel_id, ch_emu.id, is_emu)
+        #     leptons_os = ak.where(is_emu, is_os, leptons_os)
+        #     single_triggered = ak.where(is_emu & is_single, True, single_triggered)
+        #     cross_triggered = ak.where(is_emu & is_cross, True, cross_triggered)
+        #     sel_electron_mask = ak.where(is_emu, trig_electron_mask, sel_electron_mask)
+        #     sel_muon_mask = ak.where(is_emu, trig_muon_mask, sel_muon_mask)
 
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)

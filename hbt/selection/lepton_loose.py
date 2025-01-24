@@ -125,7 +125,7 @@ def electron_selection(
     # default electron mask
     default_mask = None
     if is_single or is_cross:
-        min_pt = 26.0 if is_2016 else (31.0 if is_single else 25.0)
+        min_pt = 26.0 if is_2016 else (30.0 if is_single else 24.0)
         max_eta = 2.5 if is_single else 2.4
         default_mask = (
             (mva_iso_wp90 == 1) &
@@ -148,7 +148,7 @@ def electron_selection(
     veto_mask = (
         (mva_iso_wp90 == 1) &
         (abs(events.Electron.eta) < 2.5) &
-        (abs(events.Electron.dxy) < 0.1) &
+        (abs(events.Electron.dxy) < 0.045) &
         (abs(events.Electron.dz) < 0.2) &
         (events.Electron.pt > 10.0)
     )
@@ -214,7 +214,7 @@ def muon_selection(
         if is_2016:
             min_pt = 23.0 if is_single else 20.0
         else:
-            min_pt = 26.0 if is_single else 22.0
+            min_pt = 24.0 if is_single else 20.0
         default_mask = (
             ((events.Muon.looseId == 1) | (events.Muon.mediumId == 1) | (events.Muon.tightId == 1)) &
             (abs(events.Muon.eta) < 2.4) &
@@ -226,11 +226,11 @@ def muon_selection(
 
     # veto muon mask (must be trigger independent!)
     veto_mask = (
-        ((events.Muon.looseId == 1) | (events.Muon.mediumId == 1) | (events.Muon.tightId == 1)) &
+        ((events.Muon.mediumId == 1) | (events.Muon.tightId == 1)) &
         (abs(events.Muon.eta) < 2.4) &
-        (abs(events.Muon.dxy) < 0.2) &
-        (abs(events.Muon.dz) < 0.5) &
-        (events.Muon.pfRelIso04_all < 0.4) &
+        (abs(events.Muon.dxy) < 0.045) &
+        (abs(events.Muon.dz) < 0.2) &
+        (events.Muon.pfRelIso04_all < 0.3) &
         (events.Muon.pt > 10)
     )
 
@@ -544,7 +544,7 @@ def lepton_loose_selection(
             # without and with trigger matching on the default objects
             is_etau = (
                 trigger_fired &
-                (ak.sum(electron_mask, axis=1) == 1) &
+                (ak.sum(electron_mask, axis=1) >= 1) &
                 (ak.sum(trig_electron_mask, axis=1) == 1) &
                 (ak.sum(electron_veto_mask, axis=1) == 1) &
                 (ak.sum(muon_veto_mask, axis=1) == 0) &
@@ -603,7 +603,7 @@ def lepton_loose_selection(
             # without and with trigger matching on the default objects
             is_mutau = (
                 trigger_fired &
-                (ak.sum(muon_mask, axis=1) == 1) &
+                (ak.sum(muon_mask, axis=1) >= 1) &
                 (ak.sum(trig_muon_mask, axis=1) == 1) &
                 (ak.sum(muon_veto_mask, axis=1) == 1) &
                 (ak.sum(electron_veto_mask, axis=1) == 0) &
@@ -894,7 +894,7 @@ def lepton_loose_selection(
     )
 
 
-@lepton_selection.init
-def lepton_selection_init(self: Selector) -> None:
+@lepton_loose_selection.init
+def lepton_loose_selection_init(self: Selector) -> None:
     # add column to load the raw tau tagger score
     self.uses.add(f"Tau.raw{self.config_inst.x.tau_tagger}VSjet")
