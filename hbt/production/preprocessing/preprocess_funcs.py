@@ -3,7 +3,7 @@ from functools import partial
 
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 from columnflow.production import Producer, producer
-from columnflow.production.normalization import normalization_weights
+from columnflow.production.normalization import normalization_weights, stitched_normalization_weights
 from columnflow.production.processes import process_ids
 from columnflow.util import DotDict, maybe_import
 
@@ -26,6 +26,8 @@ set_ak_column_f32 = partial(set_ak_column, value_type=np.float32)
     },
 )
 def pp_channel_id(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    ch_mask = events.channel_id <= 3
+    events = events[ch_mask]
     events["channel_id"] = events["channel_id"] - 1
     return events
 
@@ -56,14 +58,14 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         k: self.config_inst.x.tau_id_working_points[f"tau_vs_{k}"] for k in ["e", "mu", "jet"]
     })
     tau_matcher = lambda tag, wp: events.Tau[f"idDeepTau2018v2p5VS{tag}"] >= tau_iso_wp[tag][wp]
-    channel_matcher = lambda ch: events.channel_id == self.config_inst.get_channel(ch).id
+    channel_matcher = lambda ch: events.channel_id == self.config_inst.get_channel(ch).id - 1  # Adjust if ch changes
 
     # Create the Tau is Iso column
     tau_is_iso = 1 * ((tau_matcher("jet", "loose")) & (
         (
-            (events.channel_id == 3) & (tau_matcher("e", "vvloose") | tau_matcher("mu", "vloose"))
+            (events.channel_id == 2) & (tau_matcher("e", "vvloose") | tau_matcher("mu", "vloose"))  # Adjust 
         ) | (
-            (events.channel_id != 3) & (tau_matcher("e", "vloose") | tau_matcher("mu", "tight"))
+            (events.channel_id != 2) & (tau_matcher("e", "vloose") | tau_matcher("mu", "tight"))  # Adjust
         )
     ))
 
@@ -130,10 +132,10 @@ def pp_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        pp_jets, pp_leptons, pp_channel_id, hh_mass, normalization_weights, process_ids
+        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids
     },
     produces={
-        pp_jets, pp_leptons, pp_channel_id, hh_mass, normalization_weights, process_ids, "n_bjets", "n_taus"
+        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_bjets", "n_taus"
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -141,15 +143,21 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        events = self[normalization_weights](events, **kwargs)
+        if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
+            events = self[stitched_normalization_weights](events, **kwargs)
+        else:
+            events = self[normalization_weights](events, **kwargs)
+
+    if "normalization_weight_inclusive" in events.fields:
+        events["normalization_weight"] = events["normalization_weight_inclusive"]
 
     events = self[hh_mass](events)
+
+    events = self[pp_channel_id](events)
 
     events = self[pp_jets](events)
 
     events = self[pp_leptons](events)
-
-    events = self[pp_channel_id](events)
 
     n_bjets = ak.num(events.HHBJet, axis=1)
     n_taus = ak.num(events.Tau, axis=1)
@@ -158,3 +166,15 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "n_taus", n_taus)
 
     return events
+
+
+@preprocess.init
+def preprocess_init(self: Producer) -> None:
+    if getattr(self, "dataset_inst", None) is None:
+        return
+    if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
+        self.uses.add(stitched_normalization_weights)
+        self.produces.add(stitched_normalization_weights)
+    else:
+        self.uses.add(normalization_weights)
+        self.produces.add(normalization_weights)

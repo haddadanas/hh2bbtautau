@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import awkward as ak
 
+# TODO https://pytorch.org/data/0.9/generated/torchdata.datapipes.iter.ParquetDataFrameLoader.html Parquet DataFrame
+
 
 def remove_ak_fields(array: ak.Array, fields: list[str] | str) -> ak.Array:
     """Remove fields from an awkward array.
