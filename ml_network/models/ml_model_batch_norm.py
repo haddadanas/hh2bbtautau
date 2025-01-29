@@ -11,8 +11,8 @@ CONFIG = {
     "embedding_fields": ["channel_id"] + [f"l{n}.tauVS{var}" for n in [1, 2] for var in ["jet", "e", "mu"]],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
     "loss": partial(NLL_Focal_Loss, reduction="mean"),
-    "epochs": 30,
-    "batch_size": 265,
+    "epochs": 20,
+    "batch_size": 256,
 }
 
 
@@ -72,7 +72,7 @@ class CustomModel(nn.Module):
     def forward(self, X_embed, X_num):
         x = [X_num]
         for layer, data in zip(self.embed, X_embed):
-            x.append(layer(data))
+            x.append(layer(data.clamp(0, 9)))
         x = torch.cat(x, dim=1)
         x = x.float()
 

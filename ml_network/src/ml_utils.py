@@ -11,7 +11,6 @@ from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 import matplotlib.pyplot as plt
 
@@ -201,11 +200,12 @@ class Fitting:
     def _split_data_tuple(self, use_weights: bool) -> Callable:
         if use_weights:
             return lambda data: (
-                data[0][0], data[0][1].requires_grad_(True), data[1].requires_grad_(True), data[2].requires_grad_(True)
+                data[0][0], data[0][1].requires_grad_(True), data[1], data[2].requires_grad_(True)
             )
-        return lambda data: (data[0][0], data[0][1].requires_grad_(True), data[1].requires_grad_(True), None)
+        return lambda data: (data[0][0], data[0][1].requires_grad_(True), data[1], None)
 
     def _tensorboard_setup(self) -> None:
+        from torch.utils.tensorboard import SummaryWriter  # type: ignore
         self.writer = SummaryWriter(self.path)
         print(f"Tensorboard logs are saved to {self.path}")
 

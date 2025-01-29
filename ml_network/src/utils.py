@@ -122,7 +122,7 @@ def get_loader(
                 else to_tensor_i32(inp_embed).to(device)
             )
             size = self.num_data.size(0)
-            self.target = torch.Tensor(size) if target is None else to_tensor_f32(target).to(device)
+            self.target = torch.Tensor(size) if target is None else to_tensor_i32(target).to(device)
 
             self.weight = None if weight is None else to_tensor_f32(weight).to(device)
             # Dynamically set the __getitem__ method
