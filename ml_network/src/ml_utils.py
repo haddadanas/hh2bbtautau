@@ -131,7 +131,7 @@ class Fitting:
                 add_metrics_to_log(log, metrics, y_train_pred, Y_train)
             if plots:
                 for plot in plots:
-                    plot.update(y_train_pred, Y_train, mode="train")
+                    plot.update(y_train_pred, Y_train, mode="train", epoch=t)
 
             # Run validation
             if valid_data:
@@ -144,7 +144,7 @@ class Fitting:
                     add_metrics_to_log(log, metrics, Y_val_pred, Y_val, 'val_')
                 if plots:
                     for plot in plots:
-                        plot.update(Y_val_pred, Y_val, mode="valid")
+                        plot.update(Y_val_pred, Y_val, mode="valid", epoch=t)
 
             if tensorboard:
                 for key, value in log.items():
@@ -282,7 +282,7 @@ class MLPLotting:
             ylabel (str): The label for the y-axis.
             plot_func (Callable): The function used to generate the plot.
                 The function should have the signature
-                `plot_func(y_true: Tensor, y_pred: Tensor, ax: Axes) -> result array, metric score`.
+                `plot_func(y_true: Tensor, y_pred: Tensor, ax: Axes, epoch: str) -> result array, metric score`.
             validation (bool, optional): If True, creates an additional subplot for validation. Defaults to False.
             data_metric (str, optional): The metric to use for saving the best data. Either "max" or "min".
                 Defaults to "max".
@@ -332,7 +332,7 @@ class MLPLotting:
                 return {"x": x, "y": y, "metric": metric_score}
         return best  # type: ignore
 
-    def _update_state(self, mode, ax, x, y, metric_score):
+    def _update_state(self, mode, ax, x, y, metric_score, epoch):
         prev = getattr(self, f"prev_{mode}")
         if prev is not None:
             ax.plot(
@@ -350,10 +350,10 @@ class MLPLotting:
                 best["y"],
                 "g--",
                 alpha=0.7,
-                label=f"Best: {best['metric']:.3f}",
+                label=f"Best: {best['metric']:.3f} @ ep {epoch}",
             )
 
-    def update(self, y_pred: Tensor, y_true: Tensor, mode: str = "train") -> None:
+    def update(self, y_pred: Tensor, y_true: Tensor, mode: str = "train", epoch: str = "") -> None:
         """
         Updates the plot with the given data.
         Args:
@@ -368,8 +368,8 @@ class MLPLotting:
         ax = self.ax_val if is_validation else self.ax
         ax.cla()
         self._set_up_axes(ax, validation=is_validation)
-        x, y, metric_score = self.plot_func(y_pred, y_true, ax)
-        self._update_state(mode, ax, x, y, metric_score)
+        x, y, metric_score = self.plot_func(y_pred, y_true, ax, epoch)
+        self._update_state(mode, ax, x, y, metric_score, epoch)
 
         ax.legend(loc="lower left")
         self.fig.canvas.draw()

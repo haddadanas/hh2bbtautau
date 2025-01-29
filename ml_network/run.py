@@ -1,3 +1,5 @@
+from time import perf_counter_ns
+
 from ml_network.src.utils import load_setup, get_device, build_model_name
 from ml_network.src.preprocessing import prepare_input
 from ml_network.src.ml_utils import (
@@ -25,9 +27,9 @@ model.compile(backend="aot_eager")
 
 
 # Define the plotting
-def plot_ROC(y_pred, y_true, ax):
+def plot_ROC(y_pred, y_true, ax, epoch=""):
     tpr, tnr, auc = roc_curve_auc(y_pred, y_true)
-    ax.plot(tpr, tnr, label=f"AUC: {auc:.3f}")
+    ax.plot(tpr, tnr, label=f"AUC: {auc:.3f} @ ep {epoch}")
     return tpr, tnr, auc
 
 
@@ -56,6 +58,8 @@ roc_plot = MLPLotting(
 
 # Fit the model
 fitting = Fitting(model, device)
+
+start = perf_counter_ns()
 logs = fitting.fit(
     training_data=inp['x'],
     validation_data=inp['validation_data'],
@@ -64,7 +68,7 @@ logs = fitting.fit(
     use_weights=SETUP["use_weights"],
     **CONFIG,
 )
-
+print(f"Training took {(perf_counter_ns() - start) / 1e9:.2f} seconds")
 
 # Save the model and logs
 fitting.save_model()
