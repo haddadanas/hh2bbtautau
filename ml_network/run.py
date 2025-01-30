@@ -57,7 +57,7 @@ roc_plot = MLPLotting(
 # )
 
 # Fit the model
-fitting = Fitting(model, device)
+fitting = Fitting(model, device, training=True)
 
 start = perf_counter_ns()
 logs = fitting.fit(

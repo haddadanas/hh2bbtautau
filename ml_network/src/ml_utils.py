@@ -24,11 +24,12 @@ DEFAULT_OPTIMIZER = partial(SGD, lr=0.001, momentum=0.9)
 
 class Fitting:
 
-    def __init__(self, model: Module, device: str = get_device()) -> None:
+    def __init__(self, model: Module, device: str = get_device(), training: bool = False) -> None:
         model.to(device)
         self.model = model
         self.device = device
-        self.path = make_dir(f"{self.model.save_path}/{self.model.model_name}_logs")
+        if training:
+            self.path = make_dir(f"{self.model.save_path}/{self.model.model_name}_logs")
 
     def fit(
         self,
