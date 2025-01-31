@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 from collections import defaultdict
-# from datetime import datetime 
+# from datetime import datetime
 
 import law
 import order as od
@@ -211,7 +211,7 @@ class SelectionModel(MLModel):
     #         raise ValueError(f"Loss function not found in tf.keras.losses: {args}")
     #     @tf.function
     #     def myloss(y_true, y_pred):
-    #         purity_loss = tf.cosh(1 - signal_purity(y_true[:, 0] == 1, selection_score=y_pred[:, 0], threshold=0.5)) - 1
+    #         purity_loss = tf.cosh(1 - signal_purity(y_true[:, 0] == 1, selection_score=y_pred[:, 0], threshold=0.5))-1
     #         other_losses = sum([loss(y_true, y_pred) for loss in losses])
     #         return purity_loss + other_losses
     #     return myloss

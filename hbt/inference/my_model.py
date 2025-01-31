@@ -4,11 +4,11 @@ from columnflow.inference import inference_model, ParameterType
 @inference_model
 def ml_inference(self):
     self.add_category(
-        "incl",
-        config_category="incl",
+        "ml_selected",
+        config_category="ml_selected",
         config_variable="hh_mass",
         # fake data
-        data_from_processes=["TT", "dy"],
+        data_from_processes=["TT", "DY"],
         mc_stats=True,
     )
 
@@ -112,14 +112,23 @@ def ml_inference(self):
             group="experiment",
         )
 
-    # btag
-    for name in self.config_inst.x.btag_unc_names:
-        self.add_parameter(
-            f"CMS_btag_{name}",
-            type=ParameterType.shape,
-            config_shift_source=f"btag_{name}",
-            group="experiment",
-        )
+    # electron uncertainty
+    self.add_parameter(
+        "CMS_eff_e",  # this is the name of the uncertainty as it will show in the datacard. Let's use some variant of the official naming # noqa
+        process="*",
+        type=ParameterType.shape,
+        config_shift_source="e",  # this is the name of the shift (alias) in the config
+        group=["experiment"],
+    )
+
+    # # btag
+    # for name in self.config_inst.x.btag_unc_names:
+    #     self.add_parameter(
+    #         f"CMS_btag_{name}",
+    #         type=ParameterType.shape,
+    #         config_shift_source=f"btag_{name}",
+    #         group="experiment",
+    #     )
 
     # pileup
     self.add_parameter(
@@ -136,21 +145,21 @@ def ml_inference(self):
     self.cleanup(keep_parameters="THU_HH")
 
 
-@inference_model
-def ml_inference_no_shifts(self):
-    # same initialization as "default" above
-    ml_inference.init_func.__get__(self, self.__class__)()
+# @inference_model
+# def ml_inference_no_shifts(self):
+#     # same initialization as "default" above
+#     ml_inference.init_func.__get__(self, self.__class__)()
 
-    #
-    # remove all parameters that require a shift source other than nominal
-    #
+#     #
+#     # remove all parameters that require a shift source other than nominal
+#     #
 
-    for category_name, process_name, parameter in self.iter_parameters():
-        if parameter.type.is_shape or any(trafo.from_shape for trafo in parameter.transformations):
-            self.remove_parameter(parameter.name, process=process_name, category=category_name)
+#     for category_name, process_name, parameter in self.iter_parameters():
+#         if parameter.type.is_shape or any(trafo.from_shape for trafo in parameter.transformations):
+#             self.remove_parameter(parameter.name, process=process_name, category=category_name)
 
-    #
-    # cleanup
-    #
+#     #
+#     # cleanup
+#     #
 
-    self.cleanup(keep_parameters="THU_HH")
+#     self.cleanup(keep_parameters="THU_HH")

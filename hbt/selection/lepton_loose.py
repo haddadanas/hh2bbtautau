@@ -115,11 +115,11 @@ def electron_selection(
         # >= nano v10
         # beware that the available Iso should be mvaFall17V2 for run2 files, not Winter22V1,
         # check this in original root files if necessary
-        mva_iso_wp80 = events.Electron.mvaIso_WP80
+        # mva_iso_wp80 = events.Electron.mvaIso_WP80
         mva_iso_wp90 = events.Electron.mvaIso_WP90
     else:
         # <= nano v9
-        mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
+        # mva_iso_wp80 = events.Electron.mvaFall17V2Iso_WP80
         mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
 
     # default electron mask

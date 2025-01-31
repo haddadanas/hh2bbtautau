@@ -19,17 +19,28 @@ set_ak_column_f32 = partial(set_ak_column, value_type=np.float32)
 
 @producer(
     uses={
-        "channel_id"
+        "channel_id",
     },
     produces={
-        "channel_id"
+        "channel_id",
     },
 )
 def pp_channel_id(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    ch_mask = events.channel_id <= 3
-    events = events[ch_mask]
     events["channel_id"] = events["channel_id"] - 1
     return events
+
+
+@producer(
+    uses={
+        "channel_id",
+    },
+    produces={
+        "channel_id",
+    },
+)
+def channel_id_mask(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    ch_mask = events.channel_id <= 3
+    return events[ch_mask]
 
 
 @producer(
@@ -39,10 +50,10 @@ def pp_channel_id(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         f"Muon.{var}" for var in ["pt", "eta", "dz", "dxy", "tightId", "pfRelIso04_all"]
     } | {
         f"Tau.{var}" for var in [
-            "pt", "eta", "dz", "dxy", "idDeepTau2018v2p5VSe", "idDeepTau2018v2p5VSmu", "idDeepTau2018v2p5VSjet"
+            "pt", "eta", "dz", "dxy", "idDeepTau2018v2p5VSe", "idDeepTau2018v2p5VSmu", "idDeepTau2018v2p5VSjet",
         ]
     } | {
-        "channel_id"
+        "channel_id",
     },
     produces={
         f"l1.{var}" for var in ["pt", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso", "iso_score"]
@@ -63,7 +74,7 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # Create the Tau is Iso column
     tau_is_iso = 1 * ((tau_matcher("jet", "loose")) & (
         (
-            (events.channel_id == 2) & (tau_matcher("e", "vvloose") | tau_matcher("mu", "vloose"))  # Adjust 
+            (events.channel_id == 2) & (tau_matcher("e", "vvloose") | tau_matcher("mu", "vloose"))  # Adjust
         ) | (
             (events.channel_id != 2) & (tau_matcher("e", "vloose") | tau_matcher("mu", "tight"))  # Adjust
         )
@@ -132,10 +143,10 @@ def pp_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids
+        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, channel_id_mask,
     },
     produces={
-        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_bjets", "n_taus"
+        pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_bjets", "n_taus",
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -143,7 +154,7 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
+        if self.dataset_inst.name == "dy_m50toinf_amcatnlooo":
             events = self[stitched_normalization_weights](events, **kwargs)
         else:
             events = self[normalization_weights](events, **kwargs)
@@ -152,6 +163,8 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events["normalization_weight"] = events["normalization_weight_inclusive"]
 
     events = self[hh_mass](events)
+
+    events = self[channel_id_mask](events)
 
     events = self[pp_channel_id](events)
 
@@ -172,7 +185,7 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def preprocess_init(self: Producer) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
-    if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
+    if self.dataset_inst.name == "dy_m50toinf_amcatnloooo":
         self.uses.add(stitched_normalization_weights)
         self.produces.add(stitched_normalization_weights)
     else:

@@ -6,7 +6,7 @@ import order as od
 
 from columnflow.util import maybe_import
 
-plt = maybe_import('matplotlib.pyplot')
+plt = maybe_import("matplotlib.pyplot")
 
 
 class SelectionMetrix:
@@ -32,7 +32,7 @@ class SelectionMetrix:
         if isinstance(dataset_info, (str, int)):
             dataset_info = [dataset_info]
         dataset_inst = [self.config.get_dataset(dataset_id) for dataset_id in dataset_info]
-        signal_tag = [dataset.has_tag('signal') for dataset in dataset_inst]
+        signal_tag = [dataset.has_tag("signal") for dataset in dataset_inst]
 
         if len(signal_tag) == 1:
             return int(signal_tag[0])
@@ -61,7 +61,7 @@ class SelectionMetrix:
         self: SelectionMetrix,
         selection_mask: Iterable | None,
         selection_score: Iterable | None,
-        threshold: float | Iterable | None
+        threshold: float | Iterable | None,
     ) -> tuple[Iterable, float | Iterable]:
         """
         Validate the selection mask or score and threshold inputs.
@@ -79,7 +79,7 @@ class SelectionMetrix:
             ValueError: If neither selection_mask nor selection_score is provided.
         """
         if selection_mask is None and selection_score is None:
-            raise ValueError('Either selection_mask or selection_score must be given.')
+            raise ValueError("Either selection_mask or selection_score must be given.")
 
         if selection_score is not None and threshold is None:
             threshold = np.linspace(0, 1, 101)
@@ -106,7 +106,7 @@ class SelectionMetrix:
             ValueError: If process_ids is not a 1D array with a length equal to the length of selection masks.
         """
         if not len(process_ids) == selection_mask.shape[1] and not process_ids.ndim == 1:
-            raise ValueError('The process ids must be a 1D array with a length equal to the length of selection masks.')
+            raise ValueError("The process ids must be a 1D array with a length equal to the length of selection masks.")
 
         if process_ids.dtype == int:
             # get unique process ids
@@ -125,7 +125,7 @@ class SelectionMetrix:
         *args,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | Iterable:
         """
         Calculate the selection efficiency of a given selection mask or network score.
@@ -158,7 +158,7 @@ class SelectionMetrix:
         *args,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | Iterable:
         """
         Calculate the signal acceptance of a given selection mask or network score.
@@ -196,7 +196,7 @@ class SelectionMetrix:
         process_ids: np.ndarray,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | Iterable:
         """
         Calculate the selection purity of a given selection mask or network score.
@@ -255,19 +255,19 @@ class SelectionMetrix:
 
         # Plot selection efficiency
         selection_eff = self.selection_efficiency(selection_mask=selection_mask)
-        ax.plot(threshold, selection_eff, label='Selection Efficiency', **kwargs)
+        ax.plot(threshold, selection_eff, label="Selection Efficiency", **kwargs)
 
         # Plot signal acceptance
         signal_acceptance = self.signal_acceptance(process_ids, selection_mask=selection_mask)
-        ax.plot(threshold, signal_acceptance, label='Signal Acceptance', **kwargs)
+        ax.plot(threshold, signal_acceptance, label="Signal Acceptance", **kwargs)
 
         # Plot signal purity
         signal_purity = self.signal_purity(process_ids, selection_mask=selection_mask)
-        ax.plot(threshold, signal_purity, label='Signal Purity', **kwargs)
+        ax.plot(threshold, signal_purity, label="Signal Purity", **kwargs)
 
-        ax.set_xlabel('Threshold')
-        ax.set_ylabel('Fraction')
-        ax.set_title('Selection Metrics')
+        ax.set_xlabel("Threshold")
+        ax.set_ylabel("Fraction")
+        ax.set_title("Selection Metrics")
         ax.legend()
 
         return ax

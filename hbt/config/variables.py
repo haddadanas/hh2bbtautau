@@ -457,8 +457,8 @@ def add_variables(config: od.Config) -> None:
     add_variable(
         config,
         name="hh_mass",
-        expression=partial(build_hh, which="mass"),
-        aux={"inputs": build_hh.inputs},
+        expression="hh.mass",
+        # aux={"inputs": build_hh.inputs},
         binning=(50, 0, 1000),
         unit="GeV",
         x_title=r"$m_{ll,jj}$",

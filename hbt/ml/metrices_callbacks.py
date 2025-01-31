@@ -29,7 +29,7 @@ class MetrixTF:
         self: MetrixTF,
         selection_mask: Iterable | None,
         selection_score: Iterable | None,
-        threshold: float | Iterable | None
+        threshold: float | Iterable | None,
     ) -> tuple[tf.Tensor, float | Iterable]:
         """
         Validate the selection mask or score and threshold inputs.
@@ -47,7 +47,7 @@ class MetrixTF:
             ValueError: If neither selection_mask nor selection_score is provided.
         """
         if selection_mask is None and selection_score is None:
-            raise ValueError('Either selection_mask or selection_score must be given.')
+            raise ValueError("Either selection_mask or selection_score must be given.")
 
         if selection_score is not None and threshold is None:
             threshold = 0.5
@@ -74,7 +74,7 @@ class MetrixTF:
             ValueError: If process_ids is not a 1D array with a length equal to the length of selection masks.
         """
         if not process_ids.ndim == 1 and not process_ids.shape[0] == selection_mask.shape[0]:
-            raise ValueError('The process ids must be a 1D array with a length equal to the length of selection masks.')
+            raise ValueError("The process ids must be a 1D array with a length equal to the length of selection masks.")
 
         if process_ids.dtype == tf.int32:
             # get unique process ids
@@ -94,7 +94,7 @@ class MetrixTF:
         *args,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | tf.Tensor:
         """
         Calculate the selection efficiency of a given selection mask or network score.
@@ -128,7 +128,7 @@ class MetrixTF:
         *args,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | tf.Tensor:
         """
         Calculate the signal acceptance of a given selection mask or network score.
@@ -165,7 +165,7 @@ class MetrixTF:
         process_ids: tf.Tensor,
         selection_mask: Iterable | None = None,
         selection_score: Iterable | None = None,
-        threshold: float | Iterable | None = None
+        threshold: float | Iterable | None = None,
     ) -> float | tf.Tensor:
         """
         Calculate the selection purity of a given selection mask or network score.
@@ -197,29 +197,29 @@ class MetrixTF:
 
 
 class SelectionMetrixMetric(tf.keras.metrics.Metric):
-    def __init__(self, name: str = 'selection_metrices', **kwargs):
+    def __init__(self, name: str = "selection_metrices", **kwargs):
         super(SelectionMetrixMetric, self).__init__(name=name, **kwargs)
         self.metrices = MetrixTF()
         self.selection_efficiency = self.add_variable(
             shape=(),
-            name='selection_efficiency',
-            initializer='zeros',
+            name="selection_efficiency",
+            initializer="zeros",
             dtype=tf.float32,
-            aggregation='mean',
+            aggregation="mean",
         )
         self.signal_acceptance = self.add_variable(
             shape=(),
-            name='signal_acceptance',
-            initializer='zeros',
+            name="signal_acceptance",
+            initializer="zeros",
             dtype=tf.float32,
-            aggregation='mean',
+            aggregation="mean",
         )
         self.signal_purity = self.add_variable(
             shape=(),
-            name='signal_purity',
-            initializer='zeros',
+            name="signal_purity",
+            initializer="zeros",
             dtype=tf.float32,
-            aggregation='mean',
+            aggregation="mean",
         )
 
     def update_state(self, y_true, y_pred, sample_weight=None):

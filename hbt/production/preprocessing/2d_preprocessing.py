@@ -1,11 +1,8 @@
-from collections import defaultdict
 from functools import partial
 
-from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
+from columnflow.columnar_util import Route, set_ak_column
 from columnflow.production import Producer, producer
-from columnflow.util import DotDict, maybe_import
-
-from hbt.production.hh_mass import hh_mass
+from columnflow.util import maybe_import
 
 
 ak = maybe_import("awkward")
@@ -25,7 +22,7 @@ set_ak_column_f32 = partial(set_ak_column, value_type=np.float32)
     } | {
         f"Jet.{var}" for var in ["pt", "eta", "phi"]
     },
-    produces={"event_map"}
+    produces={"event_map"},
 )
 def event_maps(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # create bins for the eta-phi space
@@ -59,5 +56,4 @@ def event_maps(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # set the event map
         events = set_ak_column_f32(events, f"{part}_event_map", event_map)
 
-    from IPython import embed; embed(header="2d_preprocessing.py	l:62")
     return events
