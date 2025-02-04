@@ -28,6 +28,7 @@ def prepare_input(
     validation_split: float | None = 0.2,
     fields: dict[str, list] | None = None,
     embedding_fields: list[str] = [],
+    shuffle_data: bool = True,
     *args,
     **kwargs,
 ) -> (dict[str, tuple], list[str]):
@@ -146,7 +147,11 @@ def prepare_input(
     training["dataset_id"] = np.concatenate(training["dataset_id"])
 
     # Shuffle the training data
-    shuffle = np.random.permutation(len(training["target"]))
+    if shuffle_data:
+        shuffle = np.random.permutation(len(training["target"]))
+    else:
+        shuffle = np.arange(len(training["target"]))
+
     # create ML tensors
     train_tensor = {
         "inp_embed": [val[shuffle] for key, val in training.items() if key.startswith("embed")],

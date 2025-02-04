@@ -323,14 +323,14 @@ class MLPLotting:
         ax.set_yscale("log" if self.log_axis else "linear")
         ax.grid()
 
-    def _get_best_data(self, mode, x, y, metric_score: dict) -> dict:
+    def _get_best_data(self, mode, x, y, metric_score: dict, epoch) -> dict:
         best = getattr(self, f"best_{mode}")
         if self.data_metric == "max":
             if best is None or metric_score > best["metric"]:
-                return {"x": x, "y": y, "metric": metric_score}
+                return {"x": x, "y": y, "metric": metric_score, "epoch": epoch}
         elif self.data_metric == "min":
             if best is None or metric_score < best["metric"]:
-                return {"x": x, "y": y, "metric": metric_score}
+                return {"x": x, "y": y, "metric": metric_score, "epoch": epoch}
         return best  # type: ignore
 
     def _update_state(self, mode, ax, x, y, metric_score, epoch):
@@ -343,7 +343,7 @@ class MLPLotting:
                 label=f"last epoch AUC {prev['metric']:.3f}",
             )
         setattr(self, f"prev_{mode}", {"x": x, "y": y, "metric": metric_score})
-        setattr(self, f"best_{mode}", self._get_best_data(mode, x, y, metric_score))
+        setattr(self, f"best_{mode}", self._get_best_data(mode, x, y, metric_score, epoch))
         best = getattr(self, f"best_{mode}")
         if best is not None:
             ax.plot(
@@ -351,7 +351,7 @@ class MLPLotting:
                 best["y"],
                 "g--",
                 alpha=0.7,
-                label=f"Best: {best['metric']:.3f} @ ep {epoch}",
+                label=f"Best: {best['metric']:.3f} @ ep {best['epoch']}",
             )
 
     def update(self, y_pred: Tensor, y_true: Tensor, mode: str = "train", epoch: str = "") -> None:
