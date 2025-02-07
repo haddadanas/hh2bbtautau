@@ -102,3 +102,13 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 @categorizer(uses={"bin_dnn_1"})
 def cat_ml_selected(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     return events, events.bin_dnn_1 >= 0.5
+
+
+@categorizer(uses={"channel_id"})
+def cat_signal(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.channel_id <= 3
+
+
+@categorizer(uses={"Jet.btagPNetB"})
+def cat_bjet(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.any(events.Jet.btagPNetB > self.config_inst.x.btag_working_points.particleNet.medium, axis=1)

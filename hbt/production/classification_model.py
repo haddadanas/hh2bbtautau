@@ -3,9 +3,10 @@
 """
 Wrappers for some default sets of producers.
 """
-
+from columnflow.config_util import create_category_combinations
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
+from columnflow.production.normalization import normalization_weights, stitched_normalization_weights  # noqa: F401
 from columnflow.util import dev_sandbox, maybe_import
 from columnflow.columnar_util import set_ak_column
 from law.util import InsertableDict
@@ -15,20 +16,21 @@ from hbt.production.default import default
 from hbt.production.hh_mass import hh_mass
 
 ak = maybe_import("awkward")
+np = maybe_import("numpy")
 torch = maybe_import("torch")
 
 
 @producer(
-    uses={
-        preprocess, channel_id_mask,
-    },
+    uses={preprocess},
     produces={
-        "bin_dnn_*", "normalization_weight",
+        "bin_dnn_*",
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_torch_dev.sh"),
     model_path=(
         "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/saved_models/"
-        "ml_model_batch_norm__loose__datasets_3__20_epochs_cf_v2__limit_100000_logs/20250129_165159"
+        "ml_model_batch_norm__loose__datasets_3__20_epochs_change_feature_set_v1__limit_100000_logs/20250204_135247/"
+        # "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/saved_models/"
+        # "ml_model_batch_norm__default__datasets_3__20_epochs_change_feature_set_v1__limit_100000_logs/20250204_164743"
     ),
 )
 def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -38,7 +40,9 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     from ml_network.src.utils import get_loader
 
     # preprocess the data
-    drop_fields = ["n_taus", "n_bjets"] + events.fields
+    drop_fields = events.fields + ["jet0", "jet1", "jet2", "jet3", "delta_r_bjets"]
+    if "normalization_weight" not in events.fields:
+        drop_fields.append("normalization_weight")
     ml_events = self[preprocess](events, **kwargs)
     dataset_dict = {
         "name": self.dataset_inst.name,
@@ -47,10 +51,8 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "channel_id": ml_events.channel_id,
         "process_id": ml_events.process_id,
         "weights": ml_events.normalization_weight,
-        "array": remove_ak_fields(ml_events, ["normalization_weight"] + drop_fields),
+        "array": remove_ak_fields(ml_events, drop_fields),
     }
-
-    events = set_ak_column(events, "normalization_weight", ml_events.normalization_weight)
     del ml_events
 
     dataset_dict = {dataset_dict["name"]: DataContainer(**dataset_dict)}
@@ -61,11 +63,12 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     fitting = Fitting(self.model, device="cpu")
     y_pred = fitting.predict(x_embed, x_num, batch_size=512)
 
-    events = self[channel_id_mask](events, **kwargs)
+    ch_mask = events.channel_id <= 3
 
     # add the prediction to the events
     for i in range(y_pred.size(1)):
-        col = ak.Array(y_pred[:, i].detach().contiguous().numpy())
+        col = np.full(len(events), -10, dtype=np.float32)
+        col[ch_mask] = y_pred[:, i].detach().contiguous().numpy()
         events = set_ak_column(events, f"bin_dnn_{i}", col)
 
     return events
@@ -75,7 +78,6 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def ml_classify_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     if getattr(self, "dataset_inst", None) is None:
         return
-    torch = maybe_import("torch")
     json = maybe_import("json")
     from ml_network.models.ml_model_batch_norm import CustomModel
 
@@ -93,17 +95,21 @@ def ml_classify_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
 
 @producer(
     uses={
-        category_ids, hh_mass, default, ml_classify, channel_id_mask,
+        category_ids, hh_mass, default, ml_classify, channel_id_mask, stitched_normalization_weights,
     },
     produces={
-        category_ids, hh_mass, default, ml_classify,
+        category_ids, hh_mass, default, ml_classify, stitched_normalization_weights,
     },
 )
 def ml_selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # preprocess the data
-    events = self[channel_id_mask](events, **kwargs)
+    events = self[stitched_normalization_weights](events, **kwargs)
 
+    if "normalization_weight_inclusive" in events.fields:
+        events["normalization_weight"] = events["normalization_weight_inclusive"]
+
+    # preprocess the data
     events = self[ml_classify](events, **kwargs)
 
     events = self[default](events, **kwargs)
@@ -119,20 +125,53 @@ def ml_selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def ml_selection_init(self: Producer) -> None:
     if not self.config_inst.has_category("ml_selected"):
         self.config_inst.add_category(name="ml_selected", id=42, selection="cat_ml_selected", label="ML selected")
+        def name_fn(categories):
+            return "__".join(cat.name for cat in categories.values() if cat)
+
+        def kwargs_fn(categories):
+            # build auxiliary information
+            aux = {}
+            # return the desired kwargs
+            return {
+                # just increment the category id
+                # NOTE: for this to be deterministic, the order of the categories must no change!
+                "id": "+",
+                # join all tags
+                "tags": set.union(*[cat.tags for cat in categories.values() if cat]),
+                # auxiliary information
+                "aux": aux,
+                # label
+                "label": ", ".join([
+                    cat.label or cat.name
+                    for cat in categories.values()
+                ]) or None,
+            }
+        create_category_combinations(
+            config=self.config_inst,
+            categories={
+                "selection": [self.config_inst.get_category("ml_selected"), self.config_inst.get_category("signal")],
+                "jets": [self.config_inst.get_category("1bjet")]
+            },
+            name_fn=name_fn,
+            kwargs_fn=kwargs_fn,
+        )
 
 
 @producer(
     uses={
-        category_ids, hh_mass, default, channel_id_mask,
+        category_ids, hh_mass, default, stitched_normalization_weights,
     },
     produces={
-        category_ids, hh_mass, default,
+        category_ids, hh_mass, default, stitched_normalization_weights,
     },
 )
 def selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # preprocess the data
-    events = self[channel_id_mask](events, **kwargs)
+    events = self[stitched_normalization_weights](events, **kwargs)
+
+    if "normalization_weight_inclusive" in events.fields:
+        events["normalization_weight"] = events["normalization_weight_inclusive"]
 
     events = self[default](events, **kwargs)
 
@@ -141,3 +180,38 @@ def selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[category_ids](events, **kwargs)
 
     return events
+
+
+@selection.init
+def selection_init(self: Producer) -> None:
+    if not self.config_inst.has_category("signal__1bjet"):
+        def name_fn(categories):
+            return "__".join(cat.name for cat in categories.values() if cat)
+
+        def kwargs_fn(categories):
+            # build auxiliary information
+            aux = {}
+            # return the desired kwargs
+            return {
+                # just increment the category id
+                # NOTE: for this to be deterministic, the order of the categories must no change!
+                "id": "+",
+                # join all tags
+                "tags": set.union(*[cat.tags for cat in categories.values() if cat]),
+                # auxiliary information
+                "aux": aux,
+                # label
+                "label": ", ".join([
+                    cat.label or cat.name
+                    for cat in categories.values()
+                ]) or None,
+            }
+        create_category_combinations(
+            config=self.config_inst,
+            categories={
+                "selection": [self.config_inst.get_category("signal")],
+                "jets": [self.config_inst.get_category("1bjet")]
+            },
+            name_fn=name_fn,
+            kwargs_fn=kwargs_fn,
+        )

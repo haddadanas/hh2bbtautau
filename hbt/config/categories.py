@@ -19,6 +19,8 @@ def add_categories(config: od.Config) -> None:
     root_cat = add_category(config, name="all", id=-1, selection="cat_all", label="")
     _add_category = functools.partial(add_category, parent=root_cat)
 
+    _add_category(config, name="signal", id=43, selection="cat_signal", label="signal")
+    _add_category(config, name="1bjet", id=44, selection="cat_bjet", label="1bjet")
     # lepton channels
     _add_category(config, name="etau", id=1, selection="cat_etau", label=config.channels.n.etau.label)
     _add_category(config, name="mutau", id=2, selection="cat_mutau", label=config.channels.n.mutau.label)

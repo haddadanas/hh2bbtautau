@@ -4,8 +4,8 @@ from columnflow.inference import inference_model, ParameterType
 @inference_model
 def selection(self):
     self.add_category(
-        "incl",
-        config_category="incl",
+        "signal__1bjet",
+        config_category="signal__1bjet",
         config_variable="hh_mass",
         # fake data
         data_from_processes=["TT", "dy"],

@@ -74,6 +74,34 @@ def add_variables(config: od.Config) -> None:
     )
     add_variable(
         config,
+        name="bjet1_btag",
+        expression="HHBJet.hhbtag[:,0]",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Leading B-jet HHBTag",
+    )
+    add_variable(
+        config,
+        name="bjet1_pnet",
+        expression="HHBJet.btagPNetB[:,0]",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Leading B-jet PNetB",
+    )
+    add_variable(
+        config,
+        name="bjet2_btag",
+        expression="HHBJet.hhbtag[:,1]",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Subleading B-jet HHBTag",
+    )
+    add_variable(
+        config,
+        name="bjet2_pnet",
+        expression="HHBJet.btagPNetB[:,1]",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Subleading B-jet PNetB",
+    )
+    add_variable(
+        config,
         name="jet1_eta",
         expression="Jet.eta[:,0]",
         binning=(30, -3.0, 3.0),
@@ -639,6 +667,13 @@ def add_variables(config: od.Config) -> None:
         aux={"inputs": {"Jet.pt"}},
         binning=(11, -0.5, 10.5),
         x_title=r"Number of jets",
+    )
+    add_variable(
+        config,
+        name="bin_dnn_signal",
+        expression="bin_dnn_1",
+        binning=(25, 0.0, 1.0),
+        x_title="Signal output node, DNN",
     )
 
     for proc in ["hh", "tt", "dy"]:
