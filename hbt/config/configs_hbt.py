@@ -26,6 +26,8 @@ from columnflow.columnar_util import ColumnCollection, skip_column
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
+logger = law.logger.get_logger(__name__)
+
 
 def add_config(
     analysis: od.Analysis,
@@ -169,11 +171,11 @@ def add_config(
         if process_name.startswith(("graviton_hh_", "radion_hh_")):
             proc.add_tag("signal")
             proc.add_tag("resonant_signal")
-        if process_name.startswith("tt_"):
+        if re.match(r"^tt(|_.+)$", process_name):
             proc.add_tag({"ttbar", "tt"})
-        if process_name.startswith("dy_"):
+        if re.match(r"^dy(|_.+)$", process_name):
             proc.add_tag("dy")
-        if process_name.startswith("w_lnu_"):
+        if re.match(r"^w_lnu(|_.+)$", process_name):
             proc.add_tag("w_lnu")
 
         # add the process
@@ -422,7 +424,7 @@ def add_config(
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
-    cfg.x.default_variables = ("n_jet", "n_btag", "res_pdnn_hh", "res_dnn_hh")
+    cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_weight_producer = "default"
 
     # process groups for conveniently looping over certain processs
@@ -444,8 +446,8 @@ def add_config(
             "qcd",
             "st",
             "tt_multiboson",
-            "v",
             "multiboson",
+            "v",
             "h",
             "ewk",
         ]),
@@ -552,9 +554,7 @@ def add_config(
         "dilep": (dilep := [f"dilep_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "dijet": (dijet := [f"dijet_{var}" for var in ["energy", "mass", "pt", "eta", "phi", "dr"]]),
         "default": [
-            *dijet,
-            *dilep,
-            *hh,
+            *dijet, *dilep, *hh,
             "mu1_pt", "mu1_eta", "mu1_phi", "mu2_pt", "mu2_eta", "mu2_phi",
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
@@ -1092,11 +1092,12 @@ def add_config(
     # TODO: energy corrections are currently only available for 2022 (Jan 2025)
     #       include them when available
     if run == 3 and year == 2022:
-        cfg.add_shift(name="eec_up", id=92, type="shape", tags={"eec"})
-        cfg.add_shift(name="eec_down", id=93, type="shape", tags={"eec"})
+        logger.debug("adding ees and eer shifts")
+        cfg.add_shift(name="ees_up", id=92, type="shape", tags={"eec"})
+        cfg.add_shift(name="ees_down", id=93, type="shape", tags={"eec"})
         add_shift_aliases(
             cfg,
-            "eec",
+            "ees",
             {
                 "Electron.pt": "Electron.pt_scale_{direction}",
             },
@@ -1211,8 +1212,6 @@ def add_config(
     add_external("jet_veto_map", (f"{json_mirror}/POG/JME/{json_pog_era}/jetvetomaps.json.gz", "v1"))
     # btag scale factor
     add_external("btag_sf_corr", (f"{json_mirror}/POG/BTV/{json_pog_era}/btagging.json.gz", "v1"))
-    # hh-btag repository (lightweight) with TF saved model directories
-    add_external("hh_btag_repo", ("https://github.com/hh-italian-group/HHbtag/archive/df5220db5d4a32d05dc81d652083aece8c99ccab.tar.gz", "v2"))  # noqa
     # Tobias' tautauNN (https://github.com/uhh-cms/tautauNN)
     add_external("res_pdnn", ("/afs/cern.ch/work/m/mrieger/public/hbt/models/res_prod3/model_fold0.tgz", "v1"))
     # non-parametric (flat) training up to mX = 800 GeV
@@ -1230,11 +1229,16 @@ def add_config(
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # met phi correction
         add_external("met_phi_corr", (f"{json_mirror}/POG/JME/{json_pog_era}/met.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on Run2 UL samples
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v2"))  # noqa
+
     elif run == 3:
         # muon scale factors
         add_external("muon_sf", (f"{json_mirror}/POG/MUO/{json_pog_era}/muon_Z.json.gz", "v1"))
         # electron scale factors
         add_external("electron_sf", (f"{json_mirror}/POG/EGM/{json_pog_era}/electron.json.gz", "v1"))
+        # hh-btag repository with TF saved model directories trained on 22+23 samples using pnet
+        add_external("hh_btag_repo", ("https://gitlab.cern.ch/hh/bbtautau/hh-btag/-/archive/master/hh-btag-master.tar.gz", "v3"))  # noqa
 
         # TODO: electron (and photon) energy corrections and smearing are only available for 2022
         #       include them when available
@@ -1318,11 +1322,45 @@ def add_config(
 
     # define per-dataset event weights
     for dataset in cfg.datasets:
-        if dataset.has_tag("ttbar"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        # skipped for now
+        # if dataset.has_tag("ttbar"):
+        #     dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        pass
+
+    cfg.x.shift_groups = {
+        "jec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("jec", "jer"))
+        ],
+        "lepton_sf": [
+            shift_inst.name for shift_inst in (*get_shifts("e"), *get_shifts("mu"))
+        ],
+        "tec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("tec"))
+        ],
+        "eec": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("ees", "eer"))
+        ],
+        "ees": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("ees"))
+        ],
+        "eer": [
+            shift_inst.name for shift_inst in cfg.shifts
+            if shift_inst.has_tag(("eer"))
+        ],
+        "btag_sf": [
+            shift_inst.name for shift_inst in get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names))
+        ],
+        "pdf": [shift_inst.name for shift_inst in get_shifts("pdf")],
+        "murmuf": (shift_inst.name for shift_inst in get_shifts("murmuf")),
+        "pu": [shift_inst.name for shift_inst in get_shifts("minbias_xs")],
+    }
 
     ################################################################################################
-    # external configs: channels, categories, met filters, triggers, variables, hist hooks
+    # external configs: channels, categories, met filters, triggers, variables
     ################################################################################################
 
     # channels
@@ -1364,9 +1402,22 @@ def add_config(
     else:
         raise False
 
-    # add hist hooks
-    from hbt.config.hist_hooks import add_hist_hooks
-    add_hist_hooks(cfg)
+    ################################################################################################
+    # hist hooks
+    ################################################################################################
+
+    cfg.x.hist_hooks = DotDict()
+
+    # simple blinding
+    cfg.x.hist_hooks.blind = lambda task, hists: {p: h for p, h in hists.items() if not p.is_data}
+
+    # qcd estimation
+    from hbt.hist_hooks.qcd import add_hooks as add_qcd_hooks
+    add_qcd_hooks(cfg)
+
+    # binning
+    from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
+    add_binning_hooks(cfg)
 
     ################################################################################################
     # LFN settings

@@ -92,7 +92,7 @@ def update_channel_ids(
     },
     exposed=False,
 )
-def electron_selection(
+def loose_electron_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
@@ -156,6 +156,15 @@ def electron_selection(
     return default_mask, veto_mask
 
 
+@loose_electron_selection.init
+def loose_electron_selection_init(self) -> None:
+    if self.config_inst.campaign.x.run == 3 and self.config_inst.campaign.x.year == 2022:
+        self.shifts |= {
+            shift_inst.name for shift_inst in self.config_inst.shifts
+            if shift_inst.has_tag(("ees", "eer"))
+        }
+
+
 @selector(
     uses={"{Electron,TrigObj}.{pt,eta,phi}"},
     exposed=False,
@@ -190,7 +199,7 @@ def electron_trigger_matching(
     uses={"Muon.{pt,eta,phi,looseId,mediumId,tightId,pfRelIso04_all,dxy,dz}"},
     exposed=False,
 )
-def muon_selection(
+def loose_muon_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
@@ -272,10 +281,10 @@ def muon_trigger_matching(
         "Tau.{pt,eta,phi,dz,decayMode}",
         "{Electron,Muon,TrigObj}.{pt,eta,phi}",
     },
-    # shifts are declared dynamically below in tau_selection_init
+    # shifts are declared dynamically below in loose_tau_selection_init
     exposed=False,
 )
-def tau_selection(
+def loose_tau_selection(
     self: Selector,
     events: ak.Array,
     trigger: Trigger,
@@ -345,9 +354,25 @@ def tau_selection(
     return base_mask, iso_mask
 
 
+@loose_tau_selection.init
+def loose_tau_selection_init(self: Selector) -> None:
+    # register tec shifts
+    self.shifts |= {
+        shift_inst.name
+        for shift_inst in self.config_inst.shifts
+        if shift_inst.has_tag("tec")
+    }
+
+    # Add columns for the right tau tagger
+    self.uses |= {
+        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
+        for tag in ("e", "mu", "jet")
+    }
+
+
 @selector(
     uses={"{Tau,TrigObj}.{pt,eta,phi}"},
-    # shifts are declared dynamically below in tau_selection_init
+    # shifts are declared dynamically below in loose_tau_selection_init
     exposed=False,
 )
 def tau_trigger_matching(
@@ -414,31 +439,15 @@ def tau_trigger_matching(
     return matches
 
 
-@tau_selection.init
-def tau_selection_init(self: Selector) -> None:
-    # register tec shifts
-    self.shifts |= {
-        shift_inst.name
-        for shift_inst in self.config_inst.shifts
-        if shift_inst.has_tag("tec")
-    }
-
-    # Add columns for the right tau tagger
-    self.uses |= {
-        f"Tau.id{self.config_inst.x.tau_tagger}VS{tag}"
-        for tag in ("e", "mu", "jet")
-    }
-
-
 @selector(
     uses={
-        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching,
-        tau_selection, tau_trigger_matching,
+        loose_electron_selection, electron_trigger_matching, loose_muon_selection, muon_trigger_matching,
+        loose_tau_selection, tau_trigger_matching,
         "event", "{Electron,Muon,Tau}.{charge,mass}",
     },
     produces={
-        electron_selection, electron_trigger_matching, muon_selection, muon_trigger_matching,
-        tau_selection, tau_trigger_matching,
+        loose_electron_selection, electron_trigger_matching, loose_muon_selection, muon_trigger_matching,
+        loose_tau_selection, tau_trigger_matching,
         # new columns
         "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
     },
@@ -488,21 +497,21 @@ def lepton_loose_selection(
         is_cross = trigger.has_tag("cross_trigger")
 
         # electron selection
-        electron_mask, electron_veto_mask = self[electron_selection](
+        electron_mask, electron_veto_mask = self[loose_electron_selection](
             events,
             trigger,
             **sel_kwargs,
         )
 
         # muon selection
-        muon_mask, muon_veto_mask = self[muon_selection](
+        muon_mask, muon_veto_mask = self[loose_muon_selection](
             events,
             trigger,
             **sel_kwargs,
         )
 
         # tau selection
-        tau_mask, tau_iso_mask = self[tau_selection](
+        tau_mask, tau_iso_mask = self[loose_tau_selection](
             events,
             trigger,
             electron_mask,
@@ -786,7 +795,7 @@ def lepton_loose_selection(
         #                 continue
         #             # evaluate the muon selection once (it is the same for all single triggers)
         #             if emu_muon_mask is False:
-        #                 emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
+        #                 emu_muon_mask, _ = self[loose_muon_selection](events, _trigger, **sel_kwargs)
         #             # store the trigger decision
         #             mu_trig_fired = mu_trig_fired | _trigger_fired
         #         # muons obey the trigger rules if no single trigger fired
@@ -809,7 +818,7 @@ def lepton_loose_selection(
         #                 continue
         #             # evaluate the electron selection once (it is the same for all single triggers)
         #             if emu_electron_mask is False:
-        #                 emu_electron_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)
+        #                 emu_electron_mask, _ = self[loose_electron_selection](events, _trigger, **sel_kwargs)
         #             # store the trigger decision
         #             e_trig_fired = e_trig_fired | _trigger_fired
         #             # evaluate the matching
