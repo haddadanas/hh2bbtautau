@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import awkward as ak
+import dask_awkward as dak
+
 
 # TODO https://pytorch.org/data/0.9/generated/torchdata.datapipes.iter.ParquetDataFrameLoader.html Parquet DataFrame
 
 
-def remove_ak_fields(array: ak.Array, fields: list[str] | str) -> ak.Array:
+def remove_ak_fields(array: ak.Array | dak.Array, fields: list[str] | str) -> ak.Array:
     """Remove fields from an awkward array.
 
     Args:
@@ -19,20 +21,26 @@ def remove_ak_fields(array: ak.Array, fields: list[str] | str) -> ak.Array:
         fields = [fields]
     super_fields: set[str] = set()
 
+    # define without_field function
+    if isinstance(array, ak.Array):
+        without_field = ak.without_field
+    else:
+        without_field = dak.without_field
+
     for field in fields:
         if field.count('.') > 0:
             field = field.split('.')
             super_fields.add(field[0])
-        array = ak.without_field(array, field)
+        array = without_field(array, field)
     for field in super_fields:
         if array[field].fields:  # type: ignore
             continue
-        array = ak.without_field(array, field)
+        array = without_field(array, field)
 
     return array
 
 
-def get_ak_field_names(array: ak.Array):
+def get_ak_field_names(array: ak.Array | dak.Array, skip_fields: list | None = None) -> list[str]:
     """Get the field names of an awkward array.
 
     Args:
@@ -41,13 +49,22 @@ def get_ak_field_names(array: ak.Array):
     Returns:
         list: The field names.
     """
-    fields = []
+    fields = set()
+    if skip_fields is None:
+        skip_fields = set()
+    else:
+        skip_fields = set(skip_fields)
+
     for field in array.fields:
-        if not getattr(array[field], 'fields', None):
-            fields.append(field)
+        if field in skip_fields:
             continue
-        fields.extend(map(lambda s: f"{field}.{s}", get_ak_field_names(array[field])))
-    return fields
+        if not getattr(array[field], 'fields', None):
+            fields.add(field)
+            continue
+        sub_fields = map(lambda s: f"{field}.{s}", get_ak_field_names(array[field], skip_fields=None))
+        fields.update(sub_fields)
+    fields -= skip_fields
+    return list(fields)
 
 
 class DataContainer:
@@ -89,24 +106,28 @@ class DataContainer:
         else:
             # Load the dataset
             self._load_dataset(max_events=max_events, drop_fields=drop_fields, use_weights=use_weights)
+        print(f"Dataset {self.name} loaded with {len(self)} events")
 
     def _load_dataset(self, max_events: int = None, drop_fields: list[str] = [], use_weights: bool = True):
-        array = ak.from_parquet(self.path)
+        array = dak.from_parquet(self.path)
         if max_events:
             array = array[:max_events]
-        self.channel_id = array.channel_id
-        self.process_id = array.process_id
+        # array = array.compute()
+        self.channel_id = array.channel_id.compute()
+        self.process_id = array.process_id.compute()
         if use_weights:
-            self.weights = array.normalization_weight
-        self.features = remove_ak_fields(array, ['channel_id', 'process_id', 'normalization_weight'] + drop_fields)
-        self.feature_names = get_ak_field_names(self.features)
+            self.weights = array.normalization_weight.compute()
+        self.features = array
+        self.feature_names = get_ak_field_names(
+            self.features, ['channel_id', 'process_id', 'normalization_weight'] + drop_fields,
+        )
 
     def _dataset_from_array(self, array: ak.Array, channel_id: ak.Array, process_id: ak.Array, weights: ak.Array):
         self.channel_id = channel_id
         self.process_id = process_id
         self.weights = weights
         self.features = array
-        self.feature_names = get_ak_field_names(self.features)
+        self.feature_names = get_ak_field_names(self.features, ['channel_id', 'process_id', 'normalization_weight'])
 
     def get_sub_dataset(self, features: list | None = None):
         if not features:
@@ -139,7 +160,19 @@ class DataContainer:
             array = getattr(array, field)
         return array
 
+    def get_column_dak(self, column: str) -> ak.Array:
+        if column in ["channel_id", "process_id", "weights"]:
+            return getattr(self, column)
+        if not column.count('.'):
+            return getattr(self.features, column).compute()
+        array = self.features
+        for field in column.split('.'):
+            array = getattr(array, field)
+        return array.compute()
+
     def get_features_dict(self):
+        if isinstance(self.features, dak.Array):
+            return {f: self.get_column_dak(f) for f in self.feature_names}
         return {f: self.get_column(f) for f in sorted(self.feature_names)}
 
     @property
@@ -157,10 +190,7 @@ class DataContainer:
         return f"Dataset {self.name}"
 
     def __len__(self):
-        return len(self.features)
+        return len(self.process_id)
 
     def __getitem__(self, field):
         return self.features[field]
-
-    def __iter__(self):
-        return iter(self.features)
