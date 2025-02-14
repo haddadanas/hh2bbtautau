@@ -59,7 +59,7 @@ def channel_id_mask(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         f"l1.{var}" for var in ["pt", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso", "iso_score"]
     } | {
         f"l2.{var}" for var in ["pt", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso"]
-    }
+    },
 )
 def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
@@ -167,7 +167,7 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     bjet0 = Route("HHBJet[:, 0]").apply(events, None)
     bjet1 = Route("HHBJet[:, 1]").apply(events, None)
     delta_r = np.sqrt(
-        (bjet0.eta - bjet1.eta) ** 2 + (bjet0.phi - bjet1.phi) ** 2
+        (bjet0.eta - bjet1.eta) ** 2 + (bjet0.phi - bjet1.phi) ** 2,
     )
     events = set_ak_column_f32(events, "delta_r_bjets", delta_r)
 
@@ -180,7 +180,7 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     },
     produces={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_jets", "n_bjets",
-        "n_taus", "normalization_weight"
+        "n_taus", "normalization_weight",
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:

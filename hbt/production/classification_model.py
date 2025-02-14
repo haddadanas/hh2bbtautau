@@ -150,7 +150,7 @@ def ml_selection_init(self: Producer) -> None:
             config=self.config_inst,
             categories={
                 "selection": [self.config_inst.get_category("ml_selected"), self.config_inst.get_category("signal")],
-                "jets": [self.config_inst.get_category("1bjet")]
+                "jets": [self.config_inst.get_category("1bjet")],
             },
             name_fn=name_fn,
             kwargs_fn=kwargs_fn,
@@ -210,7 +210,7 @@ def selection_init(self: Producer) -> None:
             config=self.config_inst,
             categories={
                 "selection": [self.config_inst.get_category("signal")],
-                "jets": [self.config_inst.get_category("1bjet")]
+                "jets": [self.config_inst.get_category("1bjet")],
             },
             name_fn=name_fn,
             kwargs_fn=kwargs_fn,
