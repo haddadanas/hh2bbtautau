@@ -97,7 +97,7 @@ def loose_electron_selection(
     events: ak.Array,
     trigger: Trigger,
     **kwargs,
-) -> tuple[ak.Array | None, ak.Array]:
+) -> tuple[ak.Array | None, ak.Array | None, ak.Array]:
     """
     Electron selection returning two sets of masks for default and veto electrons.
     See https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD?rev=4
@@ -123,7 +123,8 @@ def loose_electron_selection(
         mva_iso_wp90 = events.Electron.mvaFall17V2Iso_WP90
 
     # default electron mask
-    default_mask = None
+    analysis_mask = None
+    control_mask = None
     if is_single or is_cross:
         min_pt = 26.0 if is_2016 else (30.0 if is_single else 24.0)
         max_eta = 2.5 if is_single else 2.4
@@ -131,8 +132,7 @@ def loose_electron_selection(
             (mva_iso_wp90 == 1) &
             (abs(events.Electron.eta) < max_eta) &
             (abs(events.Electron.dxy) < 0.1) &
-            (abs(events.Electron.dz) < 0.2) &
-            (events.Electron.pt > min_pt)
+            (abs(events.Electron.dz) < 0.2)
         )
 
         # additional cut in 2022 post-EE
@@ -144,6 +144,10 @@ def loose_electron_selection(
                 (events.Electron.seediPhiOriY > 72)
             )
 
+        # control mask for the electron selection
+        control_mask = default_mask & (events.Electron.pt > 24)
+        analysis_mask = default_mask & (events.Electron.pt > min_pt)
+
     # veto electron mask (must be trigger independent!)
     veto_mask = (
         (mva_iso_wp90 == 1) &
@@ -153,7 +157,7 @@ def loose_electron_selection(
         (events.Electron.pt > 10.0)
     )
 
-    return default_mask, veto_mask
+    return analysis_mask, control_mask, veto_mask
 
 
 @loose_electron_selection.init
@@ -204,7 +208,7 @@ def loose_muon_selection(
     events: ak.Array,
     trigger: Trigger,
     **kwargs,
-) -> tuple[ak.Array | None, ak.Array]:
+) -> tuple[ak.Array | None, ak.Array | None, ak.Array]:
     """
     Muon selection returning two sets of masks for default and veto muons.
 
@@ -218,7 +222,8 @@ def loose_muon_selection(
     is_cross = trigger.has_tag("cross_mu_tau")
 
     # default muon mask
-    default_mask = None
+    analysis_mask = None
+    control_mask = None
     if is_single or is_cross:
         if is_2016:
             min_pt = 23.0 if is_single else 20.0
@@ -229,9 +234,10 @@ def loose_muon_selection(
             (abs(events.Muon.eta) < 2.4) &
             (abs(events.Muon.dxy) < 0.2) &
             (abs(events.Muon.dz) < 0.5) &
-            (events.Muon.pfRelIso04_all < 0.25) &
-            (events.Muon.pt > min_pt)
+            (events.Muon.pfRelIso04_all < 0.25)
         )
+        control_mask = default_mask & (events.Muon.pt > 20)
+        analysis_mask = default_mask & (events.Muon.pt > min_pt)
 
     # veto muon mask (must be trigger independent!)
     veto_mask = (
@@ -243,7 +249,7 @@ def loose_muon_selection(
         (events.Muon.pt > 10)
     )
 
-    return default_mask, veto_mask
+    return analysis_mask, control_mask, veto_mask
 
 
 @selector(
@@ -497,14 +503,14 @@ def lepton_loose_selection(
         is_cross = trigger.has_tag("cross_trigger")
 
         # electron selection
-        electron_mask, electron_veto_mask = self[loose_electron_selection](
+        electron_mask, electron_control_mask, electron_veto_mask = self[loose_electron_selection](
             events,
             trigger,
             **sel_kwargs,
         )
 
         # muon selection
-        muon_mask, muon_veto_mask = self[loose_muon_selection](
+        muon_mask, muon_control_mask, muon_veto_mask = self[loose_muon_selection](
             events,
             trigger,
             **sel_kwargs,
@@ -708,7 +714,8 @@ def lepton_loose_selection(
         #     # expect 2 electrons, 2 veto electrons, 0 veto muons, and ignore the taus
         #     is_ee = (
         #         trigger_fired &
-        #         (ak.sum(electron_mask, axis=1) == 2) &
+        #         (ak.sum(electron_mask, axis=1) >= 1) &
+        #         (ak.sum(electron_control_mask, axis=1) == 2) &
         #         leading_electron_matched &
         #         (ak.sum(electron_veto_mask, axis=1) == 2) &
         #         (ak.sum(muon_veto_mask, axis=1) == 0)
@@ -716,7 +723,7 @@ def lepton_loose_selection(
 
         #     # get selected, sorted electrons to obtain quantities
         #     # (this will be correct for events for which is_ee is actually True)
-        #     sorted_sel_electrons = events.Electron[electron_sorting_indices][electron_mask[electron_sorting_indices]]
+        #     sorted_sel_electrons = events.Electron[electron_sorting_indices][electron_control_mask[electron_sorting_indices]]  # noqa
         #     # determine the relative charge
         #     e1_charge = ak.firsts(sorted_sel_electrons.charge, axis=1)
         #     e2_charge = ak.firsts(sorted_sel_electrons.charge[:, 1:], axis=1)
@@ -749,7 +756,8 @@ def lepton_loose_selection(
         #     # expect 2 muons, 2 veto muons, 0 veto electrons, and ignore the taus
         #     is_mumu = (
         #         trigger_fired &
-        #         (ak.sum(muon_mask, axis=1) == 2) &
+        #         (ak.sum(muon_mask, axis=1) >= 1) &
+        #         (ak.sum(muon_control_mask, axis=1) == 2) &
         #         leading_muon_matched &
         #         (ak.sum(muon_veto_mask, axis=1) == 2) &
         #         (ak.sum(electron_veto_mask, axis=1) == 0)
@@ -757,7 +765,7 @@ def lepton_loose_selection(
 
         #     # get selected, sorted muons to obtain quantities
         #     # (this will be correct for events for which is_mumu is actually True)
-        #     sorted_sel_muons = events.Muon[muon_sorting_indices][muon_mask[muon_sorting_indices]]
+        #     sorted_sel_muons = events.Muon[muon_sorting_indices][muon_control_mask[muon_sorting_indices]]
         #     # determine the relative charge
         #     mu1_charge = ak.firsts(sorted_sel_muons.charge, axis=1)
         #     mu2_charge = ak.firsts(sorted_sel_muons.charge[:, 1:], axis=1)
@@ -795,7 +803,8 @@ def lepton_loose_selection(
         #                 continue
         #             # evaluate the muon selection once (it is the same for all single triggers)
         #             if emu_muon_mask is False:
-        #                 emu_muon_mask, _ = self[loose_muon_selection](events, _trigger, **sel_kwargs)
+        #                 # the correct muon mask is the control muon mask with min pt 20
+        #                 _, emu_muon_mask, _ = self[muon_selection](events, _trigger, **sel_kwargs)
         #             # store the trigger decision
         #             mu_trig_fired = mu_trig_fired | _trigger_fired
         #         # muons obey the trigger rules if no single trigger fired
@@ -818,7 +827,7 @@ def lepton_loose_selection(
         #                 continue
         #             # evaluate the electron selection once (it is the same for all single triggers)
         #             if emu_electron_mask is False:
-        #                 emu_electron_mask, _ = self[loose_electron_selection](events, _trigger, **sel_kwargs)
+        #                 emu_electron_mask_if_triggered, emu_electron_control_mask, _ = self[electron_selection](events, _trigger, **sel_kwargs)  # noqa
         #             # store the trigger decision
         #             e_trig_fired = e_trig_fired | _trigger_fired
         #             # evaluate the matching
@@ -826,6 +835,10 @@ def lepton_loose_selection(
         #                 self[electron_trigger_matching](events, _trigger, _trigger_fired, _leg_masks, **sel_kwargs) &
         #                 _trigger_fired
         #             )
+
+        #         # the correct electron mask is the control electron mask where the trigger did not fire
+        #         # and the electron_mask_triggered where the trigger did fire
+        #         emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_if_triggered, emu_electron_control_mask)
         #         # for events in which no single e trigger fired, consider the matching as successful
         #         e_match_mask = e_match_mask | ~e_trig_fired
         #         trig_electron_mask = emu_electron_mask & e_match_mask
