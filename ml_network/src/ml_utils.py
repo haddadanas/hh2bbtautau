@@ -379,7 +379,32 @@ class MLPLotting:
 
 # torch scripts
 @torch.jit.script
-def selection_efficiency(y_pred: Tensor, y_true: Tensor,) -> float:
+def accuracy(y_pred: Tensor, y_true: Tensor) -> float:
+    threshold = 0.5  # torch.linspace(0, 1, 101)
+    # signal_acceptances = torch.zeros(101)
+
+    if y_pred.ndim == 2 and y_pred.size(1) == 2:
+        y_pred = y_pred[:, 1]
+    elif y_pred.ndim > 1:
+        y_pred = y_pred.flatten()
+    if y_true.ndim > 1:
+        y_true = y_true.flatten()
+    if y_true.size() != y_pred.size():
+        raise ValueError("y_true and y_pred must have the same shape")
+
+    signal_mask = y_true.to(torch.bool)
+    # for i, threshold in enumerate(thresholds):
+    mask = y_pred > threshold
+    signal_selection_mask = mask[signal_mask].float()
+    background_rejection_mask = ~mask[~signal_mask].float()
+    accuracy = torch.sum(signal_selection_mask, dim=0) + torch.sum(background_rejection_mask, dim=0)
+    accuracy /= y_true.size(0)
+
+    return accuracy.item()
+
+
+@torch.jit.script
+def selection_efficiency(y_pred: Tensor, y_true: Tensor) -> float:
     threshold = 0.5  # torch.linspace(0, 1, 101)
     # selection_efficiencies = torch.zeros(101)
 
