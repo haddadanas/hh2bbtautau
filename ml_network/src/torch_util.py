@@ -4,7 +4,7 @@ __all__ = [
     "ListDataset", "MapAndCollate", "FlatMapAndCollate", "NodesDataLoader"
 ]
 
-from collections.abc import Iterable, Mapping
+from collections import Iterable, Mapping, defaultdict
 from typing import Any, Callable, Sequence
 from columnflow.columnar_util import (
     get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
@@ -464,6 +464,7 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
         self.batch_size = batch_size
         self.drop_last = drop_last
         super().__init__(*args, weights=weights, **kwargs)
+        self._datasets_exhausted = {n: False for n in self.source_nodes}
 
         # the weights dictionary is used to determine the composition of each batch
         # these weights should be equal or larger than one to indicate that
@@ -512,7 +513,7 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
             )
             self.batch_size = _real_total_size
         # default dictionary to store weighted samplers where necessary
-        self._weighted_sampler = DotDict()
+        self._weighted_sampler = self._get_new_weighted_sampler()
 
     def _get_new_weighted_sampler(self, initial_state=None) -> DotDict[str, _WeightedSampler]:
         _weighted_sampler = DotDict()
@@ -579,42 +580,13 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
                 ", ".join(difference)
             )
 
-    # def next_tautauNN(self) -> T:
-    #     # prepare indices for random sampling
-    #     indices = [np.array([], dtype=np.int32) for _ in range(self.n_datasets)]
-    #     offsets = [0] * self.n_datasets
-
-    #     # start iterating
-    #     while True:
-    #         # determine batch sizes per dataset for this chunk
-    #         batch_sizes = torch.multinomial(self.batch_size, self.weights.values)
-
-    #         # fill chunks per dataset that eventually form a batch
-    #         chunks = []
-    #         for i, (arrays, _indices, batch_size, offset) in enumerate(zip(
-    #                 self.source_nodes.values, indices, batch_sizes, offsets
-    #             )):
-    #             # update indices and offset
-    #             if len(_indices) - offset < batch_size:
-    #                 new_indices = np.arange(len(arrays[0]), dtype=np.int32)
-    #                 np.random.shuffle(new_indices)
-    #                 _indices = indices[i] = np.concatenate([_indices[offset:], new_indices], axis=0)
-    #                 offset = 0
-
-    #             # fill the chunk and adjust the offset
-    #             chunks.append([a[_indices[offset:offset + batch_size]] for a in arrays])
-    #             offsets[i] = offset + batch_size
-
-    #         # yield
-    #         data = tuple(
-    #             np.concatenate([chunk[i] for chunk in chunks], axis=0)
-    #             for i in range(self.tuple_length)
-    #         )
-    #         data = transform_data(self, *data)
-    #         chunks.clear()
-
-    #         yield tuple(map(torch.convert_to_tensor, data))
-    #         self.batches_seen += 1
+    def reset(self, initial_state: dict[str, Any] | None = None):
+        super().reset(initial_state)
+        # the super class uses the weights dict to initialize the exhausted datasets
+        # but this class needs to go via the source nodes. Therefore, we need to
+        # reinitialize the exhausted datasets
+        if not initial_state:
+            self._datasets_exhausted = {n: False for n in self.source_nodes.keys()}
 
     def _next_per_dataset(self, key: str, force: bool = False):
         # print(f"entering _next_per_dataset for node {key}")
@@ -650,11 +622,11 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
 
         self._check_for_stop_iteration()
 
-        batch = dict()
+        batch = defaultdict(list)
         for source_name in self.weights:
             batch_size = self._batch_composition[source_name]
             key = source_name
-            sub_batch = list()
+            sub_batch: dict[str, list[float]] = defaultdict(list)
             for _ in range(batch_size):
                 sampler = self._weighted_sampler.get(source_name, None)
                 if sampler:
@@ -662,15 +634,16 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
                 try:
                     item = self._next_per_dataset(key)
                     if item is not None:
-                        sub_batch.append(item)
+                        sub_batch[key].append(item)
                 except StopIteration:
                     if (
-                        (not self.drop_last and len(sub_batch) > 0) and
-                        (self.stop_criteria == StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED)
+                        not self.drop_last and
+                        len(sub_batch[key]) > 0 and
+                        self.stop_criteria == StopCriteria.CYCLE_UNTIL_ALL_DATASETS_EXHAUSTED
                     ):
                         item = self._next_per_dataset(key, force=True)
                         if item is not None:
-                            sub_batch.append(item)
+                            sub_batch[key].append(item)
                     elif self.drop_last:
                         self._check_for_stop_iteration()
                     # in this case, the stop criteria (e.g. ALL_DATASETS_EXHAUSTED)
@@ -679,8 +652,11 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
                         break
 
             # if stop criterium is ALL_DATASETS_EXHAUSTED, allow for partial batches
-            if len(sub_batch) == batch_size or self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED:
-                batch[source_name] = sub_batch
+            if (
+                sum(len(x) for x in sub_batch.values()) == batch_size or
+                self.stop_criteria == StopCriteria.ALL_DATASETS_EXHAUSTED
+            ):
+                batch.update(sub_batch)
 
         # if the batch is not completely full, check if we should raise a StopIteration
         if (
