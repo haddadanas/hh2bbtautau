@@ -8,22 +8,34 @@ from ml_network.models.losses import NLL_Focal_Loss
 
 CONFIG = {
     "target_nodes": ["signal_node"],
-    "embedding_fields": ["channel_id"] + [f"l{n}.tauVS{var}" for n in [1, 2] for var in ["jet", "e", "mu"]],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
     "loss": partial(NLL_Focal_Loss, reduction="mean"),
-    "epochs": 20,
-    "batch_size": 256,
 }
+NUM_FIELDS = sorted([
+    *[f"bjet0.{field}" for field in ["btagPNetB", "eta", "hhbtag", "mass", "phi", "pt"]],
+    *[f"bjet1.{field}" for field in ["btagPNetB", "eta", "hhbtag", "mass", "phi", "pt"]],
+    *[f"diBJet.{field}" for field in ["eta", "mass", "pt"]],
+    *[f"diTau.{field}" for field in ["eta", "mass", "pt"]],
+    *[f"hh.{field}" for field in ["eta", "mass", "pt"]],
+    *[f"l1.{field}" for field in ["dxy", "dz", "eta", "is_iso", "iso_score", "pt"]],
+    *[f"l2.{field}" for field in ["dxy", "dz", "eta", "is_iso", "pt"]],
+    "n_bjets",
+    "n_jets",
+    "n_taus"
+])
+EMBED_FIELDS = sorted([
+    "channel_id",
+    *[f"l1.tauVS{field}" for field in ["e", "jet", "mu"]],
+    *[f"l2.tauVS{field}" for field in ["e", "jet", "mu"]]
+])
 
 
 class CustomModel(nn.Module):
-    def __init__(self, name, input_features, save_path="./models"):
+    def __init__(self, name, save_path="./models", num_fields=NUM_FIELDS, embed_fields=EMBED_FIELDS):
         super(CustomModel, self).__init__()
         self.model_name = name
         self.save_path = save_path
-        self.input_length = (
-            len(input_features["num_fields"]) if isinstance(input_features, dict) else len(input_features)
-        )
+        self.input_length = len(num_fields)
         embedding_out = {
             "channel_id": (3, 2),
             "tauVSjet": (10, 6),
@@ -41,7 +53,7 @@ class CustomModel(nn.Module):
                     nn.Embedding(*embedding_out[feat.split(".")[-1]]),
                     nn.Flatten(),
                 )
-                for feat in input_features["embed_fields"]
+                for feat in embed_fields
             ]
         )
 

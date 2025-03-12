@@ -29,9 +29,11 @@ def prepare_input(
     fields: dict[str, list] | None = None,
     embedding_fields: list[str] = [],
     shuffle_data: bool = True,
+    selection_mask: str | None = None,
+    dataset_limits: dict[int, int] | None = None,
     *args,
     **kwargs,
-) -> (dict[str, tuple], list[str]):
+) -> tuple[dict[str, tuple], list[str]]:
     """ Prepare the input for the ML model. """
     weight_sum: dict[str, float] = {}
     training: defaultdict[str, list] = defaultdict(list)
@@ -44,9 +46,19 @@ def prepare_input(
             weight_sum[inp] = ak.sum(inp.weights)
             weights = ak.to_numpy(inp.weights)
             use_weights = True
-
+        if selection_mask:
+            mask = inp.get_column_dak(selection_mask).to_numpy()
+        if dataset_limits:
+            limit = dataset_limits[int(inp.is_signal)]
+        else:
+            limit = len(inp)
         channel_id = ak.to_numpy(inp.channel_id)
         dataset_id = np.full(len(inp), inp.id, dtype=np.int32)
+        if selection_mask:
+            channel_id = channel_id[mask]
+            dataset_id = dataset_id[mask]
+        channel_id = channel_id[:limit]
+        dataset_id = dataset_id[:limit]
         inp_features = []
         embed_features = []
         val_features = []
@@ -56,13 +68,20 @@ def prepare_input(
 
         # split into training and validation set
         if validation_split:
-            split = int(len(inp) * validation_split)
-            choice = np.random.choice(range(len(inp)), size=(split,), replace=False)
-            ind = np.zeros(len(inp), dtype=bool)
+            if selection_mask:
+                rand_len = min(np.sum(mask), limit)
+            else:
+                rand_len = limit
+            split = int(rand_len * validation_split)
+            choice = np.random.choice(range(rand_len), size=(split,), replace=False)
+            ind = np.zeros(rand_len, dtype=bool)
             ind[choice] = True
 
         for field_name, column in inp.get_features_dict().items():
             arr = ak.to_numpy(column, allow_missing=False)
+            if selection_mask:
+                arr = arr[mask]
+            arr = arr[:limit]
             # arr = nprec.structured_to_unstructured(arr)
 
             # set EMPTY_FLOAT to -10
@@ -89,6 +108,9 @@ def prepare_input(
         # create target array
         target = np.zeros((len(inp), len(target_nodes)), dtype=np.int32)
         target[:, :] = target_mapping(target, inp)
+        if selection_mask:
+            target = target[mask]
+        target = target[:limit]
 
         # treat the channel_id in a special way as it can be a categorical variable
         if validation_split:

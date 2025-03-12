@@ -85,6 +85,7 @@ class DataContainer:
             cls_id: int = None,
             drop_fields: list[str] = [],
             use_weights: bool = True,
+            feature_names: list[str] = [],
     ):
         self.name = name
         self.path = path
@@ -92,7 +93,7 @@ class DataContainer:
         self.channel_id = None
         self.process_id = None
         self.weights = None
-        self.feature_names = []
+        self.feature_names = feature_names
 
         # Assign an id to the dataset
         if cls_id is not None:
@@ -106,7 +107,6 @@ class DataContainer:
         else:
             # Load the dataset
             self._load_dataset(max_events=max_events, drop_fields=drop_fields, use_weights=use_weights)
-        print(f"Dataset {self.name} loaded with {len(self)} events")
 
     def _load_dataset(self, max_events: int = None, drop_fields: list[str] = [], use_weights: bool = True):
         array = dak.from_parquet(self.path)
@@ -127,7 +127,8 @@ class DataContainer:
         self.process_id = process_id
         self.weights = weights
         self.features = array
-        self.feature_names = get_ak_field_names(self.features, ['channel_id', 'process_id', 'normalization_weight'])
+        if not self.feature_names:
+            self.feature_names = get_ak_field_names(self.features, ['channel_id', 'process_id', 'normalization_weight'])
 
     def get_sub_dataset(self, features: list | None = None):
         if not features:
@@ -172,7 +173,7 @@ class DataContainer:
 
     def get_features_dict(self):
         if isinstance(self.features, dak.Array):
-            return {f: self.get_column_dak(f) for f in self.feature_names}
+            return {f: self.get_column_dak(f) for f in sorted(self.feature_names)}
         return {f: self.get_column(f) for f in sorted(self.feature_names)}
 
     @property

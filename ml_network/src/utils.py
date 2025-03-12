@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import collections
+from time import perf_counter_ns
 from typing import Type
 import sys
 import os
 import yaml
+import argparse
+import logging
+
 
 import numpy as np
 import torch
@@ -14,6 +19,59 @@ from ml_network.src.dataset import DataContainer
 __all__ = [
     "load_setup", "load_config", "get_loader", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device"
 ]
+
+
+#############################
+# General Utils
+#############################
+class DotDict(collections.OrderedDict):
+
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError("'{}' object has no attribute '{}'".format(
+                self.__class__.__name__, attr))
+
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+    def copy(self):
+        return self.__class__(self)
+
+    @classmethod
+    def wrap(cls, *args, **kwargs):
+        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
+        return wrap(collections.OrderedDict(*args, **kwargs))
+
+
+def init_logging():
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='####\t %(asctime)s - %(name)s - %(levelname)s - %(funcName)s :\n\t > %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.StreamHandler()
+        ],
+    )
+
+
+def get_logger(name: str) -> logging.Logger:
+    init_logging()
+    return logging.getLogger(name)
+
+
+def timeit(logger=get_logger(__name__)):
+    def decorator(method):
+        def timed(*args, **kw):
+            ts = perf_counter_ns()
+            result = method(*args, **kw)
+            te = perf_counter_ns()
+            logger.info(f"{method.__name__} took {(te - ts) / 1e9:.6f} seconds")
+            return result
+        return timed
+    return decorator
 
 
 # Device configuration
@@ -80,15 +138,15 @@ def load_setup():
     """Load setup.yaml file."""
     current_dir = os.path.dirname(os.path.realpath(__file__))
     with open(f'{current_dir}/../setup.yaml') as f:
-        config = yaml.load(f, Loader=get_setup_loader())
-    return config
+        setup = yaml.load(f, Loader=get_setup_loader())
+    return DotDict.wrap(setup)
 
 
 def load_config(config_file: str):
     """Load config.yaml file."""
     with open(config_file) as f:
         config = yaml.load(f, Loader=get_config_loader())
-    return config
+    return DotDict.wrap(config)
 
 
 #############################
@@ -100,8 +158,8 @@ def load_config(config_file: str):
 def get_loader(
     inp_embed: list,
     inp_num: np.ndarray,
-    target: np.ndarray = None,
-    weight: np.ndarray = None,
+    target: np.ndarray | None = None,
+    weight: np.ndarray | None = None,
     batch_size: int = 32,
     shuffle: bool = True,
     device: str = get_device(),
@@ -204,15 +262,32 @@ class ProgressBar(object):
         sys.stdout.flush()
 
 
-def build_model_name(setup: dict, model: Type) -> str:
+def build_model_name(setup: dict, model: Type, **kwargs) -> str:
     """
     Build the model name based on the setup and the model
     """
+    post_fix = "__".join([f"{key}_{val}" for key, val in kwargs.items()])
     model_name = f"{model.__module__.split('.')[-1]}__"
-    model_name += f"{setup['used_selector']}__datasets_{len(setup['datasets'])}__{setup['model_suffix']}"
-    if "limit_dataset" in setup:
-        model_name += f"__limit_{setup['limit_dataset']}"
+    model_name += f"{setup['used_selector']}__datasets_{len(setup['datasets'])}__{post_fix}"
     return model_name
+
+
+def setup_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tau-pt", "-pt", type=int, default=35)
+    parser.add_argument("--imgcat", "-i", action="store_true", default=False)
+    parser.add_argument("--epochs", "-e", type=int, default=20)
+    parser.add_argument("--batch-size", "-b", type=int, default=256)
+    return parser
+
+
+def log_parser(logger, args):
+    for key, value in vars(args).items():
+        if isinstance(value, bool):
+            logger.info(f"{key} Enabled" if value else f"{key} Disabled")
+            continue
+        logger.info(f"Using {key}={value}")
+    return args
 
 
 def make_dir(path: str) -> str:
