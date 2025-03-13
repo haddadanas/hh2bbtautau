@@ -30,6 +30,8 @@ class Fitting:
         self.device = device
         if training:
             self.path = make_dir(f"{self.model.save_path}/{self.model.model_name}_logs")
+            self.best_state_dict = copy.deepcopy(self.model.state_dict())
+            self.best_metric = 1000
 
     def fit(
         self,
@@ -143,6 +145,10 @@ class Fitting:
                 log['val_loss'] = val_loss
                 if metrics:
                     add_metrics_to_log(log, metrics, Y_val_pred, Y_val, 'val_')
+                    if log["val_loss"] < self.best_metric:
+                        self.best_metric = log["val_loss"]
+                        self.best_state_dict = copy.deepcopy(self.model.state_dict())
+                        print(f"New best model found at epoch {t + 1}")
                 if plots:
                     for plot in plots:
                         plot.update(Y_val_pred, Y_val, mode="valid", epoch=t)
@@ -245,6 +251,11 @@ class Fitting:
     def save_model(self) -> None:
         path = f"{self.path}/model.pt"
         torch.save(self.model.state_dict(), path)
+        print(f"Model saved to {path}")
+
+    def save_best_model(self) -> None:
+        path = f"{self.path}/model.pt"
+        torch.save(self.best_state_dict, path)
         print(f"Model saved to {path}")
 
     def save_logs(self, logs: list[dict], suffix: str = "logs") -> None:
@@ -615,3 +626,8 @@ def roc_curve_auc_log(y_pred: Tensor, y_true: Tensor) -> tuple[Tensor, Tensor, T
     auc = torch.abs(torch.sum(fpr_diff * tpr_sum) / 2)
 
     return tpr, eps_b, auc
+
+
+def auc_score(y_pred, y_true):
+    tpr, tnr, auc = roc_curve_auc(y_pred, y_true)
+    return auc.item()
