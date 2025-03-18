@@ -62,6 +62,7 @@ def get_datasets(setup: dict, selection_field: str | None = None):
             global_transform=splitter,
             num_transform=RemoveEmptyValues(),
             embed_transform=RemoveEmptyValues(embed_input=True),
+            ignored_columns=[selection_field] if selection_field else None,
         )
         weight_dict[name] = dataset["weight"]
         LOGGER.info(f"Loaded dataset (Training) {name} with {len(data_map[name])} entries")
@@ -78,6 +79,7 @@ def get_datasets(setup: dict, selection_field: str | None = None):
                 global_transform=splitter,
                 num_transform=RemoveEmptyValues(),
                 embed_transform=RemoveEmptyValues(embed_input=True),
+                ignored_columns=[selection_field] if selection_field else None,
             )
             LOGGER.info(f"Loaded dataset (Validation) {name} with {len(val_map[name])} entries")
     if not val_map:
