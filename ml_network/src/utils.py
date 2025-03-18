@@ -152,7 +152,7 @@ def log_batch_loss(log: dict, precision: int = 4) -> str:
 
 def log_to_message(log: dict, precision: int = 4) -> str:
     log_msg = log.get("log_msg", "")
-    log_msg = f"\n{log_msg}\n" if log_msg else ""
+    log_msg = f"\n***\t{log_msg}\t***" if log_msg else ""
     log_out = log_batch_loss(log, precision)
     return f"{log_out}{log_msg}"
 
