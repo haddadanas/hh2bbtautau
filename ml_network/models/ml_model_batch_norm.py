@@ -9,7 +9,7 @@ from ml_network.models.losses import NLL_Focal_Loss
 CONFIG = {
     "target_nodes": ["signal_node"],
     "optimizer": partial(torch.optim.Adam, lr=0.001, eps=1e-06),
-    "loss": partial(NLL_Focal_Loss, reduction="mean"),
+    "loss_func": partial(NLL_Focal_Loss, reduction="mean"),
 }
 NUM_FIELDS = sorted([
     *[f"bjet0.{field}" for field in ["btagPNetB", "eta", "hhbtag", "mass", "phi", "pt"]],
@@ -31,9 +31,9 @@ EMBED_FIELDS = sorted([
 
 
 class CustomModel(nn.Module):
-    def __init__(self, name, save_path="./models", num_fields=NUM_FIELDS, embed_fields=EMBED_FIELDS):
+    def __init__(self, model_name, save_path="./models", num_fields=NUM_FIELDS, embed_fields=EMBED_FIELDS):
         super(CustomModel, self).__init__()
-        self.model_name = name
+        self.name = model_name
         self.save_path = save_path
         self.input_length = len(num_fields)
         embedding_out = {
@@ -47,14 +47,14 @@ class CustomModel(nn.Module):
         )
 
         # embedding layers
-        self.embed = nn.ModuleList(
-            [
-                nn.Sequential(
+        self.embed: nn.ModuleDict = nn.ModuleDict(
+            {
+                feat.replace(".", "_"): nn.Sequential(
                     nn.Embedding(*embedding_out[feat.split(".")[-1]]),
                     nn.Flatten(),
                 )
                 for feat in embed_fields
-            ]
+            }
         )
 
         # define the layers with batch normalization
@@ -81,10 +81,9 @@ class CustomModel(nn.Module):
             nn.Softmax(1),
         )
 
-    def forward(self, X_embed, X_num):
-        x = [X_num]
-        for layer, data in zip(self.embed, X_embed):
-            x.append(layer(data.clamp(0, 9)))
+    def forward(self, X_embed: dict, X_num: dict):
+        x = list(x_num.clamp(min=-10) for x_num in X_num.values())
+        x.extend(map(lambda item: self.embed[item[0]](item[1]), X_embed.items()))
         x = torch.cat(x, dim=1)
         x = x.float()
 

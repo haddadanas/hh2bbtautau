@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from columnflow.columnar_util import flat_np_view
+from typing import NoReturn, Sequence
 
 import numpy as np
 import awkward as ak
 import torch
+from dask_awkward.lib.core import Array
 from torch.nested._internal.nested_tensor import NestedTensor
+
+from ml_network.src.cf_utils import flat_np_view
 
 
 class AkToTorchTensor(torch.nn.Module):
 
-    def __init__(self, requires_grad=False, device=None, *args, preprocess=None, ** kwargs):
+    def __init__(self, requires_grad=False, device=None, *args, preprocess=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.requires_grad = requires_grad
         self.device = device
@@ -41,7 +44,7 @@ class AkToTorchTensor(torch.nn.Module):
             view = flat_np_view(X)
 
             # transform into torch Tensor with same type
-            values = torch.Tensor(view).to(
+            values = torch.tensor(view).to(
                 self.numpy_to_torch_dtype_dict.get(view.dtype.type, view.dtype.type)
             )
 
@@ -67,7 +70,7 @@ class AkToTorchTensor(torch.nn.Module):
             # DANGERZONE: after comparing hex(id(values)) vs hex(id(return_tensor.values()))
             # realized that there must be a copy going on somewhere...
             return_tensor = torch.nested._internal.nested_tensor.NestedTensor(
-                values=values, offsets=torch.Tensor(cumsum),
+                values=values, offsets=torch.tensor(cumsum),
                 requires_grad=self.requires_grad, device=self.device,
             )
         elif isinstance(X, torch.Tensor):
@@ -106,7 +109,7 @@ class AkToTensor(AkToTorchTensor):
             # first, get flat numpy view to avoid copy operations
             try:
                 return_tensor = ak.to_torch(X)
-            except Exception as e:
+            except:
                 # default back to NestedTensor
                 return_tensor = super()._transform_input(X)
         elif isinstance(X, (torch.Tensor, NestedTensor)):
@@ -130,6 +133,112 @@ class AkToProcessedTensor(AkToTorchTensor):
             return X
         elif isinstance(X, ak.Array):
             return_tensor = self._transform_input(ak.to_torch(X))
+        elif isinstance(X, (list, tuple)):
+            return_tensor = [self._transform_input(entry) for entry in X]
+        elif isinstance(X, dict):
+            return_tensor = {key: self._transform_input(val) for key, val in X.items()}
+
+        if return_tensor is None:
+            raise ValueError(f"Could not convert input {X=}")
+
+        return return_tensor
+
+
+class RemoveEmptyValues(torch.nn.Module):
+    def __init__(self, embed_input: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.embed_input = embed_input
+
+    def _transform_input(self, X) -> torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor] | NoReturn:
+        return_tensor = None
+        if isinstance(X, torch.Tensor):
+            if self.embed_input:
+                return_type = torch.int
+                clamp_min, clamp_max = 0, 9
+            else:
+                return_type = torch.float
+                clamp_min, clamp_max = -10, None
+
+            return X.to(return_type).clamp(min=clamp_min, max=clamp_max)
+
+        elif isinstance(X, ak.Array):
+            return_tensor = self._transform_input(ak.to_torch(X))
+        elif isinstance(X, (list, tuple)):
+            return_tensor = [self._transform_input(entry) for entry in X]
+        elif isinstance(X, dict):
+            return_tensor = {key: self._transform_input(val) for key, val in X.items()}
+
+        if return_tensor is None:
+            raise ValueError(f"Could not convert input {X=}")
+
+        return return_tensor
+
+    def forward(
+            self,
+            X: ak.Array | torch.Tensor | Mapping[str, ak.Array | torch.Tensor]
+    ) -> (torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor]):
+        return_tensor: torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor] | None = None
+        if isinstance(X, Mapping):
+            return_tensor = {
+                key: self._transform_input(data) for key, data in X.items()
+            }
+        else:
+            return_tensor = self._transform_input(X)
+        return return_tensor
+
+
+class GetSelectedEvents:
+    def __init__(self, train_val_split: float | None = None, selection_field: str | None = None, random_seed: int = 42):
+        self.selection_indecies = None
+        self.training_split = train_val_split
+        self.selection_field = selection_field
+        self.seed = random_seed
+        self.training_mode = True
+
+    def _build_split_indecies(self, length: int) -> np.ndarray | None:
+        if self.training_split is None:
+            return
+        if self.selection_indecies is None:
+            split = int(length * self.training_split)
+            np.random.seed(self.seed)
+            choice = np.random.choice(range(length), size=(split,), replace=False)
+            ind = np.zeros(length, dtype=bool)
+            ind[choice] = True
+            self.selection_indecies = ind
+        if len(self.selection_indecies) != length:
+            raise ValueError(f"Length of selection_indecies {len(self.selection_indecies)} does not match {length=}")
+        return self.selection_indecies if self.training_mode else ~self.selection_indecies
+
+    def _get_selection_column(self, array) -> np.ndarray:
+        selection_column = None
+        if self.selection_field is not None:
+            selection_column = array[self.selection_field]
+            if isinstance(selection_column, Array):
+                selection_column = selection_column.compute()
+            selection_column = np.astype(selection_column, bool)
+        return selection_column
+
+    def set_training_mode(self):
+        self.training_mode = True
+
+    def set_validation_mode(self):
+        self.training_mode = False
+
+    def __call__(self, X) -> ak.Array | Mapping[str, ak.Array | Array] | Sequence[ak.Array | Array]:
+        return_tensor = None
+        if isinstance(X, Array):
+            X.eager_compute_divisions()
+        if isinstance(X, (ak.Array, Array)):
+            return_array = X
+            length = len(return_array)
+            mask = self._get_selection_column(return_array)
+            if mask is not None:
+                return_array = X[mask]
+                length = np.sum(mask)
+            if self.training_split is not None:
+                mask_indecies = self._build_split_indecies(length)
+                return_array = return_array[mask_indecies]
+            return_tensor = return_array
         elif isinstance(X, (list, tuple)):
             return_tensor = [self._transform_input(entry) for entry in X]
         elif isinstance(X, dict):

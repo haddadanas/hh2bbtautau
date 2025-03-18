@@ -4,34 +4,29 @@ __all__ = [
     "ListDataset", "MapAndCollate", "FlatMapAndCollate", "NodesDataLoader"
 ]
 
-from collections import Iterable, Mapping, defaultdict
-from typing import Any, Callable, Sequence
-from columnflow.columnar_util import (
-    get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
-    flat_np_view,
-)
-
-from law.util import DotDict
 import copy
+import re
+import math
+from collections.abc import Iterable, Mapping
+from typing import Any, Callable, Sequence, Literal, Sized
+from collections import OrderedDict, defaultdict
 
-import torch
 import numpy as np
 import awkward as ak
 import dask_awkward as dak
 from dask_awkward.lib.core import Array
 
-# ListDataset = MockModule("ListDataset")
-# MapAndCollate = MockModule("MapAndCollate")
-# FlatMapAndCollate = MockModule("FlatMapAndCollate")
-# NodesDataLoader = MockModule("NodesDataLoader")
-
+import torch
 import torchdata.nodes as tn
-from torchdata.nodes import MultiNodeWeightedSampler  # TODO Fix Rendom Seed
+from torchdata.nodes import MultiNodeWeightedSampler  # TODO Fix Random Seed
 from torch.utils.data import RandomSampler, SequentialSampler, default_collate, Dataset
 from torchdata.nodes.samplers.stop_criteria import StopCriteria
 from torchdata.nodes.samplers.multi_node_weighted_sampler import _WeightedSampler
-from typing import Literal, Sized
-import re
+
+from ml_network.src.cf_utils import (
+    get_ak_routes, Route, remove_ak_column, EMPTY_FLOAT, EMPTY_INT,
+    flat_np_view, DotDict, brace_expand
+)
 
 
 class ParquetDataset(Dataset):
@@ -42,6 +37,8 @@ class ParquetDataset(Dataset):
         target: str | int | Iterable[str | int] | None = None,
         open_options: dict[str, Any] | None = None,
         transform: Callable | None = None,
+        global_transform: Callable | None = None,
+        device: str | None = None,
     ):
         self.open_options = open_options or {}
         self.columns = columns or set()
@@ -50,6 +47,7 @@ class ParquetDataset(Dataset):
         # container for integer targets
         self.int_targets = set()
         self.transform = transform
+        self.global_transform = global_transform
 
         self.input = input
         self._data: ak.Array | Array | None = None
@@ -110,6 +108,10 @@ class ParquetDataset(Dataset):
 
             self.all_columns = tmp_cols
 
+            # check if transformations define columns to use and
+            # make sure that the needed inputs are loaded, a.k.a. add them to all_columns
+            self.all_columns.update(self._extract_transform_columns())
+
         if len(self.all_columns) == 0:
             raise ValueError("No columns specified and no metadata found")
 
@@ -137,6 +139,20 @@ class ParquetDataset(Dataset):
             parts.insert(index, slice_dict[index])
 
         return Route(Route.join(parts))
+
+    def _extract_transform_columns(self, attr: Literal["uses", "produces"] = "uses") -> set[Route]:
+        """
+        Small function to extract columns from transformations
+
+        :param attr: attribute to extract from transformations, either "uses" or "produces"
+        :returns: Set with resolved Routes to columns in awkward array (braces are expanded)
+        """
+        transform_inputs: set[Route] = set()
+        for t in [self.transform, self.global_transform]:
+            transform_inputs.update(
+                *list(map(Route, brace_expand(obj)) for obj in getattr(t, attr, []))
+            )
+        return transform_inputs
 
     def _parse_target(self, target: str | int | Iterable[str | int] | None) -> None:
         # if the target is not a list, cast it
@@ -166,6 +182,13 @@ class ParquetDataset(Dataset):
             # if target is a string and specific columns are supposed to be
             # loaded, check whether the target is also in the columns
 
+            # targets can also be produced by a transformation, so first collect all
+            # columns in one super set
+            full_column_set = self.all_columns | self._extract_transform_columns(attr="produces")
+
+            if not any(self._check_against_pattern(target, col) for col in full_column_set):
+                raise ValueError(f"target {target} not found in columns {full_column_set=}")
+
             if not any(self._check_against_pattern(target, col) for col in self.all_columns):
                 raise ValueError(f"target {target} not found in columns")
 
@@ -189,6 +212,8 @@ class ParquetDataset(Dataset):
         if self._data is None:
             self.open_options["columns"] = [x.string_column for x in self.all_columns]
             self._data = dak.from_parquet(self.path, **self.open_options)
+            if self.global_transform:
+                self._data = self.global_transform(self._data)
             self._data.eager_compute_divisions()
         return self._data
 
@@ -345,13 +370,16 @@ class FlatTorchDataset(ParquetDataset):
         embedding_fields: list[str] = [],
         padd_value_float: float = EMPTY_FLOAT,
         padd_value_int: int = EMPTY_INT,
+        num_transform: Callable | None = None,
+        embed_transform: Callable | None = None,
+        ignored_columns: list[str] | None = None,
         device: str = "cpu",
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.padd_values = {
             t: padd_value_float
-            for t in [np.float16, np.float32, np.float64, np.float128]
+            for t in [np.float16, np.float32, np.float64]
         }
         self.padd_values.update({
             t: padd_value_int
@@ -364,12 +392,17 @@ class FlatTorchDataset(ParquetDataset):
             np.bool: False,
         })
 
+        self.num_transform = num_transform
+        self.embed_transform = embed_transform
+
         self._input_data: tuple[Mapping[str, torch.Tensor], Mapping[str, torch.Tensor]] | None = None
         self._numerical_data: Mapping[str, torch.Tensor] | None = None
         self._embed_data: Mapping[str, torch.Tensor] | None = None
         self._target_data: Mapping[str, torch.Tensor] | None = None
         self.device = device
         self.embedding_fields = set(col for col in self.data_columns if col.column in embedding_fields)
+        # Remove the fields needed for the transformation but not in the data
+        self.data_columns = self.data_columns - {Route(x) for x in ignored_columns or []}
 
     def _extract_columns(self, array: ak.Array, route: Route) -> torch.Tensor:
         # first, get super set of column
@@ -390,31 +423,36 @@ class FlatTorchDataset(ParquetDataset):
     def _create_class_target(self, length: int, input_int_targets: int | None = None) -> torch.Tensor:
         int_target: int = input_int_targets or self.class_target
 
-        return torch.tensor([int_target] * int(length))
+        return torch.tensor([int_target] * int(length), device=self.device)
 
     @ParquetDataset.input_data.getter
     def input_data(self) -> tuple[Mapping[str, torch.Tensor], Mapping[str, torch.Tensor]]:
         if self._input_data is None:
-            self._input_data = (self.numerical_data, self.embed_data)
+            self._input_data = (self.embed_data, self.numerical_data)
         return self._input_data
 
     @property
     def numerical_data(self) -> Mapping[str, torch.Tensor]:
         if self._numerical_data is None:
             self._numerical_data = {
-                str(r): self._extract_columns(super(FlatTorchDataset, self).input_data, r)
-                for r in self.data_columns
+                str(r): self._extract_columns(super(FlatTorchDataset, self).input_data, r).unsqueeze(-1)
+                for r in sorted(self.data_columns, key=lambda x: x.column)
                 if r not in self.embedding_fields
             }
+            if self.num_transform:
+                self._numerical_data = self.num_transform(self._numerical_data)
+            self._numerical_data = {"num": torch.cat(list(self._numerical_data.values()), dim=-1)}
         return self._numerical_data
 
     @property
     def embed_data(self) -> Mapping[str, torch.Tensor]:
         if self._embed_data is None:
             self._embed_data = {
-                str(r): self._extract_columns(super(FlatTorchDataset, self).input_data, r)
-                for r in self.embedding_fields
+                str(r).replace(".", "_"): self._extract_columns(super(FlatTorchDataset, self).input_data, r).int()
+                for r in sorted(self.embedding_fields, key=lambda x: x.column)
             }
+            if self.embed_transform:
+                self._embed_data = self.embed_transform(self._embed_data)
         return self._embed_data
 
     @ParquetDataset.target_data.getter
@@ -717,10 +755,7 @@ class MapAndCollate:
     TODO: make this a standard utility in torchdata.nodes
     """
 
-    def __init__(self,
-        dataset: Sized,
-        collate_fn: Callable,
-                    ):
+    def __init__(self, dataset: Sized, collate_fn: Callable):
         self.dataset = dataset
         self.collate_fn = collate_fn
 
@@ -955,5 +990,62 @@ class CompositeDataLoader(object):
             dataset_names = list(self.data_map.keys())
             max_dataset_idx: int = np.argmax([len(data) for data in datasets])
             max_composition: int = self.batcher._batch_composition[dataset_names[max_dataset_idx]]
-            self._num_batches = int(len(datasets[max_dataset_idx]) / max_composition)
+            self._num_batches = math.ceil(len(datasets[max_dataset_idx]) / max_composition)
         return self._num_batches
+
+
+class EvaluationDataLoader(CompositeDataLoader):
+    def __init__(
+            self,
+            data_map: Mapping[str, Sized],
+            batch_size: int = 256,
+            num_workers: int = 0,
+            parallelize_method: Literal["thread", "process"] = "process",
+            device=None,
+    ):
+        self.data_map = OrderedDict(data_map)
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.parallelize_method = parallelize_method
+        self.collate_fn = lambda x: x
+        self.batch_sampler_cls = tn.Batcher
+        self.index_sampler_cls = SequentialSampler
+        self.map_cls = FlatMapAndCollate
+        self.device = device
+
+        # property for maximum number of batches
+        self._num_batches: int | None = None
+
+        self.data_loader, self.batcher = self._create_composite_node()
+        self.weight_map = self._calc_weight_map()
+
+    def _create_composite_node(self) -> tuple[dict[str, tn.ParallelMapper], dict[str, tn.Batcher]]:
+        parallel_nodes: dict[str, tn.ParallelMapper] = OrderedDict()
+        batchers: dict[str, tn.Batcher] = OrderedDict()
+        for key, dataset in self.data_map.items():
+            node_dict = tn.SamplerWrapper(self.index_sampler_cls(dataset))
+
+            batcher = self.batch_sampler_cls(
+                node_dict, drop_last=False, batch_size=self.batch_size,
+            )
+
+            batchers[key] = batcher
+            mapping = self.map_cls(dataset, collate_fn=self.collate_fn)
+            parallel_nodes[key] = tn.ParallelMapper(
+                batcher,
+                map_fn=mapping,
+                num_workers=self.num_workers,
+                method=self.parallelize_method,  # Set this to "thread" for multi-threading
+                in_order=True,
+            )
+
+        return (parallel_nodes, batchers)
+
+    def _calc_weight_map(self) -> dict[str, float]:
+        return {key: len(self) / len(dataset) for key, dataset in self.data_map.items()}
+
+    def get_targets(self):
+        return OrderedDict({
+            key: torch.tensor([dataset.class_target] * len(dataset), device=self.device)
+            for key, dataset in self.data_map.items()
+        })

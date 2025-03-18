@@ -1,51 +1,29 @@
 from __future__ import annotations
 
-import collections
-from time import perf_counter_ns
-from typing import Type
+__all__ = [
+    "load_setup", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device", "get_logger",
+    "timeit", "make_dir", "build_model_name", "setup_parser", "log_parser"
+]
+
 import sys
 import os
+import shutil
 import yaml
 import argparse
 import logging
-
+from time import perf_counter_ns, strftime
+from typing import Any, Callable, Iterable, Type
 
 import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader
 
-from ml_network.src.dataset import DataContainer
-
-__all__ = [
-    "load_setup", "load_config", "get_loader", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device"
-]
+from ml_network.src.cf_utils import DotDict
 
 
 #############################
 # General Utils
 #############################
-class DotDict(collections.OrderedDict):
 
-    def __getattr__(self, attr):
-        try:
-            return self[attr]
-        except KeyError:
-            raise AttributeError("'{}' object has no attribute '{}'".format(
-                self.__class__.__name__, attr))
-
-    def __setattr__(self, attr, value):
-        self[attr] = value
-
-    def copy(self):
-        return self.__class__(self)
-
-    @classmethod
-    def wrap(cls, *args, **kwargs):
-        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
-        return wrap(collections.OrderedDict(*args, **kwargs))
-
-
-def init_logging():
+def get_logger(name: str) -> logging.Logger:
     # Set up logging
     logging.basicConfig(
         level=logging.INFO,
@@ -55,16 +33,12 @@ def init_logging():
             logging.StreamHandler()
         ],
     )
-
-
-def get_logger(name: str) -> logging.Logger:
-    init_logging()
     return logging.getLogger(name)
 
 
-def timeit(logger=get_logger(__name__)):
-    def decorator(method):
-        def timed(*args, **kw):
+def timeit(logger=get_logger(__name__)) -> Callable:
+    def decorator(method: Callable) -> Callable:
+        def timed(*args, **kw) -> Any:
             ts = perf_counter_ns()
             result = method(*args, **kw)
             te = perf_counter_ns()
@@ -74,8 +48,30 @@ def timeit(logger=get_logger(__name__)):
     return decorator
 
 
+def cleanup_on_exception(func: Callable) -> Callable:
+    def wrapper(*args, **kwargs) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            cls_inst = args[0]
+            path = cls_inst.path
+            logger = cls_inst.trace_func
+            logger(
+                f"Exception in {func.__name__} with path: {path}\n"
+                f"Exception: {e}"
+            )
+            # remove the directory
+            remove: bool = cls_inst._cleanup or (input("Do you want to remove the directory? [y/n] ").lower() == "y")
+            if remove and os.path.exists(path):
+                logger(f"Removing directory: {path}")
+                shutil.rmtree(path)
+            raise e
+    return wrapper
+
+
 # Device configuration
 def get_device() -> str:
+    import torch
     return (
         "cuda"
         if torch.cuda.is_available()
@@ -85,75 +81,140 @@ def get_device() -> str:
     )
 
 
+def setup_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tau-pt", "-pt", type=int, default=None)
+    parser.add_argument("--imgcat", "-i", action="store_true", default=False)
+    parser.add_argument("--epochs", "-e", type=int, default=20)
+    parser.add_argument("--batch-size", "-b", type=int, default=256)
+    return parser
+
+
+def log_parser(logger: logging.Logger, args: argparse.Namespace) -> argparse.Namespace:
+    for key, value in vars(args).items():
+        if isinstance(value, bool):
+            logger.info(f"{key} Enabled" if value else f"{key} Disabled")
+            continue
+        logger.info(f"Using {key}={value}")
+    return args
+
+
 #############################
 # Reader utils for Yaml files
 #############################
 
 
-def path_constructor(loader: yaml.SafeLoader, node: yaml.nodes.SequenceNode) -> str:
+def _path_constructor(loader: yaml.SafeLoader, node: yaml.nodes.SequenceNode) -> str:
     node_dict = loader.construct_sequence(node)
     return "".join(node_dict)
 
 
-def dataset_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> DataContainer:
-    return DataContainer(**loader.construct_mapping(node))  # type: ignore
-
-
-def combine_constructor(loader: yaml.SafeLoader, node: yaml.nodes.SequenceNode) -> list:
-    var_lists = loader.construct_sequence(node)
-    features = []
-    field = var_lists[0]
-    for var in var_lists[1:]:
-        features.append(f"{field}.{var}")
-    return features
-
-
-def ml_obj_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> dict:
-    node_dict = loader.construct_mapping(node, deep=True)
-    obj_type = node_dict.pop('id')
-    return {"class_name": obj_type, "config": node_dict}
-
-
-def get_setup_loader():
+def _get_setup_loader() -> type[yaml.SafeLoader]:
     """Add constructors to PyYAML loader."""
     loader = yaml.SafeLoader
-    loader.add_constructor("!join", path_constructor)
-    loader.add_constructor("!dataset", dataset_constructor)
+    loader.add_constructor("!join", _path_constructor)
     return loader
 
 
-def get_config_loader():
-    loader = yaml.SafeLoader
-    loader.add_constructor("!combine", combine_constructor)
-    loader.add_constructor("!ml_obj", ml_obj_constructor)
-    return loader
-
-
-#############################
-# Config and Setup Loaders
-#############################
-
-
-def load_setup():
+def load_setup() -> DotDict:
     """Load setup.yaml file."""
     current_dir = os.path.dirname(os.path.realpath(__file__))
     with open(f'{current_dir}/../setup.yaml') as f:
-        setup = yaml.load(f, Loader=get_setup_loader())
+        setup = yaml.load(f, Loader=_get_setup_loader())
     return DotDict.wrap(setup)
 
 
-def load_config(config_file: str):
-    """Load config.yaml file."""
-    with open(config_file) as f:
-        config = yaml.load(f, Loader=get_config_loader())
-    return DotDict.wrap(config)
+#############################
+# Logging
+#############################
+
+
+def add_metrics_to_log(
+        log: dict,
+        metrics: list[Callable],
+        y_pred: Iterable,
+        y_true: Iterable,
+        prefix: str = ''
+) -> dict:
+    for metric in metrics:
+        q = metric(y_pred, y_true)
+        if q is None:
+            continue
+        metric_name = metric.name if hasattr(metric, 'name') else metric.__name__
+        log[prefix + metric_name] = q
+    return log
+
+
+def log_batch_loss(log: dict, precision: int = 4) -> str:
+    fmt = "{0}: {1:." + str(precision) + "f}"
+    return "    ".join(fmt.format(k, v) for k, v in log.items() if isinstance(v, (int, float)))
+
+
+def log_to_message(log: dict, precision: int = 4) -> str:
+    log_msg = log.get("log_msg", "")
+    log_msg = f"\n{log_msg}\n" if log_msg else ""
+    log_out = log_batch_loss(log, precision)
+    return f"{log_out}{log_msg}"
+
+
+class ProgressBar(object):
+
+    def __init__(self, n: int, length: int = 40):
+        # Protect against division by zero
+        self.n = max(1, n)
+        self.nf = float(n)
+        self.length = length
+        # Precalculate the i values that should trigger a write operation
+        self.ticks = set([round(i / 100.0 * n) for i in range(101)])
+        self.ticks.add(n - 1)
+        self.bar(0)
+
+    def bar(self, i, message: str = ""):
+        """Assumes i ranges through [0, n-1]"""
+        if i in self.ticks:
+            b = int(np.ceil(((i + 1) / self.nf) * self.length))
+            sys.stdout.write("\r[{0}{1}] {2}%\t{3}".format(
+                "=" * b, " " * (self.length - b), int(100 * ((i + 1) / self.nf)), message
+            ))
+            sys.stdout.flush()
+
+    def close(self, message: str = ""):
+        # Move the bar to 100% before closing
+        self.bar(self.n - 1)
+        sys.stdout.write("{0}\n\n".format(message))
+        sys.stdout.flush()
 
 
 #############################
-# Utils for fitting
+# Model Utils
 #############################
 
-# Data utils
+
+def build_model_name(setup: dict, model: Type, **kwargs) -> str:
+    """
+    Build the model name based on the setup and the model
+    """
+    post_fix = "__".join([f"{key}_{val}" for key, val in kwargs.items()])
+    model_name = f"{model.__module__.split('.')[-1]}__"
+    model_name += f"{setup['used_selector']}__datasets_{len(setup['datasets'])}__{post_fix}"
+    return model_name
+
+
+def make_dir(path: str, add_time: bool = False) -> str:
+    """
+    Create the directory if it does not exist
+    """
+    if add_time:
+        current_time = strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(path, current_time)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+
+#############################
+# Legacy Utils
+#############################
 
 def get_loader(
     inp_embed: list,
@@ -163,7 +224,9 @@ def get_loader(
     batch_size: int = 32,
     shuffle: bool = True,
     device: str = get_device(),
-) -> DataLoader:
+):
+    import torch
+    from torch.utils.data import Dataset, DataLoader
     """ Create a Tensor with predefined settings, e.g. shuffle, batch, prefetch. """
     class InputData(Dataset):
         def __init__(self, device, inp_embed, inp_num, target=None, weight=None):
@@ -215,88 +278,3 @@ def get_loader(
     tensor = InputData(device=device, inp_embed=inp_embed, inp_num=inp_num, target=target, weight=weight)
     dataloader = DataLoader(tensor, batch_size=batch_size, shuffle=shuffle)
     return dataloader
-
-
-# Logging
-
-def add_metrics_to_log(log, metrics, y_pred, y_true, prefix=''):
-    for metric in metrics:
-        q = metric(y_pred, y_true)
-        if q is None:
-            continue
-        metric_name = metric.name if hasattr(metric, 'name') else metric.__name__
-        log[prefix + metric_name] = q
-    return log
-
-
-def log_to_message(log, precision=4):
-    fmt = "{0}: {1:." + str(precision) + "f}"
-    return "    ".join(fmt.format(k, v) for k, v in log.items() if isinstance(v, (int, float)))
-
-
-class ProgressBar(object):
-
-    def __init__(self, n, length=40):
-        # Protect against division by zero
-        self.n = max(1, n)
-        self.nf = float(n)
-        self.length = length
-        # Precalculate the i values that should trigger a write operation
-        self.ticks = set([round(i / 100.0 * n) for i in range(101)])
-        self.ticks.add(n - 1)
-        self.bar(0)
-
-    def bar(self, i, message=""):
-        """Assumes i ranges through [0, n-1]"""
-        if i in self.ticks:
-            b = int(np.ceil(((i + 1) / self.nf) * self.length))
-            sys.stdout.write("\r[{0}{1}] {2}%\t{3}".format(
-                "=" * b, " " * (self.length - b), int(100 * ((i + 1) / self.nf)), message
-            ))
-            sys.stdout.flush()
-
-    def close(self, message=""):
-        # Move the bar to 100% before closing
-        self.bar(self.n - 1)
-        sys.stdout.write("{0}\n\n".format(message))
-        sys.stdout.flush()
-
-
-def build_model_name(setup: dict, model: Type, **kwargs) -> str:
-    """
-    Build the model name based on the setup and the model
-    """
-    post_fix = "__".join([f"{key}_{val}" for key, val in kwargs.items()])
-    model_name = f"{model.__module__.split('.')[-1]}__"
-    model_name += f"{setup['used_selector']}__datasets_{len(setup['datasets'])}__{post_fix}"
-    return model_name
-
-
-def setup_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--tau-pt", "-pt", type=int, default=35)
-    parser.add_argument("--imgcat", "-i", action="store_true", default=False)
-    parser.add_argument("--epochs", "-e", type=int, default=20)
-    parser.add_argument("--batch-size", "-b", type=int, default=256)
-    return parser
-
-
-def log_parser(logger, args):
-    for key, value in vars(args).items():
-        if isinstance(value, bool):
-            logger.info(f"{key} Enabled" if value else f"{key} Disabled")
-            continue
-        logger.info(f"Using {key}={value}")
-    return args
-
-
-def make_dir(path: str) -> str:
-    """
-    Create the directory if it does not exist
-    """
-    import time
-    current_time = time.strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(path, current_time)
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path
