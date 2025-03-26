@@ -1,0 +1,48 @@
+###########################
+### Path Definitions ######
+###########################
+
+dir_path: &root "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/"
+config_path: &config_path !join [*root, "configs/"]
+data_path: &data_root !join [*root, "data_tautau/"]
+model_save_path: "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/saved_models/"
+# "/nfs/dust/cms/user/haddadan/selection_models/"
+
+
+###########################
+#### Configs & Modules ####
+###########################
+
+used_config: !join [*config_path, "config.yaml"]
+model_suffix: "20_epochs_tau_pt35"
+###########################
+######### Data ############
+###########################
+
+used_selector: &sel "default"
+limit_dataset: &limit 42351
+use_weights: &weights false
+drop_fields: &drop ["jet0", "jet1", "jet2", "jet3", "tau_pt35", "tau_pt36", "tau_pt37", "tau_pt38", "tau_pt40", "tau_pt45", "tau_pt50", "tau_pt80"]
+
+datasets:
+  hh_ggf: !dataset
+    name: "hh_ggf_hbb_htt_kl1_kt1"
+    path: !join [*data_root, *sel ,"/hh_ggf_hbb_htt_kl1_kt1.parquet"]
+    is_signal: true
+    # max_events: *limit
+    drop_fields: *drop
+    use_weights: *weights
+  dy: !dataset
+    name: "dy_m50toinf"
+    path: !join [*data_root, *sel ,"/dy_m50toinf.parquet"]
+    is_signal: false
+    # max_events: 21175
+    drop_fields: *drop
+    use_weights: *weights
+  # tt: !dataset
+  #   name: "tt_sl"
+  #   path: !join [*data_root, *sel ,"/tt_sl.parquet"]
+  #   is_signal: false
+  #   # max_events: 21175
+  #   drop_fields: *drop
+  #   use_weights: *weights

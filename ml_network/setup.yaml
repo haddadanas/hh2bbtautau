@@ -1,0 +1,82 @@
+###########################
+### Path Definitions ######
+###########################
+
+dir_path: &root "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/"
+data_path: &data_root !join [*root, "data_tautau/"]
+model_save_path: "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/saved_models/"
+
+###########################
+######### Data ############
+###########################
+
+used_selector: &sel "default"
+
+datasets:
+  hh_ggf:
+    name: "hh_ggf_hbb_htt_kl1_kt1"
+    path: !join [*data_root, *sel ,"/hh_ggf_hbb_htt_kl1_kt1_*.parquet"]
+    is_signal: true
+    weight: 2.0
+    train_val_split: 0.8
+  dy:
+    name: "dy_m50toinf"
+    path: !join [*data_root, *sel ,"/dy_m50toinf_*.parquet"]
+    is_signal: false
+    weight: 1.0
+    train_val_split: 0.8
+  tt:
+    name: "tt_sl"
+    path: !join [*data_root, *sel ,"/tt_sl_*.parquet"]
+    is_signal: false
+    weight: 1.0
+    train_val_split: 0.8
+
+###########################
+#### Configs & Modules ####
+###########################
+
+num_fields: 
+  - 'bjet0.btagPNetB'
+  - 'bjet0.eta'
+  - 'bjet0.hhbtag'
+  - 'bjet0.mass'
+  - 'bjet0.phi'
+  - 'bjet0.pt'
+  - 'bjet1.btagPNetB'
+  - 'bjet1.eta'
+  - 'bjet1.hhbtag'
+  - 'bjet1.mass'
+  - 'bjet1.phi'
+  - 'bjet1.pt'
+  - 'diBJet.eta'
+  - 'diBJet.mass'
+  - 'diBJet.pt'
+  - 'diTau.eta'
+  - 'diTau.mass'
+  - 'diTau.pt'
+  - 'hh.eta'
+  - 'hh.mass'
+  - 'hh.pt'
+  - 'l1.dxy'
+  - 'l1.dz'
+  - 'l1.eta'
+  - 'l1.is_iso'
+  - 'l1.iso_score'
+  - 'l1.pt'
+  - 'l2.dxy'
+  - 'l2.dz'
+  - 'l2.eta'
+  - 'l2.is_iso'
+  - 'l2.pt'
+  - 'n_bjets'
+  - 'n_jets'
+  - 'n_taus'
+embed_fields:
+  - 'channel_id'
+  - 'l1.tauVSe'
+  - 'l1.tauVSjet'
+  - 'l1.tauVSmu'
+  - 'l2.tauVSe'
+  - 'l2.tauVSjet'
+  - 'l2.tauVSmu'
