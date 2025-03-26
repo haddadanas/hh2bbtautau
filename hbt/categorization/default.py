@@ -98,9 +98,21 @@ def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
     return events, ak.num(events.Jet.pt, axis=1) >= 2
 
 
-@categorizer(uses={"bin_dnn_1"})
-def cat_ml_selected(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    return events, events.bin_dnn_1 >= 0.5
+@categorizer(uses={"bin_dnn_1"}, threshold=0.5)
+def cat_ml_selected_50(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.bin_dnn_1 >= self.threshold
+
+
+ml_selectoed_cats = []
+for th in [0.2, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8]:
+    ml_selectoed_cats.append(
+        cat_ml_selected_50.derive(
+            f"ml_selected_{int(th * 100)}",
+            cls_dict={
+                "threshold": th,
+            },
+        )
+    )
 
 
 @categorizer(uses={"channel_id"})
@@ -168,3 +180,20 @@ def cat_tt(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.
 @cat_tt.init
 def cat_tt_init(self: Categorizer) -> None:
     self.uses.add(f"{self.config_inst.x.met_name}.{{pt,phi}}")
+
+
+@categorizer(uses={"Tau.pt"}, tau_pt=35)
+def cat_pt35(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, ak.sum(events.Tau.pt > self.tau_pt, axis=-1) > 1
+
+
+tau_cats = []
+for pt in [35, 36, 37, 38, 40, 45, 50, 80]:
+    tau_cats.append(
+        cat_pt35.derive(
+            f"cat_pt{pt}",
+            cls_dict={
+                "tau_pt": pt,
+            },
+        )
+    )

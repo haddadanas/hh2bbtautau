@@ -13,7 +13,8 @@
 *.h5
 *.hdf5
 *.json
-*.yaml
+# *.yaml
+*.ipynb
 *.pb
 *.out
 *.parquet

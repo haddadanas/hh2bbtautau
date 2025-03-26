@@ -127,7 +127,7 @@ def loose_electron_selection(
     control_mask = None
     if is_single or is_cross:
         min_pt = 26.0 if is_2016 else (30.0 if is_single else 24.0)
-        max_eta = 2.5 if is_single else 2.4
+        max_eta = 2.5 if is_single else 2.5
         default_mask = (
             (mva_iso_wp90 == 1) &
             (abs(events.Electron.eta) < max_eta) &

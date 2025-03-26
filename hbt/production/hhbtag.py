@@ -164,8 +164,8 @@ def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: Inser
     bundle = reqs["external_files"]
 
     # unpack repo
-    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc = bundle.files.hh_btag_repo
+    repo_dir = bundle.files_dir.child("hh-btag-repo", type="d")
     arc.load(repo_dir, formatter="tar")
 
     # get the version of the external file
