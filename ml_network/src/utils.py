@@ -87,6 +87,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--imgcat", "-i", action="store_true", default=False)
     parser.add_argument("--epochs", "-e", type=int, default=20)
     parser.add_argument("--batch-size", "-b", type=int, default=256)
+    parser.add_argument("--patience", "-p", type=int, default=7)
     return parser
 
 
@@ -140,7 +141,7 @@ def add_metrics_to_log(
         q = metric(y_pred, y_true)
         if q is None:
             continue
-        metric_name = metric.name if hasattr(metric, 'name') else metric.__name__
+        metric_name = metric.name if hasattr(metric, 'name') else metric.__name__  # type: ignore
         log[prefix + metric_name] = q
     return log
 

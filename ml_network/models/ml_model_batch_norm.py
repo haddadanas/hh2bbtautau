@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial
 
 import torch
@@ -81,9 +83,13 @@ class CustomModel(nn.Module):
             nn.Softmax(1),
         )
 
-    def forward(self, X_embed: dict, X_num: dict):
-        x = list(x_num.clamp(min=-10) for x_num in X_num.values())
-        x.extend(map(lambda item: self.embed[item[0]](item[1]), X_embed.items()))
+    @torch.jit.export
+    def forward(self: CustomModel, X_embed: dict[str, torch.Tensor], X_num: dict[str, torch.Tensor]) -> torch.Tensor:
+        x = [layer(X_embed[key]) for key, layer in self.embed.items()]
+        x.append(X_num["num"])
+        # for key, layer in self.embed.items():
+        #     x.append(layer(X_embed[key]))
+        # x.extend(map(lambda item: self.embed[item[0]](item[1]), X_embed.items()))
         x = torch.cat(x, dim=1)
         x = x.float()
 

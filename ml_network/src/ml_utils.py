@@ -40,6 +40,7 @@ class TorchFitting:
         patience: int = 7,
         delta: float = 0,
         cleanup_on_exception: bool = False,
+        training_mode: bool = True,
     ) -> None:
         """
         Args:
@@ -70,11 +71,17 @@ class TorchFitting:
 
         # Early stopping setup
         self.is_early_stopping: bool = early_stopping
+        self.early_stop: bool = False
         if self.is_early_stopping:
             self._set_early_stopping(patience=patience, delta=delta)
 
         # Training setup
-        self.path: str = make_dir(f"{self._model.save_path}/{self._model.name}_logs", add_time=True)
+        if training_mode:
+            self.path: str = make_dir(f"{self._model.save_path}/{self._model.name}_logs", add_time=True)
+        else:
+            self._tensorboard = False
+            self._save_logs = False
+            self.trace_func("Training mode is set to evaluation. No logs will be saved.")
         if self._tensorboard:
             self._set_tensorboard()
 
@@ -90,7 +97,6 @@ class TorchFitting:
         self.delta: float = delta
         self.counter: int = 0
         self.best_val_loss: float | None = None
-        self.early_stop: bool = False
         self.val_loss_min: float = float("inf")
         self.best_state_dict: dict | None = None
         self.trace_func(f"Early stopping is set with patience {patience} and delta {delta}")
@@ -110,13 +116,12 @@ class TorchFitting:
             save_lib.dump(logs, f)
         self.trace_func(f"{suffix}{ext} saved to {path}")
 
-    def _predict(self, dataloader, loss_func=None, class_weight: float = 0) -> tuple[Tensor, float]:
+    def _predict(self, dataloader, loss_func=None) -> tuple[Tensor, float]:
         # define useful variables
         batch_size = dataloader.source.batch_size
         r, n = 0, len(dataloader.map_fn.dataset)
         n_batches = 0
         loss = 0.0
-        class_weight = class_weight or 1
 
         # ensure dataloader is reseted before iterating
         dataloader.reset()
@@ -143,7 +148,7 @@ class TorchFitting:
                 r += batch_size
                 n_batches += 1
 
-        return y_pred, loss * class_weight / n_batches  # TODO devide by or n_batches
+        return y_pred, loss / n_batches
 
     def _get_evaluate_func(
             self,
@@ -154,16 +159,17 @@ class TorchFitting:
             validation: bool = False,
             use_weights: bool = False,
     ) -> Callable:
-        def _concat_values(d: dict) -> tuple[Tensor, float]:
+        def _concat_values(d: dict, weight_map: dict | None = None) -> tuple[Tensor, float]:
             tensors = []
             losses = []
-            for value in d.values():
+            weight_map = weight_map or {k: 1 for k in d.keys()}
+            for key, value in d.items():
                 if isinstance(value, tuple):
                     tensors.append(value[0])
-                    losses.append(value[1])
+                    losses.append(value[1] * weight_map.get(key))
                 else:
                     tensors.append(value)
-            return torch.cat(tensors), sum(losses)
+            return torch.cat(tensors), sum(losses) / sum(weight_map.values())
         prefix = "val_" if validation else ""
         true_values, _ = _concat_values(eval_dataloader.get_targets())
         dataloader_dict = eval_dataloader.data_loader
@@ -173,14 +179,17 @@ class TorchFitting:
             if not (metrics or plots):
                 return
             y_pred = OrderedDict({
-                key: self._predict(
-                    loader, loss_func=loss_callable, class_weight=weight_map.get(key, 0),
-                )
+                key: self._predict(loader, loss_func=loss_callable)
                 for key, loader in dataloader_dict.items()
             })
-            y_pred, loss = _concat_values(y_pred)
+            single_losses_unweighted = {k: v[1] for k, v in y_pred.items()}
+            single_losses = {k: v * weight_map.get(k, 1) for k, v in single_losses_unweighted.items()}
+            y_pred, loss = _concat_values(y_pred, weight_map=weight_map)
             if loss_callable is not None:
                 log[f"{prefix}loss"] = loss
+                for k, v in single_losses_unweighted.items():
+                    # log[f"{prefix}{k}_loss_unweighted"] = v
+                    log[f"{prefix}{k}_loss"] = single_losses[k]
             if metrics:
                 add_metrics_to_log(log, metrics, y_pred, true_values, prefix=prefix)
             if plots:
@@ -189,6 +198,8 @@ class TorchFitting:
         return _evaluate
 
     def _check_early_stopping(self, log: dict):
+        if not self.is_early_stopping:
+            return
         log_msg = ""
         val_loss = log.get("val_loss", float("nan"))
         # Check if validation loss is nan
@@ -248,10 +259,11 @@ class TorchFitting:
         """returns the best model state."""
         if self.is_early_stopping:
             return_model = copy.deepcopy(self._model)
-            return return_model.load_state_dict(self.best_state_dict, strict=True)
+            return_model.load_state_dict(self.best_state_dict, strict=True)
+            return return_model
         return self._model
 
-    def predict(self, dataloader, use_best_model: bool = False) -> Tensor:
+    def predict(self, dataloader, use_best_model: bool = False) -> Tensor | dict:
         """Generates output predictions for the input samples.
 
         Computation is done in batches.
@@ -263,6 +275,9 @@ class TorchFitting:
         # Returns
             prediction Tensor.
         """
+        if isinstance(dataloader, dict):
+            return {key: self.predict(l, use_best_model) for key, l in dataloader.items()}
+
         r, n = 0, len(dataloader.map_fn.dataset)
         batch_size = dataloader.source.batch_size
 
@@ -360,7 +375,7 @@ class TorchFitting:
         # torch.autograd.detect_anomaly(True)
 
         if verbose:
-            self._log_parameters(loss_func=loss_func, optimizer=optimizer, **kwargs)
+            self._log_parameters(loss_func=loss_func, optimizer=optimizer, use_eval_weights=use_eval_weights, **kwargs)
 
         # Get DataLoader
         train_dataloader = training_data.data_loader

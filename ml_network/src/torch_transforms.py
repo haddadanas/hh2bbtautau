@@ -228,6 +228,7 @@ class GetSelectedEvents:
         return_tensor = None
         if isinstance(X, Array):
             X.eager_compute_divisions()
+            X = X.repartition(npartitions=1)
         if isinstance(X, (ak.Array, Array)):
             return_array = X
             length = len(return_array)

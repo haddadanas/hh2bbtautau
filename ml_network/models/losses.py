@@ -54,7 +54,7 @@ def sigmoid_focal_loss(
     return loss
 
 
-# @torch.jit.script
+@torch.jit.script
 def NLL_Focal_Loss(
     inputs: torch.Tensor,
     targets: torch.Tensor,

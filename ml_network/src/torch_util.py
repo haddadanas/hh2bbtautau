@@ -1042,7 +1042,10 @@ class EvaluationDataLoader(CompositeDataLoader):
         return (parallel_nodes, batchers)
 
     def _calc_weight_map(self) -> dict[str, float]:
-        return {key: len(self) / len(dataset) for key, dataset in self.data_map.items()}
+        bg_length = {key: len(dataset) for key, dataset in self.data_map.items() if dataset.class_target == 0}
+        tot_bg_length = sum(bg_length.values())
+        bg_weights = {key: length / tot_bg_length for key, length in bg_length.items()}
+        return {**bg_weights, "hh_ggf": 1}
 
     def get_targets(self):
         return OrderedDict({

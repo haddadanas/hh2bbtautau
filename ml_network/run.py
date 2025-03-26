@@ -1,6 +1,8 @@
 from __future__ import annotations
 import sys
 
+import torch
+
 sys.path.append("/afs/desy.de/user/h/haddadan/hh2bbtautau")
 
 from ml_network.src.torch_transforms import RemoveEmptyValues, GetSelectedEvents
@@ -94,11 +96,13 @@ def main(fit_inst: TorchFitting, training_loader, validation_loader=None, n_epoc
         validation_data=validation_loader,
         epochs=n_epochs,
         metrics=[signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy],
+        use_eval_weights=True,
         # plots=[get_ROC_Plotter()],
         **CONFIG,
     )
     # Save the model and logs
     fit_inst.save_best_model()
+    fit_inst.save_model()
     return logs
 
 
@@ -129,18 +133,18 @@ if __name__ == "__main__":
     ) if validation_dict else None
     # Set up the model
     model = setup_model(SETUP, device=DEVICE, tau_pt_cut=argparser.tau_pt)
+    model = torch.jit.script(model)
     # Fit the model
     fitting = TorchFitting(
         model,
         DEVICE,
-        save_logs=False,
+        save_logs=True,
         trace_func=LOGGER.info,
         tensorboard=False,
         early_stopping=True,
         cleanup_on_exception=True,
+        patience=argparser.patience,
     )
 
     # Run the main function
     main(fitting, training_loader=composite_loader, validation_loader=validation_loader, n_epochs=argparser.epochs)
-    from IPython import embed
-    embed(header="run.py	l:173")
