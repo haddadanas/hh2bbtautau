@@ -108,11 +108,11 @@ def stylize_processes(config: od.Config) -> None:
         dark_green="#269c00",
     )
 
-    for kl in ["0", "1", "2p45", "5"]:
+    for kl, color in zip(["0", "1", "2p45", "5"], ["dark_blue", "purple", "aubergine", "yellow"]):
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
-            p.color1 = cfg.x.colors.dark_blue
-            kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"})
-            p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
+            p.color1 = cfg.x.colors[color]
+            kappa_label = create_kappa_label(**{r"\lambda": kl})
+            p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ ({kappa_label})"
 
     for kv, k2v, kl in [
         ("1", "1", "1"),

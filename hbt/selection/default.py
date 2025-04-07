@@ -30,6 +30,7 @@ from columnflow.types import Iterable
 
 from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
+from hbt.selection.lepton_tt import lepton_tt_selection
 from hbt.selection.lepton_loose import lepton_loose_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.btag import btag_weights_deepjet, btag_weights_pnet
@@ -96,6 +97,7 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
     },
     exposed=True,
     use_loose_lepton_selection=False,
+    use_tt_selection=False,
 )
 def default(
     self: Selector,
@@ -241,6 +243,9 @@ def default_init(self: Selector) -> None:
     if self.use_loose_lepton_selection:
         self.uses.add(lepton_loose_selection)
         self.produces.add(lepton_loose_selection)
+    elif self.use_tt_selection:
+        self.uses.add(lepton_tt_selection)
+        self.produces.add(lepton_tt_selection)
     else:
         self.uses.add(lepton_selection)
         self.produces.add(lepton_selection)
@@ -279,6 +284,7 @@ def default_init(self: Selector) -> None:
 
 
 loose = default.derive("loose", cls_dict={"use_loose_lepton_selection": True})
+tautau = default.derive("tautau", cls_dict={"use_tt_selection": True})
 empty = default.derive("empty", cls_dict={})
 
 

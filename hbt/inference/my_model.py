@@ -1,11 +1,13 @@
 from columnflow.inference import inference_model, ParameterType
 
 
-@inference_model
+@inference_model(
+    used_category="ml_selected_50",
+)
 def ml_inference(self):
     self.add_category(
-        "ml_selected__1bjet",
-        config_category="ml_selected__1bjet",
+        self.used_category,
+        config_category=self.used_category,
         config_variable="hh_mass",
         # fake data
         data_from_processes=["TT", "DY"],
@@ -163,3 +165,14 @@ def ml_inference(self):
 #     #
 
 #     self.cleanup(keep_parameters="THU_HH")
+
+inf_models = []
+for i in [35, 36, 37, 38, 40, 45, 50, 80]:
+    inf_models.append(
+        ml_inference.derive(
+            f"tau_pt{i}",
+            cls_dict={
+                "used_category": f"tautau__signal__1bjet__tau_pt_{i}",
+            },
+        )
+    )

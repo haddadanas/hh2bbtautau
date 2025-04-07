@@ -3,6 +3,7 @@ from functools import partial
 
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 from columnflow.production import Producer, producer
+from columnflow.production.categories import category_ids
 from columnflow.production.normalization import normalization_weights, stitched_normalization_weights
 from columnflow.production.processes import process_ids
 from columnflow.util import DotDict, maybe_import
@@ -175,20 +176,42 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @producer(
+    uses={"category_ids"},
+    produces={"tau_pt{35,36,37,38,40,45,50,80}"},
+)
+def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    cats = [f"tau_pt{i}" for i in self.config_inst.x.selection_cuts]
+    for cat in cats:
+        cat_inst = self.config_inst.get_category(f"tautau__{cat}")
+        cat_id = cat_inst.id
+        mask = ak.any(events.category_ids == cat_id, axis=-1)
+        events = set_ak_column(events, cat, mask, value_type=np.bool_)
+
+    return events
+
+
+category_ids_only_tau = category_ids.derive("category_ids_only_tau", cls_dict={
+    "skip_category": (lambda self, task, category_inst: not category_inst.name.startswith("tautau__tau_pt"))
+})
+
+
+@producer(
     uses={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, channel_id_mask,
+        tau_selection_cuts,
     },
     produces={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_jets", "n_bjets",
-        "n_taus", "normalization_weight",
+        "n_taus", "normalization_weight", "channel_id", tau_selection_cuts,
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-
+    # add categories
+    # events = self[category_ids](events)
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
+        if self.dataset_inst.name == "dy_m50toinf_amcatnloooo":
             events = self[stitched_normalization_weights](events, **kwargs)
         else:
             events = self[normalization_weights](events, **kwargs)
@@ -200,13 +223,20 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     events = self[channel_id_mask](events)
 
+
+    events = self[tau_selection_cuts](events)
+
     events = self[pp_channel_id](events)
 
-    events = self[pp_jets](events)
+    # events = self[pp_jets](events)
 
     events = self[pp_bjets](events)
 
     events = self[pp_leptons](events)
+
+    # only get tautau channel
+    tautau_mask = events.channel_id == 2
+    events = events[tautau_mask]
 
     n_jets = ak.num(events.Jet, axis=1)
     n_bjets = ak.num(events.HHBJet, axis=1)

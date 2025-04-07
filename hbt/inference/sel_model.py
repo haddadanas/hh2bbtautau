@@ -1,11 +1,13 @@
 from columnflow.inference import inference_model, ParameterType
 
 
-@inference_model
+@inference_model(
+    used_category="signal",
+)
 def selection(self):
     self.add_category(
-        "signal__1bjet",
-        config_category="signal__1bjet",
+        self.used_category,
+        config_category=self.used_category,
         config_variable="hh_mass",
         # fake data
         data_from_processes=["TT", "dy"],
@@ -156,3 +158,15 @@ def selection(self):
     )
     self.add_parameter_to_group("tune", "experiment")
     """
+
+
+inf_models = []
+for i in [35, 36, 37, 38, 40, 45, 50, 80]:
+    inf_models.append(
+        selection.derive(
+            f"sel_tau_pt{i}",
+            cls_dict={
+                "used_category": f"tautau__signal__1bjet__tau_pt_{i}",
+            },
+        )
+    )

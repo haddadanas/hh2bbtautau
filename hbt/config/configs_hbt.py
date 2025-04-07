@@ -541,6 +541,14 @@ def add_config(
         "sm_data_unstitched": data_group + sm_group_unstitched,
         "dy": [dataset.name for dataset in cfg.datasets if dataset.has_tag("dy")],
         "w_lnu": [dataset.name for dataset in cfg.datasets if dataset.has_tag("w_lnu")],
+        "my": [
+            "hh_ggf_hbb_htt_kl1_kt1_powheg",
+            "hh_ggf_hbb_htt_kl0_kt1_powheg",
+            "hh_ggf_hbb_htt_kl2p45_kt1_powheg",
+            "hh_ggf_hbb_htt_kl5_kt1_powheg",
+            "tt_sl_powheg",
+            "dy_m50toinf_amcatnlo",
+        ]
     }
 
     # category groups for conveniently looping over certain categories
@@ -1339,10 +1347,11 @@ def add_config(
         "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
     })
 
-    # define per-dataset event weights
-    for dataset in cfg.datasets:
-        if dataset.has_tag("has_top"):
-            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+    # TODO reenable after rerunning the selection
+    # # define per-dataset event weights
+    # for dataset in cfg.datasets:
+    #     if dataset.has_tag("has_top"):
+    #         dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
 
     cfg.x.shift_groups = {
         "jec": [
