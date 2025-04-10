@@ -145,11 +145,21 @@ class AkToProcessedTensor(AkToTorchTensor):
 
 
 class RemoveEmptyValues(torch.nn.Module):
-    def __init__(self, embed_input: bool = False, *args, **kwargs):
+    def __init__(self, embed_input: bool = False, physical_padding: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.embed_input = embed_input
+        self.pad_dict = {
+            "pt": -1,
+            "eta": -5,
+            "phi": -5,
+            "mass": -1,
+            "btagPNetB": -1,
+            "hhbtag": -1,
+        } if physical_padding else dict()
 
-    def _transform_input(self, X) -> torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor] | NoReturn:
+    def _transform_input(
+            self, X, pad_key: str | None = None
+    ) -> torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor] | NoReturn:
         return_tensor = None
         if isinstance(X, torch.Tensor):
             if self.embed_input:
@@ -157,7 +167,8 @@ class RemoveEmptyValues(torch.nn.Module):
                 clamp_min, clamp_max = 0, 9
             else:
                 return_type = torch.float
-                clamp_min, clamp_max = -10, None
+                pad_value = self.pad_dict.get(pad_key.split(".")[-1], -10.0) if pad_key is not None else -10.0
+                clamp_min, clamp_max = pad_value, None
 
             return X.to(return_type).clamp(min=clamp_min, max=clamp_max)
 
@@ -166,7 +177,7 @@ class RemoveEmptyValues(torch.nn.Module):
         elif isinstance(X, (list, tuple)):
             return_tensor = [self._transform_input(entry) for entry in X]
         elif isinstance(X, dict):
-            return_tensor = {key: self._transform_input(val) for key, val in X.items()}
+            return_tensor = {key: self._transform_input(val, pad_key=key) for key, val in X.items()}
 
         if return_tensor is None:
             raise ValueError(f"Could not convert input {X=}")
@@ -180,7 +191,7 @@ class RemoveEmptyValues(torch.nn.Module):
         return_tensor: torch.Tensor | Mapping[str, torch.Tensor] | Sequence[torch.Tensor] | None = None
         if isinstance(X, Mapping):
             return_tensor = {
-                key: self._transform_input(data) for key, data in X.items()
+                key: self._transform_input(data, pad_key=key) for key, data in X.items()
             }
         else:
             return_tensor = self._transform_input(X)
