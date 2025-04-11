@@ -24,6 +24,28 @@ DEFAULT_LOSS = CrossEntropyLoss(reduction="mean")
 DEFAULT_OPTIMIZER = partial(SGD, lr=0.001, momentum=0.9)
 
 
+class MovingAverage:
+    """Computes the moving average of a given value over a specified window size."""
+
+    def __init__(self, window_size: int = 3, weights: list | None = None) -> None:
+        self.window_size = window_size
+        self.values = []
+        self.weights = weights or [1.0] * window_size
+        if len(self.weights) != window_size:
+            raise ValueError(f"Weights length must be equal to window size ({window_size}).")
+        self.average: float | None = None
+
+    def update(self, value: float) -> float:
+        """Updates the moving average with a new value."""
+        self.values.insert(0, value)
+        # Remove the oldest value if the window size is exceeded
+        if len(self.values) > self.window_size:
+            self.values.pop(-1)
+        used_weight = self.weights[: len(self.values)]
+        self.average = sum(v * w for v, w in zip(self.values, used_weight)) / sum(used_weight)
+        return self.average
+
+
 class TorchFitting:
     """Fitting class for PyTorch models"""
 
@@ -96,10 +118,50 @@ class TorchFitting:
         self.patience: int = patience
         self.delta: float = delta
         self.counter: int = 0
-        self.best_val_loss: float | None = None
+        self.val_loss_average: MovingAverage = MovingAverage(window_size=3, weights=[0.6, 0.3, 0.1])
+        self.best_val_loss: float | None = self.val_loss_average.average
         self.val_loss_min: float = float("inf")
         self.best_state_dict: dict | None = None
         self.trace_func(f"Early stopping is set with patience {patience} and delta {delta}")
+
+    def _check_early_stopping(self, log: dict):
+        if not self.is_early_stopping:
+            return
+        log_msg = ""
+        val_loss = log.get("val_loss", float("nan"))
+        # Check if validation loss is nan
+        if val_loss == float("nan"):
+            log["log_msg"] = "No Validation loss found / Validation loss is NaN. Ignoring this epoch."
+            return
+
+        if self.best_val_loss is None:
+            self.best_val_loss = self.val_loss_average.update(val_loss)
+            log_msg = self._cache_checkpoint()
+        elif val_loss < self.best_val_loss - self.delta:
+            # Significant improvement detected
+            self.best_val_loss = val_loss
+            log_msg = self._cache_checkpoint()
+            self.counter = 0  # Reset counter since improvement occurred
+        else:
+            # No significant improvement
+            self.counter += 1
+            log_msg = f"EarlyStopping counter: {self.counter} out of {self.patience}"
+            if self.counter >= self.patience:
+                self.early_stop = True
+
+        log["log_msg"] = log_msg
+
+    def _cache_checkpoint(self):
+        """Saves model to a instance variable when validation loss decreases."""
+        log_msg = ""
+        if self._verbose:
+            log_msg = (
+                f"Validation loss (moving average) decreased ({self.val_loss_min:.6f} --> {self.best_val_loss:.6f})."
+                "Saving model state to `self.best_state_dict` ..."
+            )
+        self.best_state_dict = copy.deepcopy(self._model.state_dict())
+        self.val_loss_min = self.best_val_loss if self.best_val_loss is not None else float("inf")
+        return log_msg
 
     def _save_log(self, logs: list | dict, suffix: str = "logs") -> None:
         if not self._save_logs:
@@ -196,45 +258,6 @@ class TorchFitting:
                 for plot in plots:
                     plot.update(y_pred, true_values, mode="valid" if validation else "train", epoch=str(epoch))
         return _evaluate
-
-    def _check_early_stopping(self, log: dict):
-        if not self.is_early_stopping:
-            return
-        log_msg = ""
-        val_loss = log.get("val_loss", float("nan"))
-        # Check if validation loss is nan
-        if val_loss == float("nan"):
-            log["log_msg"] = "No Validation loss found / Validation loss is NaN. Ignoring this epoch."
-            return
-
-        if self.best_val_loss is None:
-            self.best_val_loss = val_loss
-            log_msg = self._cache_checkpoint(val_loss)
-        elif val_loss < self.best_val_loss - self.delta:
-            # Significant improvement detected
-            self.best_val_loss = val_loss
-            log_msg = self._cache_checkpoint(val_loss)
-            self.counter = 0  # Reset counter since improvement occurred
-        else:
-            # No significant improvement
-            self.counter += 1
-            log_msg = f"EarlyStopping counter: {self.counter} out of {self.patience}"
-            if self.counter >= self.patience:
-                self.early_stop = True
-
-        log["log_msg"] = log_msg
-
-    def _cache_checkpoint(self, val_loss):
-        """Saves model to a instance variable when validation loss decreases."""
-        log_msg = ""
-        if self._verbose:
-            log_msg = (
-                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f})."
-                "Saving model state to `self.best_state_dict` ..."
-            )
-        self.best_state_dict = copy.deepcopy(self._model.state_dict())
-        self.val_loss_min = val_loss
-        return log_msg
 
     def _log_parameters(self, **kwargs):
         for key, value in kwargs.items():
@@ -342,6 +365,7 @@ class TorchFitting:
         validation_data: EvaluationDataLoader | None = None,
         use_eval_weights=True,
         loss_func=DEFAULT_LOSS,
+        val_loss_func=DEFAULT_LOSS,
         optimizer=DEFAULT_OPTIMIZER,
         metrics=None,
         plots: None | list[MLPLotting] = None,
@@ -357,6 +381,7 @@ class TorchFitting:
             validation_data (EvaluationDataLoader, optional): DataLoader for validation data. Defaults to None.
             use_eval_weights (bool, optional): Whether to use weights in the evaluation. Defaults to True.
             loss_func (Callable, optional): Loss function for training. Defaults to DEFAULT_LOSS.
+            val_loss_func (Callable, optional): Loss function for validation. Defaults to DEFAULT_LOSS.
             optimizer (Callable, optional): Optimizer for training. Defaults to DEFAULT_OPTIMIZER.
             metrics (list[Callable], optional): List of metric functions to evaluate. Defaults to None.
             plots (list[MLPLotting], optional): List of MLPLotting objects for visualizing metrics. Defaults to None.
@@ -391,7 +416,7 @@ class TorchFitting:
             eval_training = self._get_evaluate_func(metrics, plots, train_eval_data)
         if validation_data:
             eval_validation = self._get_evaluate_func(
-                metrics, plots, validation_data, loss_callable=loss_func, validation=True, use_weights=use_eval_weights,
+                metrics, plots, validation_data, loss_callable=val_loss_func, validation=True, use_weights=use_eval_weights,
             )
 
         # Compile optimizer
