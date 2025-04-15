@@ -4,7 +4,7 @@
 
 dir_path: &root "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/"
 data_path: &data_root !join [*root, "data_tautau/"]
-model_save_path: "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/saved_models/"
+model_save_path: "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/tautau_models/"
 
 ###########################
 ######### Data ############

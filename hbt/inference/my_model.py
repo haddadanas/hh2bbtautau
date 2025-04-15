@@ -8,7 +8,7 @@ def ml_inference(self):
     self.add_category(
         self.used_category,
         config_category=self.used_category,
-        config_variable="hh_mass",
+        config_variable="bin_dnn_signal",
         # fake data
         data_from_processes=["TT", "DY"],
         mc_stats=True,
@@ -172,7 +172,18 @@ for i in [35, 36, 37, 38, 40, 45, 50, 80]:
         ml_inference.derive(
             f"tau_pt{i}",
             cls_dict={
-                "used_category": f"tautau__signal__1bjet__tau_pt_{i}",
+                "used_category": f"tautau__ml_selected_50__tau_pt_{i}",
+            },
+        )
+    )
+
+for i in [0.2, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]:
+    threshold_int = int(i * 100)
+    inf_models.append(
+        ml_inference.derive(
+            f"ml_selected_{threshold_int}",
+            cls_dict={
+                "used_category": f"tautau__ml_selected_{threshold_int}__tau_pt_35",
             },
         )
     )

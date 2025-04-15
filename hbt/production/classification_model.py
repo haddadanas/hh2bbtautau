@@ -33,12 +33,10 @@ torch = maybe_import("torch")
 )
 def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     from ml_network.src.torch_util import FlatTorchDataset, EvaluationDataLoader
-    from ml_network.src.ml_utils import TorchFitting
     from ml_network.src.torch_transforms import RemoveEmptyValues
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # preprocess the data
-    drop_fields = events.fields + ["delta_r_bjets"] + [f"tau_pt{pt}" for pt in self.config_inst.x.selection_cuts]
+    drop_fields = events.fields + ["delta_r_bjets"] + [f"tau_pt{pt}" for pt in self.config_inst.x.ml_wps]
     if "normalization_weight" not in events.fields:
         drop_fields.append("normalization_weight")
     ml_events = self[preprocess](events, **kwargs)
@@ -49,7 +47,7 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "target": int(self.dataset_inst.has_tag("signal")),
         "columns": f_names,
         "embedding_fields": embed_f,
-        "device": device,
+        "device": self.device,
         "num_transform": RemoveEmptyValues(),
         "embed_transform": RemoveEmptyValues(embed_input=True),
     }
@@ -57,17 +55,15 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     dataloader = EvaluationDataLoader(
         data_map={self.dataset_inst.name: dataset},
         batch_size=512,
-        device=device,
+        device=self.device,
     )
-    fitting = TorchFitting(self.model, device=device, save_logs=False, tensorboard=False, training_mode=False)
-    y_pred = fitting.predict(dataloader.data_loader)
+    y_pred = self.fitting.predict(dataloader.data_loader)
     y_pred = y_pred[self.dataset_inst.name]
 
-    ch_mask = events.channel_id <= 3
-
+    ch_mask = events.channel_id == 3
     # add the prediction to the events
     for i in range(y_pred.size(1)):
-        col = np.full(len(events), -10, dtype=np.float32)
+        col = np.full(len(events), -1, dtype=np.float32)
         col[ch_mask] = y_pred[:, i].detach().contiguous().cpu().numpy()
         events = set_ak_column(events, f"{self.node_name}_{i}", col)
 
@@ -76,10 +72,12 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @ml_classify.setup
 def ml_classify_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if getattr(self, "dataset_inst", None) is None:
         return
     json = maybe_import("json")
     from ml_network.models.ml_model_batch_norm import CustomModel
+    from ml_network.src.ml_utils import TorchFitting
 
     # set the number of threads to 1
     torch.set_num_threads(1)
@@ -90,8 +88,9 @@ def ml_classify_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     self.ml_config = config
     print(f"using model: {self.model_path}")
     model = CustomModel("model", **self.ml_config["feature_names"])
-    model.load_state_dict(torch.load(f"{self.model_path}/model.pt", weights_only=True, map_location=device))
-    self.model = model
+    model.load_state_dict(torch.load(f"{self.model_path}/best_model.pt", weights_only=True, map_location=self.device))
+    self.fitting = TorchFitting(model, device=self.device, save_logs=False, tensorboard=False, training_mode=False)
+
 
 
 @ml_classify.init
@@ -107,7 +106,6 @@ def ml_classify_init(self: Producer) -> None:
         category_ids, hh_mass, default, normalization_weights,
     },
     tau_pt=20,
-    dnn_threshold=0.5,
 )
 def ml_selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
@@ -131,16 +129,26 @@ def ml_selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @ml_selection.init
 def ml_selection_init(self: Producer) -> None:
-    # model_path = self.config_inst.x.ml_models[self.tau_pt]
-    threshold_int = int(self.dnn_threshold * 100)
-    ml_classify_pt = ml_classify
+    import glob
+    model_path = glob.glob(self.config_inst.x.ml_tautau[self.tau_pt])[0]
+    ml_classify_pt = ml_classify.derive(
+        f"ml_classify_{self.tau_pt}",
+        cls_dict={
+            "model_path": model_path,
+        },
+    )
     self.uses.add(ml_classify_pt)
     self.produces.add(ml_classify_pt)
     self.classify = ml_classify_pt
 
-    if not self.config_inst.has_category(f"ml_selected_{threshold_int}"):
-        self.config_inst.add_category(name=f"ml_selected_{threshold_int}", id=600 + threshold_int,
-                                      selection=f"cat_ml_selected_{threshold_int}", label=f"ML selected (DNN > {self.dnn_threshold})")
+    if not self.config_inst.has_category(f"ml_selected_50"):
+        threshold_ints = [50]  #[int(th * 100) for th in self.config_inst.x.dnn_thresholds_wps]
+        for threshold_int in threshold_ints:
+            self.config_inst.add_category(
+                name=f"ml_selected_{threshold_int}",
+                id=600 + threshold_int,
+                selection=f"cat_ml_selected_{threshold_int}", label=f"ML selected (DNN > {threshold_int / 100:.2f})",
+            )
 
         def name_fn(categories):
             return "__".join(cat.name for cat in categories.values() if cat)
@@ -166,19 +174,22 @@ def ml_selection_init(self: Producer) -> None:
         create_category_combinations(
             config=self.config_inst,
             categories={
-                # "channel": [self.config_inst.get_category("tautau")],
-                "selection": [self.config_inst.get_category(f"ml_selected_{threshold_int}"), self.config_inst.get_category("signal")],
+                "channel": [self.config_inst.get_category("tautau")],
+                "selection": [self.config_inst.get_category("signal")] + [
+                    self.config_inst.get_category(f"ml_selected_{threshold_int}")
+                    for threshold_int in threshold_ints
+                ],
                 # "jets": [self.config_inst.get_category("1bjet")],
-                # "tau_pt": [
-                #     self.config_inst.get_category("tau_pt_35"),
-                #     self.config_inst.get_category("tau_pt_36"),
-                #     self.config_inst.get_category("tau_pt_37"),
-                #     self.config_inst.get_category("tau_pt_38"),
-                #     self.config_inst.get_category("tau_pt_40"),
-                #     self.config_inst.get_category("tau_pt_45"),
-                #     self.config_inst.get_category("tau_pt_50"),
-                #     self.config_inst.get_category("tau_pt_80"),
-                # ],
+                "tau_pt": [
+                    self.config_inst.get_category("tau_pt_35"),
+                    self.config_inst.get_category("tau_pt_36"),
+                    self.config_inst.get_category("tau_pt_37"),
+                    self.config_inst.get_category("tau_pt_38"),
+                    self.config_inst.get_category("tau_pt_40"),
+                    self.config_inst.get_category("tau_pt_45"),
+                    self.config_inst.get_category("tau_pt_50"),
+                    self.config_inst.get_category("tau_pt_80"),
+                ],
             },
             name_fn=name_fn,
             kwargs_fn=kwargs_fn,

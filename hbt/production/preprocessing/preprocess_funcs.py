@@ -180,7 +180,7 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     produces={"tau_pt{35,36,37,38,40,45,50,80}"},
 )
 def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    cats = [f"tau_pt{i}" for i in self.config_inst.x.selection_cuts]
+    cats = [f"tau_pt{i}" for i in self.config_inst.x.ml_wps]
     for cat in cats:
         cat_inst = self.config_inst.get_category(f"tautau__{cat}")
         cat_id = cat_inst.id
@@ -198,20 +198,20 @@ category_ids_only_tau = category_ids.derive("category_ids_only_tau", cls_dict={
 @producer(
     uses={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, channel_id_mask,
-        tau_selection_cuts,
+        tau_selection_cuts, category_ids_only_tau,
     },
     produces={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_jets", "n_bjets",
-        "n_taus", "normalization_weight", "channel_id", tau_selection_cuts,
+        "n_taus", "normalization_weight", "channel_id", tau_selection_cuts, category_ids_only_tau,
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # add categories
-    # events = self[category_ids](events)
+    events = self[category_ids_only_tau](events)
     # mc-only weights
     if self.dataset_inst.is_mc:
         # normalization weights
-        if self.dataset_inst.name == "dy_m50toinf_amcatnloooo":
+        if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
             events = self[stitched_normalization_weights](events, **kwargs)
         else:
             events = self[normalization_weights](events, **kwargs)

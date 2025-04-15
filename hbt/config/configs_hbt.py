@@ -1445,6 +1445,20 @@ def add_config(
     from hbt.hist_hooks.binning import add_hooks as add_binning_hooks
     add_binning_hooks(cfg)
 
+    ####################################################################################################
+    # Network WPs
+    ####################################################################################################
+    cfg.x.ml_wps = [35, 36, 37, 38, 40, 45, 50, 80]
+    cfg.x.dnn_thresholds_wps = [0.2, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]
+    first_dir = lambda path: path + os.listdir(path)[0] if os.listdir(path) else path
+    cfg.x.ml_tautau = DotDict.wrap({
+        key: first_dir(
+            "/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/tautau_models/"
+            f"ml_model_batch_norm__default__datasets_3__tau_pt_cut_{key}_logs/"
+        )
+        for key in cfg.x.ml_wps
+    })
+
     ################################################################################################
     # LFN settings
     ################################################################################################
