@@ -71,7 +71,7 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 
 @ml_classify.setup
-def ml_classify_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
+def ml_classify_setup(self: Producer, task, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if getattr(self, "dataset_inst", None) is None:
         return

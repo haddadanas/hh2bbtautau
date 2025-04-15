@@ -7,10 +7,17 @@ from columnflow.inference import inference_model, ParameterType
 def ml_inference(self):
     self.add_category(
         self.used_category,
-        config_category=self.used_category,
-        config_variable="bin_dnn_signal",
-        # fake data
-        data_from_processes=["TT", "DY"],
+        config_data={
+            config_inst.name: self.category_config_spec(
+                # name of the analysis category in the config
+                category=self.used_category,
+                # name of the variable
+                variable="bin_dnn_signal",
+                # names (or patterns) of datasets with real data in the config
+                data_datasets=["TT", "DY"],
+            )
+            for config_inst in self.config_insts
+        },
         mc_stats=True,
     )
 
@@ -21,18 +28,39 @@ def ml_inference(self):
         self.add_process(
             f"ggHH_kl_{kl}_kt_1_13p6TeV_hbbhtt",
             is_signal=True,
-            config_process=f"hh_ggf_hbb_htt_kl{kl}_kt1",
-            config_mc_datasets=[f"hh_ggf_hbb_htt_kl{kl}_kt1_powheg"],
+            config_data={
+                config_inst.name: self.process_config_spec(
+                    # names of processes in the config
+                    process="hh_ggf_hbb_htt_kl{kl}_kt1",
+                    # names of MC datasets in the config
+                    mc_datasets=[f"hh_ggf_hbb_htt_kl{kl}_kt1_powheg"],
+                )
+                for config_inst in self.config_insts
+            },
         )
     self.add_process(
         "TT",
-        config_process="tt",
-        config_mc_datasets=["^tt_sl_powheg$"],
+        config_data={
+            config_inst.name: self.process_config_spec(
+                # names of processes in the config
+                process="tt",
+                # names of MC datasets in the config
+                mc_datasets=["^tt_sl_powheg$"],
+            )
+            for config_inst in self.config_insts
+        },
     )
     self.add_process(
         "DY",
-        config_process="dy",
-        config_mc_datasets=["dy_m50toinf_amcatnlo"],
+        config_data={
+            config_inst.name: self.process_config_spec(
+                # names of processes in the config
+                process="dy",
+                # names of MC datasets in the config
+                mc_datasets=["dy_m50toinf_amcatnlo"],
+            )
+            for config_inst in self.config_insts
+        },
     )
 
     #
@@ -105,21 +133,30 @@ def ml_inference(self):
     )
 
     # lumi
-    lumi = self.config_inst.x.luminosity
-    for unc_name in lumi.uncertainties:
-        self.add_parameter(
-            unc_name,
-            type=ParameterType.rate_gauss,
-            effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
-            group="experiment",
-        )
+    for config_inst in self.config_insts:
+        ckey = self.campaign_keys[config_inst]
+        lumi = config_inst.x.luminosity
+        for unc_name in lumi.uncertainties:
+            self.add_parameter(
+                unc_name,
+                type=ParameterType.rate_gauss,
+                effect=lumi.get(names=unc_name, direction=("down", "up"), factor=True),
+                process=[f"*{ckey}*", "!QCD*"],
+                process_match_mode=all,
+                group="experiment",
+            )
 
     # electron uncertainty
     self.add_parameter(
         "CMS_eff_e",  # this is the name of the uncertainty as it will show in the datacard. Let's use some variant of the official naming # noqa
         process="*",
         type=ParameterType.shape,
-        config_shift_source="e",  # this is the name of the shift (alias) in the config
+        config_data={
+            config_inst.name: self.parameter_config_spec(
+                shift_source="e",  # this is the name of the shift (alias) in the config
+            )
+            for config_inst in self.config_insts
+        },
         group=["experiment"],
     )
 
@@ -136,7 +173,12 @@ def ml_inference(self):
     self.add_parameter(
         "CMS_pileup_2022",
         type=ParameterType.shape,
-        config_shift_source="minbias_xs",
+        config_data={
+            config_inst.name: self.parameter_config_spec(
+                shift_source="minbias_xs",
+            )
+            for config_inst in self.config_insts
+        },
         group="experiment",
     )
 
