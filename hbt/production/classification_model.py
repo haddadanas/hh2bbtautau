@@ -34,7 +34,7 @@ json = maybe_import("json")
     node_name="bin_dnn",
 )
 def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    from ml_network.src.torch_util import FlatTorchDataset, EvaluationDataLoader
+    from ml_network.src.torch_src import FlatTorchDataset, EvaluationDataLoader
 
     # get the data ready for the evaluation
     ml_events = self[preprocess](events, **kwargs)
@@ -60,7 +60,7 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 def ml_classify_setup(self: Producer, task, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     from ml_network.models.ml_model_batch_norm import CustomModel
     from ml_network.src.ml_utils import TorchFitting
-    from ml_network.src.torch_transforms import RemoveEmptyValues
+    from ml_network.src.torch_src import RemoveEmptyValues
 
     # set the model device
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -142,7 +142,7 @@ def ml_selection(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @ml_selection.pre_init
 def ml_selection_pre_init(self: Producer) -> None:
     threshold_ints = [int(th * 100) for th in self.config_inst.x.dnn_thresholds_wps]
-    if not self.config_inst.has_category(f"ml_selected_{threshold_ints[0]}"):
+    if not self.config_inst.has_category(f"ml_selected_{threshold_ints[0]}"):  # ASKMARCEL warum wird das 2 mal ausgeführt trotz cf update?
         for threshold_int in threshold_ints:
             self.config_inst.add_category(
                 name=f"ml_selected_{threshold_int}",

@@ -16,7 +16,7 @@ from torch.optim import SGD
 import matplotlib.pyplot as plt
 
 from ml_network.src.utils import add_metrics_to_log, log_to_message, log_batch_loss, ProgressBar, get_device, make_dir
-from ml_network.src.torch_util import CompositeDataLoader, EvaluationDataLoader
+from ml_network.src.torch_src import CompositeDataLoader, EvaluationDataLoader
 
 DEVICE = get_device()
 

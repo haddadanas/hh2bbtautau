@@ -5,12 +5,12 @@ import torch
 
 sys.path.append("/afs/desy.de/user/h/haddadan/hh2bbtautau")
 
-from ml_network.src.torch_transforms import RemoveEmptyValues, GetSelectedEvents
+from ml_network.src.torch_src.torch_transforms import RemoveEmptyValues, GetSelectedEvents
 from ml_network.src.utils import load_setup, get_device, build_model_name, setup_parser, log_parser, get_logger, timeit
 from ml_network.src.ml_utils import TorchFitting
 from ml_network.models.ml_model_batch_norm import CONFIG, CustomModel as Model
 from ml_network.src.cf_utils import DotDict
-from ml_network.src.torch_util import CompositeDataLoader, EvaluationDataLoader, FlatTorchDataset, NestedDictMapAndCollate
+from ml_network.src.torch_src import CompositeDataLoader, EvaluationDataLoader, FlatTorchDataset, NestedDictMapAndCollate
 from ml_network.src.torch_callbacks import signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy, get_ROC_Plotter
 
 # Set some constants and global variables
