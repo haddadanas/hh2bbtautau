@@ -146,9 +146,18 @@ def add_metrics_to_log(
     return log
 
 
-def log_batch_loss(log: dict, precision: int = 4) -> str:
+def log_batch_loss(log: dict[str, Any], precision: int = 4) -> str:
     fmt = "{0}: {1:." + str(precision) + "f}"
-    return "    ".join(fmt.format(k, v) for k, v in log.items() if isinstance(v, (int, float)))
+    val_logs = {
+        k: v for k, v in log.items()
+        if isinstance(v, (int, float)) and k.startswith("val")
+    }
+    val_msg = "\n" if val_logs else ""
+    val_msg += "\t".join(fmt.format(k, v) for k, v in val_logs.items() if isinstance(v, (int, float)))
+    return (
+        "\t".join(fmt.format(k, v) for k, v in log.items() if k not in val_logs and isinstance(v, (int, float))) +
+        val_msg
+    )
 
 
 def log_to_message(log: dict, precision: int = 4) -> str:

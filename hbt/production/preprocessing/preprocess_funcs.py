@@ -88,6 +88,10 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # etau and mutau channel
     for ch in ["etau", "mutau"]:
         ch_mask = channel_matcher(ch)
+
+        # skip if no events
+        if not ak.any(ch_mask):
+            continue
         l1_route = Route("Electron[:, 0]") if ch == "etau" else Route("Muon[:, 0]")
         l1 = l1_route.apply(events, None)
         l2 = Route("Tau[:, 0]").apply(events, None)
@@ -177,7 +181,7 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={"category_ids"},
-    produces={"tau_pt{35,36,37,38,40,45,50,80}"},
+    produces={"tau_pt*"},
 )
 def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     cats = [f"tau_pt{i}" for i in self.config_inst.x.ml_wps]
@@ -190,39 +194,27 @@ def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     return events
 
 
-category_ids_only_tau = category_ids.derive("category_ids_only_tau", cls_dict={
-    "skip_category": (lambda self, task, category_inst: not category_inst.name.startswith("tautau__tau_pt"))
-})
-
-
 @producer(
     uses={
-        pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, channel_id_mask,
-        tau_selection_cuts, category_ids_only_tau,
+        pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids,
+        tau_selection_cuts, normalization_weights,
     },
     produces={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_jets", "n_bjets",
-        "n_taus", "normalization_weight", "channel_id", tau_selection_cuts, category_ids_only_tau,
+        "n_taus", "channel_id", tau_selection_cuts, normalization_weights,
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # add categories
-    events = self[category_ids_only_tau](events)
+    events = self[self.category_ids_only_tau](events)
     # mc-only weights
     if self.dataset_inst.is_mc:
-        # normalization weights
-        if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
-            events = self[stitched_normalization_weights](events, **kwargs)
-        else:
-            events = self[normalization_weights](events, **kwargs)
+        events = self[normalization_weights](events, **kwargs)
 
     if "normalization_weight_inclusive" in events.fields:
         events["normalization_weight"] = events["normalization_weight_inclusive"]
 
     events = self[hh_mass](events)
-
-    events = self[channel_id_mask](events)
-
 
     events = self[tau_selection_cuts](events)
 
@@ -233,10 +225,6 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[pp_bjets](events)
 
     events = self[pp_leptons](events)
-
-    # only get tautau channel
-    tautau_mask = events.channel_id == 2
-    events = events[tautau_mask]
 
     n_jets = ak.num(events.Jet, axis=1)
     n_bjets = ak.num(events.HHBJet, axis=1)
@@ -251,9 +239,9 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @preprocess.init
 def preprocess_init(self: Producer) -> None:
-    if getattr(self, "dataset_inst", None) is None:
-        return
-    if self.dataset_inst.name == "dy_m50toinf_amcatnlo":
-        self.uses.add(stitched_normalization_weights)
-    else:
-        self.uses.add(normalization_weights)
+    category_ids_only_tau = category_ids.derive("category_ids_only_tau", cls_dict={
+        "skip_category": (lambda self, category_inst: not category_inst.name.startswith("tautau__tau_pt"))
+    })
+    self.produces.add(category_ids_only_tau)
+    self.category_ids_only_tau = category_ids_only_tau
+    self.uses.add(category_ids_only_tau)

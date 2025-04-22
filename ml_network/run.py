@@ -62,7 +62,7 @@ def get_datasets(setup: dict, selection_field: str | None = None):
             device=DEVICE,
             target=int(dataset["is_signal"]),
             global_transform=splitter,
-            num_transform=RemoveEmptyValues(),
+            num_transform=RemoveEmptyValues(physical_padding=True),
             embed_transform=RemoveEmptyValues(embed_input=True),
             ignored_columns=[selection_field] if selection_field else None,
         )
@@ -79,7 +79,7 @@ def get_datasets(setup: dict, selection_field: str | None = None):
                 device=DEVICE,
                 target=int(dataset["is_signal"]),
                 global_transform=splitter,
-                num_transform=RemoveEmptyValues(),
+                num_transform=RemoveEmptyValues(physical_padding=True),
                 embed_transform=RemoveEmptyValues(embed_input=True),
                 ignored_columns=[selection_field] if selection_field else None,
             )

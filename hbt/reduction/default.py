@@ -45,3 +45,22 @@ def default(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> a
         events = self[recoil_corrected_met](events, **kwargs)
 
     return events
+
+
+@reducer(
+    uses={
+        cf_default,
+    },
+    produces={
+        cf_default,
+    },
+)
+def tautau(self: Reducer, events: ak.Array, selection: ak.Array, **kwargs) -> ak.Array:
+    # run cf's default reduction which handles event selection and collection creation
+    events = self[cf_default](events, selection, **kwargs)
+
+    # apply a mask for the tau-tau channel
+    tautau_mask = events.channel_id == self.config_inst.channels.n.tautau.id
+    events = events[tautau_mask]
+
+    return events

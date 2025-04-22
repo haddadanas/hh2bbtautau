@@ -1045,7 +1045,8 @@ class EvaluationDataLoader(CompositeDataLoader):
         bg_length = {key: len(dataset) for key, dataset in self.data_map.items() if dataset.class_target == 0}
         tot_bg_length = sum(bg_length.values())
         bg_weights = {key: length / tot_bg_length for key, length in bg_length.items()}
-        return {**bg_weights, "hh_ggf": 1}
+        # return {**bg_weights, "hh_ggf": 1}
+        return {key: 1 / len(dataset) if dataset.class_target == 0 else 2 / len(dataset) for key, dataset in self.data_map.items()}
 
     def get_targets(self):
         return OrderedDict({

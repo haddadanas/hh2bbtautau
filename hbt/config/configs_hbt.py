@@ -419,14 +419,15 @@ def add_config(
 
     # default objects
     cfg.x.default_calibrator = "default"
-    cfg.x.default_selector = "default"
-    cfg.x.default_reducer = "default"
+    cfg.x.default_selector = "tautau"
+    cfg.x.default_reducer = "tautau"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
     cfg.x.default_categories = ("all",)
     cfg.x.default_variables = ("njet", "nbtag", "res_pdnn_hh", "res_dnn_hh")
     cfg.x.default_hist_producer = "default"
+    cfg.x.default_view_cmd = "imgcat"
 
     # process groups for conveniently looping over certain processs
     # (used in wrapper_factory and during plotting)

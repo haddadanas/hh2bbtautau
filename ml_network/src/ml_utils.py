@@ -210,7 +210,7 @@ class TorchFitting:
                 r += batch_size
                 n_batches += 1
 
-        return y_pred, loss / n_batches
+        return y_pred, loss  # / n_batches
 
     def _get_evaluate_func(
             self,
@@ -231,7 +231,7 @@ class TorchFitting:
                     losses.append(value[1] * weight_map.get(key))
                 else:
                     tensors.append(value)
-            return torch.cat(tensors), sum(losses) / sum(weight_map.values())
+            return torch.cat(tensors), sum(losses) / len(losses) if losses else 0.0
         prefix = "val_" if validation else ""
         true_values, _ = _concat_values(eval_dataloader.get_targets())
         dataloader_dict = eval_dataloader.data_loader
@@ -250,7 +250,7 @@ class TorchFitting:
             if loss_callable is not None:
                 log[f"{prefix}loss"] = loss
                 for k, v in single_losses_unweighted.items():
-                    # log[f"{prefix}{k}_loss_unweighted"] = v
+                    log[f"{prefix}{k}_loss_unweighted"] = v
                     log[f"{prefix}{k}_loss"] = single_losses[k]
             if metrics:
                 add_metrics_to_log(log, metrics, y_pred, true_values, prefix=prefix)

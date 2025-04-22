@@ -664,7 +664,15 @@ def add_variables(config: od.Config) -> None:
         name="bin_dnn_signal",
         expression="bin_dnn_1",
         binning=(25, 0.0, 1.0),
-        x_title="Signal output node, DNN",
+        x_title="DNN Signal",
+    )
+    add_variable(
+        config,
+        name="bin_dnn_signal_fine",
+        expression="bin_dnn_1",
+        binning=(5000, 0.0, 1.0),
+        x_title="DNN Signal",
+        aux={"x_transformations": "equal_distance_with_indices"},
     )
 
     for proc in ["hh", "tt", "dy"]:
