@@ -2,20 +2,23 @@
 from __future__ import annotations
 
 __all__ = [
-    "UNSET", "EMPTY_INT", "EMPTY_FLOAT", "DotDict", "ItemEval", "Route", "eval_item",
-    "get_ak_routes", "remove_ak_column", "flat_np_view", "has_ak_column", "brace_expand"
+    "UNSET", "EMPTY_INT", "EMPTY_FLOAT", "DotDict", "ItemEval", "Route", "eval_item", "T",
+    "get_ak_routes", "remove_ak_column", "flat_np_view", "has_ak_column", "brace_expand",
+    "reorganize_idx",
 ]
 
 import collections
 import itertools
 import re
-from typing import Sequence, Any
+from typing import Sequence, Any, TypeVar
 
 
 import awkward as ak
 import numpy as np
 import order as od
 
+# needed Type
+T = TypeVar("T")
 
 #: Placeholder for an unset value.
 UNSET = object()
@@ -732,3 +735,39 @@ def brace_expand(s, split_csv=False, escape_csv_sep=True):
         res.append(_s)
 
     return res
+
+
+def reorganize_list_idx(entries):
+    first = entries[0]
+    if isinstance(first, int):
+        return entries
+    elif isinstance(first, dict):
+        return reorganize_dict_idx(entries)
+    elif isinstance(first, (list, tuple)):
+        sub_dict = collections.defaultdict(list)
+        for e in entries:
+            # only the last entry is the idx, all other entries
+            # in the list/tuple will be used as keys
+            data = e[-1]
+            key = tuple(e[:-1])
+            if isinstance(data, (list, tuple)):
+                sub_dict[key].extend(data)
+            else:
+                sub_dict[key].append(e[-1])
+        return sub_dict
+
+
+def reorganize_dict_idx(batch):
+    return_dict = dict()
+    for key, entries in batch.items():
+        # type shouldn't change within one set of entries,
+        # so just check first
+        return_dict[key] = reorganize_list_idx(entries)
+    return return_dict
+
+
+def reorganize_idx(batch):
+    if isinstance(batch, dict):
+        return reorganize_dict_idx(batch)
+    else:
+        return reorganize_list_idx(batch)

@@ -12,7 +12,7 @@ from torchdata.nodes.samplers.stop_criteria import StopCriteria
 from torchdata.nodes.samplers.multi_node_weighted_sampler import _WeightedSampler
 
 from collections import defaultdict
-from ml_network.src.cf_utils import DotDict
+from ml_network.src.cf_utils import DotDict, reorganize_idx
 
 
 class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
@@ -233,6 +233,8 @@ class BatchedMultiNodeWeightedSampler(MultiNodeWeightedSampler):
             from IPython import embed
             embed(header="DANGERZONE: batch is not full")
             raise StopIteration()
+
+        batch = reorganize_idx(batch)
 
         # # check again that the datasets have something left to give
         # for source_name in self.source_nodes:
