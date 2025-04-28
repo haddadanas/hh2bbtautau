@@ -6,7 +6,7 @@ __all__ = [
 
 import re
 from collections.abc import Iterable, Mapping
-from typing import Any, Callable, Sequence, Literal
+from typing import Any, Callable, Collection, Sequence, Literal
 
 import numpy as np
 import awkward as ak
@@ -17,7 +17,7 @@ import torch
 from torch.utils.data import Dataset
 
 from ml_network.src.cf_utils import (
-    EMPTY_FLOAT, EMPTY_INT, DotDict, Route, brace_expand, get_ak_routes, remove_ak_column, flat_np_view,
+    EMPTY_FLOAT, EMPTY_INT, DotDict, Route, brace_expand, get_ak_routes, remove_ak_column, flat_np_view, set_ak_column,
 )
 
 
@@ -468,6 +468,7 @@ class FlatTorchDataset(ParquetDataset):
         num_transform: Callable | None = None,
         embed_transform: Callable | None = None,
         ignored_columns: list[str] | None = None,
+        pad_flags: bool = False,
         device: str = "cpu",
         **kwargs,
     ):
@@ -498,6 +499,58 @@ class FlatTorchDataset(ParquetDataset):
         self.embedding_fields = set(col for col in self.data_columns if col.column in embedding_fields)
         # Remove the fields needed for the transformation but not in the data
         self.data_columns = self.data_columns - {Route(x) for x in ignored_columns or []}
+        self.column_mean: Mapping[str, float] | None = None
+        self.column_std: Mapping[str, float] | None = None
+        self._build_column_stats()
+        if pad_flags:
+            self._add_pad_flag_columns()
+
+    def _build_column_stats(self) -> None:
+        if self.column_mean is None or self.column_std is None:
+            self._compute()
+            self.column_mean = {}
+            self.column_std = {}
+            pad_value_float = EMPTY_FLOAT + 1
+            for col in self.data_columns:
+                data = self._extract_columns(super(FlatTorchDataset, self).input_data, col)
+                non_empty_mask = data > pad_value_float
+                if non_empty_mask.all() or not non_empty_mask.any():
+                    continue
+                data = data[non_empty_mask]
+                if isinstance(data, ak.Array):
+                    data = data.to_numpy()
+                self.column_mean[col] = data.mean()
+                self.column_std[col] = data.std()
+            self._input_data = None
+
+    def _add_pad_flag_columns(self) -> None:
+        # add padding flag columns to the data
+        pad_value_float = EMPTY_FLOAT + 1
+        padded_obj = []
+
+        for col in self.data_columns:
+            # check if the column is already a padding flag
+            obj_name = col.fields[0]
+            if obj_name in padded_obj:
+                continue
+            data = self._extract_columns(super(FlatTorchDataset, self).input_data, col)
+            if isinstance(data, ak.Array):
+                data = data.to_numpy()
+            if isinstance(data, torch.Tensor):
+                data = data.cpu().numpy()
+            pad_flag = data <= pad_value_float
+            if not pad_flag.any() or pad_flag.all():
+                continue
+            pad_flag = pad_flag.astype(np.int8)
+            col_name = obj_name + "_pad_flag"
+            self._data = set_ak_column(self.data, col_name, pad_flag)
+            padded_obj.append(obj_name)
+
+        for col_name in padded_obj:
+            pad_route = Route(col_name + "_pad_flag")
+            self.embedding_fields.add(pad_route)
+            self.data_columns.add(pad_route)
+        self._input_data = None
 
     def _extract_columns(self, array: ak.Array, route: Route) -> torch.Tensor:
         # first, get super set of column
@@ -722,7 +775,7 @@ class FlatArrowRowGroupParquetDataset(FlatRowgroupParquetDataset):
             rg_idx = Ellipsis
             if self.current_rowgroups:
                 rg_idx = list(self.current_rowgroups)
-            logger.info(f"Loading rowgroups {rg_idx} from {self.path}")
+            print(f"Loading rowgroups {rg_idx} from {self.path}")
             from IPython import embed
             embed(header=f"debugging pq.read_table with {self.open_options=}")
             self._data = ak.concatenate([
