@@ -2,11 +2,11 @@ from __future__ import annotations
 
 __all__ = [
     "AkToTorchTensor", "AkToTensor", "AkToProcessedTensor",
-    "RemoveEmptyValues", "GetSelectedEvents",
+    "RemoveEmptyValues", "GetSelectedEvents", "PreProcessFloatValues", "PreProssesAndCast",
 ]
 
 from collections.abc import Mapping
-from typing import NoReturn, Sequence
+from typing import Collection, NoReturn, Sequence
 
 import numpy as np
 import awkward as ak
@@ -14,7 +14,7 @@ import torch
 from dask_awkward.lib.core import Array
 from torch.nested._internal.nested_tensor import NestedTensor
 
-from ml_network.src.cf_utils import flat_np_view
+from ml_network.src.cf_utils import attach_behavior, flat_np_view, attach_coffea_behavior, set_ak_column, default_coffea_collections
 
 
 class AkToTorchTensor(torch.nn.Module):
@@ -110,13 +110,12 @@ class AkToTorchTensor(torch.nn.Module):
 class AkToTensor(AkToTorchTensor):
     def _transform_input(self, X):
         return_tensor = None
-        if isinstance(X, ak.Array):
+        if isinstance(X, (ak.Array, np.ndarray)):
             # first, get flat numpy view to avoid copy operations
             try:
-                return_tensor = ak.to_torch(X)
+                return_tensor = ak.to_torch(X).to(device=self.device)
             except:
-                # default back to NestedTensor
-                return_tensor = super()._transform_input(X)
+                return_tensor = super()._transform_input(X).to(device=self.device)
         elif isinstance(X, (torch.Tensor, NestedTensor)):
             return_tensor = X
         elif isinstance(X, (list, tuple)):
@@ -265,3 +264,110 @@ class GetSelectedEvents:
             raise ValueError(f"Could not convert input {X=}")
 
         return return_tensor
+
+
+class PreProcessFloatValues(torch.nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.uses = {
+            "Tau.{eta,phi,pt,mass,charge}",
+            "Electron.{eta,phi,pt,mass,charge}",
+            "Muon.{eta,phi,pt,mass,charge}",
+            "HHBJet.{pt,eta,phi,mass,hhbtag,btagDeepFlav.*,btagPNet.*}",
+            "FatJet.{eta,phi,pt,mass}",
+        }
+        self.produces = {
+            "leptons.*",
+            "bjets.*",
+            "fatjets.*",
+        }
+
+    def rotate_to_phi(self, ref_phi: ak.Array, px: ak.Array, py: ak.Array) -> tuple[ak.Array, ak.Array]:
+        """
+        Rotates a momentum vector extracted from *events* in the transverse plane to a reference phi
+        angle *ref_phi*. Returns the rotated px and py components in a 2-tuple.
+        """
+        new_phi = np.arctan2(py, px) - ref_phi
+        pt = (px**2 + py**2)**0.5
+        return pt * np.cos(new_phi), pt * np.sin(new_phi)
+
+    def forward(self, events: ak.Array) -> ak.Array:
+
+        # generally attach coffea behavior
+        events = attach_coffea_behavior(events, collections={"HHBJet": default_coffea_collections["Jet"]})
+
+        # sanity masks for later usage
+        # has_jet_pair = ak.num(events.HHBJet) >= 2
+        # has_fatjet = ak.num(events.FatJet) >= 1
+
+        # first extract Leptons
+        leptons: ak.Array = attach_behavior(
+            ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
+            type_name="Tau",
+        )
+        # make sure to actually have two leptons
+        has_lepton_pair = ak.num(leptons, axis=1) >= 2
+        events = ak.mask(events, has_lepton_pair)
+        leptons = ak.mask(leptons, has_lepton_pair)
+        lep1, lep2 = leptons[:, 0], leptons[:, 1]
+
+        # calculate phi of lepton system
+        phi_lep = np.arctan2(lep1.py + lep2.py, lep1.px + lep2.px)
+
+        def save_rotated_momentum(
+            events: ak.Array,
+            array: ak.Array,
+            target_field: str,
+            additional_targets: Collection[str] | None = None
+        ) -> ak.Array:
+            px, py = self.rotate_to_phi(phi_lep, array.px, array.py)
+            # save px and py
+            events = set_ak_column(events, f"{target_field}.px", px)
+            events = set_ak_column(events, f"{target_field}.py", py)
+
+            routes: set[str] = set(("pz", "energy", "mass"))
+            if additional_targets is not None:
+                routes.update(additional_targets)
+            for field in routes:
+                events = set_ak_column(events, f"{target_field}.{field}", getattr(array, field))
+            return events
+
+        events = save_rotated_momentum(events, leptons, "leptons", additional_targets=("charge", "mass"))
+
+        # there might be less than two jets or no fatjet, so pad them
+        # bjets = ak.pad_none(_events.HHBJet, 2, axis=1)
+        # fatjet = ak.pad_none(_events.FatJet, 1, axis=1)[:, 0]
+
+        jet_columns = ("btagDeepFlavB", "hhbtag", "btagDeepFlavCvB", "btagDeepFlavCvL")
+        events = save_rotated_momentum(events, events.HHBJet, "bjets", additional_targets=jet_columns)
+
+        # fatjet variables
+        events = save_rotated_momentum(events, events.FatJet, "fatjets", additional_targets=None)
+        return events
+
+
+class PreProssesAndCast(torch.nn.Module):
+    def __init__(self, *args, device=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = device
+        self.preprocess = PreProcessFloatValues()
+        self.cast = AkToTensor(device=self.device)
+
+    def forward(self, events: ak.Array) -> torch.Tensor:
+        x = self.preprocess(events)
+        return self.cast(x)
+
+    def _get_property(self, attr="uses"):
+        attr_set = set()
+        for t in [self.preprocess, self.cast]:
+            if hasattr(t, attr):
+                attr_set.update(getattr(t, attr))
+        return attr_set
+
+    @property
+    def uses(self):
+        return self._get_property("uses")
+
+    @property
+    def produces(self):
+        return self._get_property("produces")

@@ -13,6 +13,7 @@ import re
 from typing import Sequence, Any, TypeVar
 
 
+import law
 import awkward as ak
 import numpy as np
 import order as od
@@ -28,6 +29,49 @@ EMPTY_INT = -99999
 
 #: Empty-value definition in places where a float number is expected but not present.
 EMPTY_FLOAT = -99999.0
+
+default_coffea_collections = {
+    "Jet": {
+        "type_name": "Jet",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "FatJet": {
+        "type_name": "FatJet",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "SubJet": {
+        "type_name": "Jet",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "Muon": {
+        "type_name": "Muon",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "Electron": {
+        "type_name": "Electron",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "Tau": {
+        "type_name": "Tau",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "MET": {
+        "type_name": "MissingET",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+    "PuppiMET": {
+        "type_name": "MissingET",
+        "check_attr": "metric_table",
+        "skip_fields": "*Idx*G",
+    },
+}
 
 
 class DotDict(collections.OrderedDict):
@@ -581,6 +625,96 @@ def get_ak_routes(
     return routes
 
 
+def set_ak_column(
+    ak_array: ak.Array,
+    route: Route | Sequence[str] | str,
+    value: ak.Array,
+    value_type: type | str | None = None,
+) -> ak.Array:
+    """
+    Inserts a new column into awkward array *ak_array* and returns a new view with the column added
+    or overwritten.
+
+    The column can be defined through a route, i.e., a :py:class:`Route` instance, a tuple of
+    strings where each string refers to a subfield, e.g. ``("Jet", "pt")``, or a string with dot
+    format (e.g. ``"Jet.pt"``), and the column *value* itself. Intermediate, non-existing fields are
+    automatically created. When a *value_type* is defined, *ak_array* is casted into this type
+    before it is inserted.
+
+    Example:
+
+    .. code-block:: python
+
+        arr = ak.zip({"Jet": {"pt": [30], "eta": [2.5]}})
+
+        set_ak_column(arr, "Jet.mass", [40])
+        set_ak_column(arr, "Muon.pt", [25])  # creates subfield "Muon" first
+
+    .. note::
+
+        Issues can arise in cases where the route to add already exists and has a different type
+        than the newly added *value*. For this reason, existing columns are removed first, creating
+        a view to operate on.
+    """
+    route = Route(route)
+
+    # handle empty route
+    if not route:
+        raise ValueError("route must not be empty")
+
+    # cast type
+    if value_type:
+        value = ak.values_astype(value, value_type)
+
+    # force creating a view for consistent behavior
+    orig_fields = ak_array.fields
+    ak_array = ak.Array(ak_array)
+
+    # when there is only one field, and route refers to that field, ak_array will be empty
+    # after the removal in the next step and all shape information might get lost,
+    # so in this case add the value first as a dummy column and remove it afterwards
+    match_only_existing = len(orig_fields) == 1 and len(route) == 1 and orig_fields[0] == route[0]
+    if match_only_existing:
+        tmp_field = f"tmp_field_{id(object())}"
+        ak_array = ak.with_field(ak_array, value, tmp_field)
+
+    # try to remove the route first so that existing columns are not overwritten but re-inserted
+    ak_array = remove_ak_column(ak_array, route, silent=True)
+
+    # trivial case
+    if len(route) == 1:
+        ak_array = ak.with_field(ak_array, value, route.fields)
+
+        # remove the tmp field if existing
+        if match_only_existing:
+            ak_array = remove_ak_column(ak_array, tmp_field, silent=True)
+
+        return ak_array
+
+    # identify existing parts of the subroute
+    # example: route is ("a", "b", "c"), "a" exists, the sub field "b" does not, "c" should be set
+    sub_route = route.copy()
+    missing_sub_route = Route()
+    while sub_route:
+        if has_ak_column(ak_array, sub_route):
+            break
+        missing_sub_route += sub_route.pop()
+    missing_sub_route.reverse()
+
+    # add the first missing field to the sub route which will be used by __setitem__
+    if missing_sub_route:
+        sub_route += missing_sub_route.pop(0)
+
+    # use the remaining missing sub route to wrap the value via ak.zip, generating new sub fields
+    while missing_sub_route:
+        value = ak.zip({missing_sub_route.pop(): value})
+
+    # insert the value
+    ak_array = ak.with_field(ak_array, value, sub_route.fields)
+
+    return ak_array
+
+
 def remove_ak_column(
     ak_array: ak.Array,
     route: Route | Sequence[str] | str,
@@ -771,3 +905,105 @@ def reorganize_idx(batch):
         return reorganize_dict_idx(batch)
     else:
         return reorganize_list_idx(batch)
+
+
+def attach_behavior(
+    ak_array: ak.Array,
+    type_name: str,
+    behavior: dict | None = None,
+    keep_fields: Sequence[str] | None = None,
+    skip_fields: Sequence[str] | None = None,
+) -> ak.Array:
+    """
+    Attaches behavior of type *type_name* to an awkward array *ak_array* and returns it. *type_name*
+    must be a key of a *behavior* dictionary which defaults to the "behavior" attribute of
+    *ak_array* when present. Otherwise, a *ValueError* is raised.
+
+    By default, all subfields of *ak_array* are kept. For further control, *keep_fields*
+    (*skip_fields*) can contain names or name patterns of fields that are kept (filtered).
+    *keep_fields* has priority, i.e., when it is set, *skip_fields* is not considered.
+    """
+    if not globals().get("nanoaod"):
+        from coffea.nanoevents.methods import nanoaod
+
+    if behavior is None:
+        behavior = getattr(ak_array, "behavior", None) or nanoaod.behavior
+        if behavior is None:
+            raise ValueError(
+                f"behavior for type '{type_name}' is not set and not existing in input array",
+            )
+
+    # prepare field skipping
+    if keep_fields and skip_fields:
+        raise Exception("can only pass one of 'keep_fields' and 'skip_fields'")
+
+    keep_field = lambda field: True
+    if keep_fields or skip_fields:
+        requested_fields = law.util.make_list(keep_fields or skip_fields)
+        requested_fields = {
+            field
+            for field in ak_array.fields
+            if law.util.multi_match(field, requested_fields)
+        }
+        keep_field = (
+            (lambda field: field in requested_fields)
+            if keep_fields else
+            (lambda field: field not in requested_fields)
+        )
+
+    return ak.zip(
+        {field: ak_array[field] for field in ak_array.fields if keep_field(field)},
+        with_name=type_name,
+        behavior=behavior,
+    )
+
+
+def attach_coffea_behavior(
+    ak_array: ak.Array,
+    collections: dict | Sequence | None = None,
+) -> ak.Array:
+    """
+    Add coffea's NanoEvents behavior to collections in an *ak_array*. When empty, *collections*
+    defaults to :py:attr:``default_coffea_collections``.
+
+    :param ak_array: The input array.
+    :param collections: The collections to attach behavior to.
+    :return: The array with the behavior attached.
+    """
+    # update or reduce collection info
+    _collections = default_coffea_collections
+    if isinstance(collections, dict):
+        _collections = _collections.copy()
+        _collections.update(collections)
+    elif isinstance(collections, (list, tuple)):
+        _collections = {
+            name: info
+            for name, info in _collections.items()
+            if name in collections
+        }
+
+    for name, info in _collections.items():
+        if not info:
+            continue
+
+        # get the collection to update
+        if name not in ak_array.fields:
+            continue
+        coll = ak_array[name]
+
+        # when a check_attr is defined, do nothing in case it already exists
+        if info.get("check_attr") and getattr(coll, info["check_attr"], None) is not None:
+            continue
+
+        # default infos
+        type_name = info.get("type_name") or name
+        skip_fields = info.get("skip_fields")
+
+        # apply the behavior
+        ak_array = set_ak_column(
+            ak_array,
+            name,
+            attach_behavior(coll, type_name, skip_fields=skip_fields),
+        )
+
+    return ak_array

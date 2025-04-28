@@ -75,28 +75,33 @@ class CompositeDataLoader(object):
 
     def __init__(
             self,
-            data_map: Mapping[str, Sized],
-            weight_dict: Mapping[str, float | Mapping[str, float]],
+            data_map: Mapping[str, Sized] | None = None,
+            weight_dict: Mapping[str, float | Mapping[str, float]] | None = None,
             shuffle: bool = True,
             batch_size: int = 256,
             num_workers: int = 0,
             parallelize_method: Literal["thread", "process"] = "process",
             collate_fn: Callable | None = None,
             batch_sampler_cls: Callable | None = None,
+            batcher_options: dict[str, Any] | None = None,
             index_sampler_cls: Callable | None = None,
             map_and_collate_cls: Callable | None = None,
+            pin_memory: bool = False,
             device=None,
     ):
+
         self.data_map = data_map
         self.weight_dict = weight_dict
         self.shuffle = shuffle
         self.batch_size = batch_size
+        self.batcher_options: dict[str, Any] = batcher_options or dict()
         self.num_workers = num_workers
-        self.parallelize_method = parallelize_method
+        self.parallelize_method: Literal["thread", "process"] = parallelize_method
         self.collate_fn = collate_fn
         self.batch_sampler_cls = batch_sampler_cls
         self.index_sampler_cls = index_sampler_cls
         self.map_and_collate_cls = map_and_collate_cls
+        self.pin_memory = pin_memory
         self.device = device
 
         # property for maximum number of batches
@@ -118,32 +123,50 @@ class CompositeDataLoader(object):
         self.batch_sampler_cls: Callable = self.batch_sampler_cls or BatchedMultiNodeWeightedSampler
 
         self.map_cls: Callable = self.map_and_collate_cls or NestedMapAndCollate
+        if issubclass(self.batch_sampler_cls, BatchedMultiNodeWeightedSampler):
+            node_dict = {
+                key: tn.SamplerWrapper(self.index_sampler_cls(dataset))
+                for key, dataset in self.data_map.items()
+            }
+            self.batcher_options["source_nodes"] = node_dict
+            # if self.pin_memory:
+            #     self.batcher_options["source_nodes"] = {
+            #         key: tn.PinMemory(data) for key, data in node_dict.items()
+            #     }
+            self.batcher_options["weights"] = self.weight_dict
 
-    def _create_composite_node(self) -> tuple[tn.ParallelMapper, _WeightedSampler]:
-
-        node_dict = {
-            key: tn.SamplerWrapper(self.index_sampler_cls(dataset))
-            for key, dataset in self.data_map.items()
-        }
+    def _create_composite_node(self) -> tuple[tn.ParallelMapper, Any]:
 
         batcher = self.batch_sampler_cls(
-            node_dict, weights=self.weight_dict, batch_size=self.batch_size,
+            batch_size=self.batch_size, **self.batcher_options,
         )
 
         mapping = self.map_cls(self.data_map, collate_fn=self.collate_fn)
+        mp_context = None
+        if (self.device and self.device == "cuda") and self.num_workers > 1:
+            # mp_context = torch.multiprocessing.get_context("spawn")
+            mp_context = "spawn"
 
         parallel_node = tn.ParallelMapper(
             batcher,
             map_fn=mapping,
             num_workers=self.num_workers,
             method=self.parallelize_method,  # Set this to "thread" for multi-threading
+            multiprocessing_context=mp_context,
             in_order=True,
         )
+        if self.pin_memory:
+            parallel_node = tn.PinMemory(parallel_node)
 
         return (parallel_node, batcher)
 
     def __len__(self):
-        return sum(len(x) for x in self.data_map.values())
+        output = 0
+        if isinstance(self.data_map, Mapping):
+            output = sum(len(x) for x in self.data_map.values())
+        else:
+            output = len(self.data_map)
+        return output
 
     @property
     def num_batches(self):
