@@ -14,10 +14,11 @@ from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 from hbt.production.weights import (
-    normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
+    normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight, normalized_ps_weights,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
-from hbt.production.tau import tau_weights, trigger_weights
+from hbt.production.tau import tau_weights
+from hbt.production.trigger_sf import trigger_weight
 from hbt.util import IF_DATASET_HAS_LHE_WEIGHTS, IF_RUN_3
 
 ak = maybe_import("awkward")
@@ -66,6 +67,9 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # normalized pu weights
         events = self[normalized_pu_weight](events, **kwargs)
 
+        # normalized parton shower weights
+        events = self[normalized_ps_weights](events, **kwargs)
+
         # btag weights
         events = self[normalized_btag_weights_deepjet](events, **kwargs)
         if self.has_dep(normalized_btag_weights_pnet):
@@ -83,9 +87,9 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         if self.has_dep(muon_weights):
             events = self[muon_weights](events, **kwargs)
 
-        # trigger weights
-        if self.has_dep(trigger_weights):
-            events = self[trigger_weights](events, **kwargs)
+        # trigger weight
+        if self.has_dep(trigger_weight):
+            events = self[trigger_weight](events, **kwargs)
 
         # # top pt weight
         # if self.has_dep(top_pt_weight):
