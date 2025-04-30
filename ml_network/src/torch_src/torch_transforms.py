@@ -14,7 +14,9 @@ import torch
 from dask_awkward.lib.core import Array
 from torch.nested._internal.nested_tensor import NestedTensor
 
-from ml_network.src.cf_utils import attach_behavior, flat_np_view, attach_coffea_behavior, set_ak_column, default_coffea_collections
+from ml_network.src.cf_utils import (
+    attach_behavior, flat_np_view, attach_coffea_behavior, set_ak_column, default_coffea_collections
+)
 
 
 class AkToTorchTensor(torch.nn.Module):
@@ -149,17 +151,10 @@ class AkToProcessedTensor(AkToTorchTensor):
 
 
 class RemoveEmptyValues(torch.nn.Module):
-    def __init__(self, embed_input: bool = False, physical_padding: bool = False, *args, **kwargs):
+    def __init__(self, embed_input: bool = False, padding_values: dict | None = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.embed_input = embed_input
-        self.pad_dict = {
-            "pt": -1,
-            "eta": -5,
-            "phi": -5,
-            "mass": -1,
-            "btagPNetB": -1,
-            "hhbtag": -1,
-        } if physical_padding else dict()
+        self.padding_values = padding_values if padding_values else {}
 
     def _transform_input(
             self, X, pad_key: str | None = None
@@ -171,7 +166,12 @@ class RemoveEmptyValues(torch.nn.Module):
                 clamp_min, clamp_max = 0, 9
             else:
                 return_type = torch.float
-                pad_value = self.pad_dict.get(pad_key.split(".")[-1], -10.0) if pad_key is not None else -10.0
+                pad_value = self.padding_values.get(pad_key, -10.0)
+                if pad_value > X[X > -10].min():
+                    print(  # TODO replace with logger
+                        f"Warning: {((X < pad_value) & (X > -10)).sum()} values are below the padding value "
+                        f"{pad_value} in {pad_key}"
+                    )
                 clamp_min, clamp_max = pad_value, None
 
             return X.to(return_type).clamp(min=clamp_min, max=clamp_max)

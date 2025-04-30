@@ -17,6 +17,7 @@ import law
 import awkward as ak
 import numpy as np
 import order as od
+from dask_awkward.lib.core import Array
 
 # needed Type
 T = TypeVar("T")
@@ -495,9 +496,9 @@ class Route(od.TagMixin):
 
     def apply(
         self,
-        ak_array: ak.Array,
+        ak_array: ak.Array | Array,
         null_value: Any = UNSET,
-    ) -> ak.Array:
+    ) -> ak.Array | Array:
         """
         Returns a selection of *ak_array* using the fields in this route. When the route is empty,
         *ak_array* is returned unchanged. When *null_value* is set, it is used to fill up missing

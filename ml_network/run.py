@@ -6,12 +6,16 @@ import torch
 sys.path.append("/afs/desy.de/user/h/haddadan/hh2bbtautau")
 
 from ml_network.src.torch_src.torch_transforms import RemoveEmptyValues, GetSelectedEvents
-from ml_network.src.utils import load_setup, get_device, build_model_name, setup_parser, log_parser, get_logger, timeit
+from ml_network.src.utils import (
+    get_padding_values, load_setup, get_device, build_model_name, merge_event_stats, setup_parser, log_parser,
+    get_logger, timeit,
+)
 from ml_network.src.ml_utils import TorchFitting
-from ml_network.models.ml_model_batch_norm import CONFIG, CustomModel as Model
+from ml_network.models.ml_model_batch_norm import CustomModel as Model
 from ml_network.src.cf_utils import DotDict
 from ml_network.src.torch_src import CompositeDataLoader, EvaluationDataLoader, FlatTorchDataset, NestedDictMapAndCollate
-from ml_network.src.torch_callbacks import signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy, get_ROC_Plotter
+from ml_network.src.torch_callbacks import signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy
+from ml_network.ml_config import CONFIG, NUM_FIELDS, EMBED_FIELDS
 
 # Set some constants and global variables
 EMPTY_FLOAT = -10.0
@@ -19,8 +23,6 @@ EMPTY_INT = -10
 LOGGER = get_logger("ML Network")
 SETUP = load_setup()
 DEVICE = get_device()
-EMBED_FIELDS = SETUP["embed_fields"]
-NUM_FIELDS = SETUP["num_fields"]
 COLUMN_NAMES = {"num_fields": NUM_FIELDS, "embed_fields": EMBED_FIELDS}
 CONFIG["feature_names"] = COLUMN_NAMES
 
@@ -62,13 +64,11 @@ def get_datasets(setup: dict, selection_field: str | None = None):
             device=DEVICE,
             target=int(dataset["is_signal"]),
             global_transform=splitter,
-            num_transform=RemoveEmptyValues(physical_padding=True),
-            embed_transform=RemoveEmptyValues(embed_input=True),
             ignored_columns=[selection_field] if selection_field else None,
         )
         weight_dict[name] = dataset["weight"]
         LOGGER.info(f"Loaded dataset (Training) {name} with {len(data_map[name])} entries")
-        if val_map is not None:
+        if splitter:
             splitter.set_validation_mode()
             val_map[name] = FlatTorchDataset(
                 dataset["path"],
@@ -79,12 +79,23 @@ def get_datasets(setup: dict, selection_field: str | None = None):
                 device=DEVICE,
                 target=int(dataset["is_signal"]),
                 global_transform=splitter,
-                num_transform=RemoveEmptyValues(physical_padding=True),
-                embed_transform=RemoveEmptyValues(embed_input=True),
                 ignored_columns=[selection_field] if selection_field else None,
             )
             LOGGER.info(f"Loaded dataset (Validation) {name} with {len(val_map[name])} entries")
-    if not val_map:
+
+    padding_values = get_padding_values(*merge_event_stats(data_map))
+    num_trafo = RemoveEmptyValues(padding_values=padding_values)
+    embed_trafo = RemoveEmptyValues(padding_values=padding_values, embed_input=True)
+    for name, dataset in data_map.items():
+        # Apply the transformations
+        dataset.num_transform = num_trafo
+        dataset.embed_transform = embed_trafo
+    if val_map:
+        for name, dataset in val_map.items():
+            # Apply the transformations
+            dataset.num_transform = num_trafo
+            dataset.embed_transform = embed_trafo
+    else:
         val_map = None
     return {"data_map": data_map, "weight_dict": weight_dict}, val_map
 

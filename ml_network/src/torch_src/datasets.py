@@ -10,7 +10,7 @@ from typing import Any, Callable, Collection, Sequence, Literal
 
 import numpy as np
 import awkward as ak
-import dask_awkward as dak
+from dask_awkward.lib.io.parquet import from_parquet
 from dask_awkward.lib.core import Array
 
 import torch
@@ -46,7 +46,7 @@ class ParquetDataset(Dataset):
         self.global_transform = global_transform
 
         self.input = input
-        self._data: ak.Array | None = None
+        self._data: ak.Array | Array | None = None
         self._input_data: ak.Array | None = None
         self._target_data: ak.Array | None = None
         self.class_target: int
@@ -282,16 +282,35 @@ class ParquetDataset(Dataset):
                 f", received {self.int_targets}"
             )
 
-    def _compute(self):
+    def _compute(self) -> None:
         if isinstance(self._data, ak.Array):
             return
         self._data = self.data.compute()
 
+    def _build_column_stats(self) -> None:
+        if self.column_mean is None or self.column_std is None:
+            self.column_mean = {}
+            self.column_std = {}
+            pad_value_float = EMPTY_FLOAT + 1
+            for col in self.data_columns:
+                data = col.apply(self._data, col)
+                if isinstance(data, Array):
+                    data = data.compute()
+                if isinstance(data, ak.Array):
+                    data = data.to_numpy()
+                non_empty_mask = data > pad_value_float
+                if non_empty_mask.all() or not non_empty_mask.any():
+                    continue
+                data = data[non_empty_mask]
+                self.column_mean[col] = data.mean()
+                self.column_std[col] = data.std()
+
     @property
-    def data(self) -> ak.Array:
+    def data(self) -> ak.Array | Array:
         if self._data is None:
             self.open_options["columns"] = [x.string_column for x in self.all_columns]
-            self._data = dak.from_parquet(self.path, **self.open_options)
+            self._data = from_parquet(self.path, **self.open_options)
+            self._build_column_stats()
             if self.global_transform:
                 self._data = self.global_transform(self._data)
             self._data.eager_compute_divisions()
@@ -501,27 +520,8 @@ class FlatTorchDataset(ParquetDataset):
         self.data_columns = self.data_columns - {Route(x) for x in ignored_columns or []}
         self.column_mean: Mapping[str, float] | None = None
         self.column_std: Mapping[str, float] | None = None
-        self._build_column_stats()
         if pad_flags:
             self._add_pad_flag_columns()
-
-    def _build_column_stats(self) -> None:
-        if self.column_mean is None or self.column_std is None:
-            self._compute()
-            self.column_mean = {}
-            self.column_std = {}
-            pad_value_float = EMPTY_FLOAT + 1
-            for col in self.data_columns:
-                data = self._extract_columns(super(FlatTorchDataset, self).input_data, col)
-                non_empty_mask = data > pad_value_float
-                if non_empty_mask.all() or not non_empty_mask.any():
-                    continue
-                data = data[non_empty_mask]
-                if isinstance(data, ak.Array):
-                    data = data.to_numpy()
-                self.column_mean[col] = data.mean()
-                self.column_std[col] = data.std()
-            self._input_data = None
 
     def _add_pad_flag_columns(self) -> None:
         # add padding flag columns to the data

@@ -11,8 +11,9 @@ import shutil
 import yaml
 import argparse
 import logging
+from collections import defaultdict
 from time import perf_counter_ns, strftime
-from typing import Any, Callable, Iterable, Type
+from typing import Any, Callable, Iterable, Tuple, Type
 
 import numpy as np
 
@@ -288,3 +289,64 @@ def get_loader(
     tensor = InputData(device=device, inp_embed=inp_embed, inp_num=inp_num, target=target, weight=weight)
     dataloader = DataLoader(tensor, batch_size=batch_size, shuffle=shuffle)
     return dataloader
+
+
+def merge_means_and_stds(
+    lengths: dict[str, int],
+    means: dict[str, dict[str, float]],
+    stds: dict[str, dict[str, float]]
+) -> Tuple[dict[str, float], dict[str, float]]:
+    _sum = defaultdict(float)
+    _sum2 = defaultdict(float)
+    for key, d in means.items():
+        for k, v in d.items():
+            _sum[k] += v * lengths[key]
+        for k, v in stds[key].items():
+            _sum2[k] += lengths[key] * (v ** 2) + lengths[key] * (d[k] ** 2)
+
+    # Normalize the means and stds by the total number of events
+    total_events = sum(lengths.values())
+    merged_means = {}
+    merged_stds = {}
+    for k, v in _sum.items():
+        merged_means[k] = v / total_events
+    for k, v in _sum2.items():
+        merged_stds[k] = np.sqrt(v / total_events - merged_means[k] ** 2)
+    return merged_means, merged_stds
+
+
+def merge_event_stats(
+        dataset_dict: dict[str, Any],
+) -> Tuple[dict[str, float], dict[str, float]]:
+    """
+    Merge the event statistics from the dataset dictionary.
+    """
+    dataset_length: dict[str, int] = {key: sum(d.meta_data.col_counts) for key, d in dataset_dict.items()}
+    means: dict[str, dict[str, float]] = {key: d.column_mean for key, d in dataset_dict.items()}
+    stds: dict[str, dict[str, float]] = {key: d.column_std for key, d in dataset_dict.items()}
+
+    # check all dicts have the same keys
+    means_iterator = iter(means.values())
+    if not all([means[key].keys() == next(means_iterator).keys() for key in means]):
+        raise ValueError("All means dictionaries must have the same keys")
+
+    return merge_means_and_stds(
+        lengths=dataset_length,
+        means=means,
+        stds=stds
+    )
+
+
+def get_padding_values(
+        means: dict[str, float],
+        stds: dict[str, float],
+        n_sigma: int = 5,
+) -> dict[str, float]:
+    """
+    Get the padding values for the input data.
+    The padding values are calculated as the mean - n_sigma * std.
+    """
+    padding_values = {}
+    for key in means.keys():
+        padding_values[str(key)] = means[key] - n_sigma * stds[key]
+    return padding_values
