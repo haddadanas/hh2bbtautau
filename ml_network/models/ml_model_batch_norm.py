@@ -6,12 +6,36 @@ from torch import nn
 from ml_network.ml_config import NUM_FIELDS, EMBED_FIELDS
 
 
+class StandardizeLayer(nn.Module):
+    def __init__(self, means: torch.Tensor | None, stds: torch.Tensor | None):
+        """
+        StandardizeLayer is a layer that standardizes the input data using the provided means and stds.
+        If means and stds are None, the layer will not perform any standardization.
+        :param means: A tensor of means for each feature.
+        :param stds: A tensor of standard deviations for each feature.
+        """
+        super(StandardizeLayer, self).__init__()
+        self.register_buffer("means", means)
+        self.register_buffer("stds", stds)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return (x - self.means) / self.stds
+
+
 class CustomModel(nn.Module):
-    def __init__(self, model_name, save_path="./models", num_fields=NUM_FIELDS, embed_fields=EMBED_FIELDS):
+    def __init__(
+            self,
+            model_name,
+            save_path="./models",
+            num_fields=NUM_FIELDS,
+            embed_fields=EMBED_FIELDS,
+            means: torch.Tensor | None = None,
+            stds: torch.Tensor | None = None,
+    ):
         super(CustomModel, self).__init__()
         self.name = model_name
         self.save_path = save_path
-        self.input_length = len(num_fields)
+        input_length = len(num_fields)
         embedding_out = {
             "channel_id": (3, 2),
             "tauVSjet": (10, 6),
@@ -19,7 +43,7 @@ class CustomModel(nn.Module):
             "tauVSmu": (5, 3),
         }
         self.input_dim = (
-            self.input_length + 2 * sum(v[1] for v in embedding_out.values()) - embedding_out["channel_id"][1]
+            input_length + 2 * sum(v[1] for v in embedding_out.values()) - embedding_out["channel_id"][1]
         )
 
         # embedding layers
@@ -32,6 +56,7 @@ class CustomModel(nn.Module):
                 for feat in embed_fields
             }
         )
+        self.standardize = StandardizeLayer(means, stds) if means is not None and stds is not None else nn.Identity()
 
         # define the layers with batch normalization
         self.linear_relu_stack = nn.Sequential(
@@ -60,10 +85,7 @@ class CustomModel(nn.Module):
     @torch.jit.export
     def forward(self: CustomModel, X_embed: dict[str, torch.Tensor], X_num: dict[str, torch.Tensor]) -> torch.Tensor:
         x = [layer(X_embed[key]) for key, layer in self.embed.items()]
-        x.append(X_num["num"])
-        # for key, layer in self.embed.items():
-        #     x.append(layer(X_embed[key]))
-        # x.extend(map(lambda item: self.embed[item[0]](item[1]), X_embed.items()))
+        x.append(self.standardize(X_num["num"]))
         x = torch.cat(x, dim=1)
         x = x.float()
 

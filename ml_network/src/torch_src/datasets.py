@@ -58,6 +58,8 @@ class ParquetDataset(Dataset):
         # None if input is an ak.Array
         self.meta_data = None
         self.all_columns = set()
+        self.column_mean: Mapping[Route, float] | None = None
+        self.column_std: Mapping[Route, float] | None = None
 
         if isinstance(input, (str, list)):
             if all(isinstance(x, str) for x in input):
@@ -299,9 +301,13 @@ class ParquetDataset(Dataset):
                 if isinstance(data, ak.Array):
                     data = data.to_numpy()
                 non_empty_mask = data > pad_value_float
-                if non_empty_mask.all() or not non_empty_mask.any():
+                if not non_empty_mask.any():
+                    self.column_mean[col] = 0
+                    self.column_std[col] = 1
                     continue
-                data = data[non_empty_mask]
+                if not non_empty_mask.all():
+                    # remove empty values
+                    data = data[non_empty_mask]
                 self.column_mean[col] = data.mean()
                 self.column_std[col] = data.std()
 
@@ -516,10 +522,9 @@ class FlatTorchDataset(ParquetDataset):
         self._target_data: Mapping[str, torch.Tensor] | None = None
         self.device = device
         self.embedding_fields = set(col for col in self.data_columns if col.column in embedding_fields)
+        self._numerical_fields: list[Route] | None = None
         # Remove the fields needed for the transformation but not in the data
         self.data_columns = self.data_columns - {Route(x) for x in ignored_columns or []}
-        self.column_mean: Mapping[str, float] | None = None
-        self.column_std: Mapping[str, float] | None = None
         if pad_flags:
             self._add_pad_flag_columns()
 
@@ -580,12 +585,18 @@ class FlatTorchDataset(ParquetDataset):
         return self._input_data
 
     @property
+    def numerical_fields(self) -> list[Route]:
+        if self._numerical_fields is None:
+            self._numerical_fields = [r for r in sorted(
+                self.data_columns, key=lambda x: x.column) if r not in self.embedding_fields]
+        return self._numerical_fields
+
+    @property
     def numerical_data(self) -> Mapping[str, torch.Tensor]:
         if self._numerical_data is None:
             self._numerical_data = {
                 str(r): self._extract_columns(super(FlatTorchDataset, self).input_data, r).unsqueeze(-1)
-                for r in sorted(self.data_columns, key=lambda x: x.column)
-                if r not in self.embedding_fields
+                for r in self.numerical_fields
             }
             if self.num_transform:
                 self._numerical_data = self.num_transform(self._numerical_data)
@@ -613,8 +624,6 @@ class FlatTorchDataset(ParquetDataset):
         return self._target_data
 
     def __getitem__(self, i: int | Sequence[int]) -> Any | tuple | tuple:
-        # from IPython import embed
-        # embed(header=f"entering {self.__class__.__name__}.__getitem__ for index {i}")
         return_data = [
             {key: self._get_data(i, data) for key, data in inp.items()}
             for inp in self.input_data

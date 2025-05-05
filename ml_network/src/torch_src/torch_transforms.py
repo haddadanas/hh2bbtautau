@@ -164,17 +164,18 @@ class RemoveEmptyValues(torch.nn.Module):
             if self.embed_input:
                 return_type = torch.int
                 clamp_min, clamp_max = 0, 9
+                X = X.clamp(min=clamp_min, max=clamp_max)
             else:
                 return_type = torch.float
                 pad_value = self.padding_values.get(pad_key, -10.0)
-                if pad_value > X[X > -10].min():
-                    print(  # TODO replace with logger
-                        f"Warning: {((X < pad_value) & (X > -10)).sum()} values are below the padding value "
-                        f"{pad_value} in {pad_key}"
-                    )
-                clamp_min, clamp_max = pad_value, None
-
-            return X.to(return_type).clamp(min=clamp_min, max=clamp_max)
+                # if pad_value > X[X > -10].min():
+                #     print(  # TODO replace with logger
+                #         f"Warning: {((X < pad_value) & (X > -10)).sum()} values are below the padding value "
+                #         f"{pad_value} in {pad_key}"
+                #     )
+                # clamp_min, clamp_max = pad_value, None
+                X[X < -1000] = torch.tensor(pad_value, dtype=return_type, device=X.device)
+            return X.to(return_type)
 
         elif isinstance(X, ak.Array):
             return_tensor = self._transform_input(ak.to_torch(X))

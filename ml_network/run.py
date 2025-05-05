@@ -5,7 +5,6 @@ import torch
 
 sys.path.append("/afs/desy.de/user/h/haddadan/hh2bbtautau")
 
-from ml_network.src.torch_src.torch_transforms import RemoveEmptyValues, GetSelectedEvents
 from ml_network.src.utils import (
     get_padding_values, load_setup, get_device, build_model_name, merge_event_stats, setup_parser, log_parser,
     get_logger, timeit,
@@ -13,7 +12,10 @@ from ml_network.src.utils import (
 from ml_network.src.ml_utils import TorchFitting
 from ml_network.models.ml_model_batch_norm import CustomModel as Model
 from ml_network.src.cf_utils import DotDict
-from ml_network.src.torch_src import CompositeDataLoader, EvaluationDataLoader, FlatTorchDataset, NestedDictMapAndCollate
+from ml_network.src.torch_src import (
+    CompositeDataLoader, EvaluationDataLoader, FlatTorchDataset, NestedDictMapAndCollate,
+    RemoveEmptyValues, GetSelectedEvents,
+)
 from ml_network.src.torch_callbacks import signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy
 from ml_network.ml_config import CONFIG, NUM_FIELDS, EMBED_FIELDS
 
@@ -30,7 +32,7 @@ CONFIG["feature_names"] = COLUMN_NAMES
 def setup_model(setup: dict, device: str = DEVICE, **kwargs):
     # Get the model
     model_name = build_model_name(setup, Model, **kwargs)
-    model = Model(model_name, save_path=setup["model_save_path"])
+    model = Model(model_name, save_path=setup["model_save_path"], **setup["standardization"])
     model.to(device)
     model.compile(backend="aot_eager")
     return model
@@ -43,10 +45,11 @@ def get_datasets(setup: dict, selection_field: str | None = None):
         needed_columns.add(selection_field)
 
     val_map = DotDict()
+    numerical_fields: list = []
 
     # Get the datasets
     datasets = setup["datasets"]
-    data_map = DotDict()
+    data_map: dict[str, FlatTorchDataset] = DotDict()
     weight_dict = {}
     for name, dataset in datasets.items():
         train_val_split = dataset["train_val_split"]
@@ -82,8 +85,11 @@ def get_datasets(setup: dict, selection_field: str | None = None):
                 ignored_columns=[selection_field] if selection_field else None,
             )
             LOGGER.info(f"Loaded dataset (Validation) {name} with {len(val_map[name])} entries")
+        if not numerical_fields:
+            numerical_fields = data_map[name].numerical_fields
 
-    padding_values = get_padding_values(*merge_event_stats(data_map))
+    means, stds = merge_event_stats(data_map)
+    padding_values = get_padding_values(means=means, stds=stds)
     num_trafo = RemoveEmptyValues(padding_values=padding_values)
     embed_trafo = RemoveEmptyValues(padding_values=padding_values, embed_input=True)
     for name, dataset in data_map.items():
@@ -97,7 +103,9 @@ def get_datasets(setup: dict, selection_field: str | None = None):
             dataset.embed_transform = embed_trafo
     else:
         val_map = None
-    return {"data_map": data_map, "weight_dict": weight_dict}, val_map
+    means = torch.tensor([means.get(r, 0) for r in numerical_fields], device=DEVICE)
+    stds = torch.tensor([stds.get(r, 1) for r in numerical_fields], device=DEVICE)
+    return {"data_map": data_map, "weight_dict": weight_dict, "data_stats": {"means": means, "stds": stds}}, val_map
 
 
 @timeit(LOGGER)
@@ -130,6 +138,7 @@ if __name__ == "__main__":
     tau_selection = f"tau_pt{argparser.tau_pt}" if argparser.tau_pt is not None else None
 
     dataloader_dict, validation_dict = get_datasets(SETUP, selection_field=tau_selection)
+    SETUP["standardization"] = dataloader_dict.pop("data_stats")
     composite_loader = CompositeDataLoader(
         **dataloader_dict,
         map_and_collate_cls=NestedDictMapAndCollate,
