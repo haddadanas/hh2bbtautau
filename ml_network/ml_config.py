@@ -4,6 +4,7 @@ from typing import Any
 import torch
 
 from ml_network.models.losses import NLL_Focal_Loss
+from ml_network.src.ml_utils import EarlyStopping
 
 cfg = {
     "optimizer": {
@@ -45,14 +46,14 @@ losses = {
 }
 
 fitting_comps = {
-    "early_stopping": {
-        "mode": "min",
-        "patience": 7,
-        "delta": 0,
-        "metric": "val_loss",
-    },
-
+    "early_stopping": EarlyStopping(
+        mode="min",
+        patience=7,
+        delta=0,
+        metric="val_loss",
+    ),
 }
+
 CONFIG: dict[str, Any] = {}
 
 # add optimizer and scheduler to config
@@ -67,7 +68,7 @@ CONFIG.update({
 })
 
 # add fitting components to config
-CONFIG["fitting_components"] = fitting_comps
+CONFIG.update(fitting_comps)
 
 NUM_FIELDS = sorted([
     *[f"bjet0.{field}" for field in ["btagPNetB", "eta", "hhbtag", "mass", "phi", "pt"]],

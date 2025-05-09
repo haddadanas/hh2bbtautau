@@ -62,8 +62,8 @@ class AbstractMeta(ABCMeta):
 class BaseFitting(metaclass=AbstractMeta):
     """Abstract base class for general fitting components."""
 
-    def __init__(self, obj: TorchFitting, *args, **kwargs) -> None:
-        self._fitting = obj
+    def __init__(self, *args, obj: TorchFitting, **kwargs) -> None:
+        self._fitting: TorchFitting = obj
         self._trace_func = obj.trace_func
 
     def log(self) -> None:
@@ -86,12 +86,32 @@ class BaseFitting(metaclass=AbstractMeta):
         pass
 
 
+class EmptyClass(BaseFitting):
+    """Empty class for PyTorch models"""
+
+    def __init__(self, *args, obj) -> None:
+        pass
+
+    def __call__(self, log: dict, *args, **kwargs) -> None:
+        pass
+
+    def __str__(self) -> str:
+        return "No fitting component is set."
+
+    def __bool__(self) -> bool:
+        return False
+
+    def _log(self) -> str:
+        return ""
+
+
 class TorchBoard(BaseFitting):
     """Tensorboard class for PyTorch models"""
     def __init__(
         self,
-        obj: TorchFitting,
         save_figs: bool = True,
+        *args,
+        obj: TorchFitting,
     ) -> None:
         """
         Args:
@@ -102,11 +122,11 @@ class TorchBoard(BaseFitting):
         """
         from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
-        super(TorchBoard, self).__init__(obj)
-        self.writer: SummaryWriter = SummaryWriter(obj.path)
+        super(TorchBoard, self).__init__(*args, obj=obj)
+        self.writer: SummaryWriter = SummaryWriter(self._fitting.path)
         self._save_figs: bool = save_figs
         self._current_epoch: int = 0
-        self._plots: list[MLPLotting] = obj._plots
+        self._plots: list[MLPLotting] = self._fitting._plots
 
     def __call__(self, log: dict, *args, **kwargs) -> None:
         for key, value in log.items():
@@ -136,7 +156,13 @@ class TorchBoard(BaseFitting):
 class EarlyStopping(BaseFitting):
     """Early stopping class for PyTorch models"""
     def __init__(
-        self, obj: TorchFitting, patience: int = 7, delta: float = 0.0, mode: str = "min", metric: str = "val_loss"
+        self,
+        patience: int = 7,
+        delta: float = 0.0,
+        mode: str = "min",
+        metric: str = "val_loss",
+        *args,
+        obj: TorchFitting,
     ) -> None:
         """
         Args:
@@ -145,7 +171,7 @@ class EarlyStopping(BaseFitting):
             mode (str): Mode for early stopping, either 'min' for minimizing loss or 'max' for maximizing metrics.
             metric (str): Metric to monitor for early stopping.
         """
-        super(EarlyStopping, self).__init__(obj)
+        super(EarlyStopping, self).__init__(*args, obj=obj)
 
         self.patience: int = patience
         self.delta: float = delta
@@ -267,7 +293,7 @@ class TorchFitting:
         self._cleanup: bool = cleanup_on_exception
 
         # empty func
-        self._empty_func: Callable = lambda *args, **kwargs: None
+        self._empty_func = EmptyClass()(self)
 
         # fit components
         self._loss_func: Callable = loss_func
@@ -285,12 +311,12 @@ class TorchFitting:
             self.trace_func("Training mode is set to evaluation. No logs will be saved.")
 
         # Early stopping setup
-        self._early_stopping: EarlyStopping | Callable = (
+        self._early_stopping: EarlyStopping | BaseFitting = (
             early_stopping(self) if early_stopping is not None else self._empty_func
         )
 
         # Tensorboard setup
-        self._tensorboard: TorchBoard | Callable = (
+        self._tensorboard: TorchBoard | BaseFitting = (
             tensorboard(self) if tensorboard is not None else self._empty_func
         )
 
@@ -344,11 +370,15 @@ class TorchFitting:
 
     def _get_evaluate_func(
             self,
-            eval_dataloader: EvaluationDataLoader,
+            eval_dataloader: EvaluationDataLoader | None,
             loss_callable: Callable | None = None,
             validation: bool = False,
             use_weights: bool = False,
-    ) -> Callable:
+    ) -> Callable[[dict, int], None]:
+
+        if eval_dataloader is None or (not validation and not self._evaluate_training):
+            return self._empty_func
+
         # helpful function to concatenate the values of a dictionary
         def _concat_values(d: dict, weight_map: dict = {}) -> tuple[Tensor, float]:
             tensors, losses = (
@@ -366,10 +396,7 @@ class TorchFitting:
         metrics = self._metrics
         plots = self._plots
 
-        if not validation and not self._evaluate_training:
-            return self._empty_func
-
-        def _evaluate(epoch, log):
+        def _evaluate(log: dict, epoch: int) -> None:
             y_pred = OrderedDict({
                 key: self._predict(loader, loss_func=loss_callable)
                 for key, loader in dataloader_dict.items()
@@ -403,6 +430,7 @@ class TorchFitting:
             return_model = copy.deepcopy(self._model)
             return_model.load_state_dict(self._early_stopping.best_state_dict, strict=True)
             return return_model
+        self.trace_func("Early stopping is not set. Returning the current model.")
         return self._model
 
     def save_model(self) -> None:
@@ -509,17 +537,15 @@ class TorchFitting:
 
         # Define a Dataloader(s) w/o sampling and shuffling for evaluation (if needed)
         # and get the needed evaluation functions for both training and validation
-        if self._evaluate_training:
-            train_eval_data = EvaluationDataLoader(
-                training_data.data_map or {},
-                batch_size=training_data.batch_size * 2,
-                device=self.device
-            )
-            eval_training = self._get_evaluate_func(train_eval_data)
-        if validation_data:
-            eval_validation = self._get_evaluate_func(
-                validation_data, loss_callable=val_loss_func, validation=True, use_weights=use_eval_weights,
-            )
+        train_eval_data = EvaluationDataLoader(
+            training_data.data_map or {},
+            batch_size=training_data.batch_size * 2,
+            device=self.device
+        ) if self._evaluate_training else None
+        eval_training = self._get_evaluate_func(train_eval_data)
+        eval_validation = self._get_evaluate_func(
+            validation_data, loss_callable=val_loss_func, validation=True, use_weights=use_eval_weights,
+        )
 
         # Compile optimizer
         opt = optimizer(self._model.parameters())
@@ -529,7 +555,7 @@ class TorchFitting:
             epoch_loss = 0.0
             if verbose:
                 print("Epoch {0} / {1}".format(t + 1, epochs))
-                pb = ProgressBar(training_data.num_batches)
+            pb = ProgressBar(training_data.num_batches, verbose=verbose)
 
             # ensure model is in training mode
             self._model.train(True)
@@ -554,9 +580,9 @@ class TorchFitting:
 
             # Run metrics and plots
             if self._evaluate_training:
-                eval_training(t, log)
+                eval_training(log, t)
             if validation_data:
-                eval_validation(t, log)
+                eval_validation(log, t)
 
             # Log to Tensorboard
             tensorboard(log)

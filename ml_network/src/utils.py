@@ -149,7 +149,7 @@ def add_metrics_to_log(
 
 class ProgressBar(object):
 
-    def __init__(self, n: int, length: int = 40):
+    def __init__(self, n: int, length: int = 40, verbose: bool = True):
         # Protect against division by zero
         self.n = max(1, n)
         self.nf = float(n)
@@ -157,7 +157,8 @@ class ProgressBar(object):
         # Precalculate the i values that should trigger a write operation
         self.ticks = set([round(i / 100.0 * n) for i in range(101)])
         self.ticks.add(n - 1)
-        self.bar(0)
+        if verbose:
+            self.bar(0)
 
     def _log_to_message(self, log: dict, precision: int = 4) -> str:
         # get log message if it exists
