@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 
 
-@torch.jit.script
 def sigmoid_focal_loss(
     inputs: torch.Tensor,
     targets: torch.Tensor,
@@ -54,7 +53,6 @@ def sigmoid_focal_loss(
     return loss
 
 
-@torch.jit.script
 def NLL_Focal_Loss(
     inputs: torch.Tensor,
     targets: torch.Tensor,
@@ -90,7 +88,41 @@ def NLL_Focal_Loss(
     return loss
 
 
-@torch.jit.script
+def OneSided_NLL_Focal_Loss(
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    alpha: float = 0.25,
+    gamma: float = 2,
+    reduction: str = "none",
+) -> torch.Tensor:
+
+    # Calculate the NLL loss
+    if targets.dim() == 2:
+        targets = targets.squeeze(1)
+    nll_loss = F.nll_loss(inputs.log(), targets.long(), reduction="none")
+
+    # Calculate the Focal Loss
+    p_t = inputs[:, 0] * (1 - targets)
+    loss = nll_loss * ((1 - p_t) ** gamma)
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+
+    # Check reduction option and return loss accordingly
+    if reduction == "none":
+        pass
+    elif reduction == "mean":
+        loss = loss.mean()
+    elif reduction == "sum":
+        loss = loss.sum()
+    else:
+        raise ValueError(
+            f"Invalid Value for arg 'reduction': '{reduction} \n Supported reduction modes: 'none', 'mean', 'sum'"
+        )
+    return loss
+
+
 def NLLLoss(inputs: torch.Tensor, targets: torch.Tensor, reduction: str = "none") -> torch.Tensor:
     """
     Negative Log Likelihood Loss.

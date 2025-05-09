@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
-    "load_setup", "add_metrics_to_log", "log_to_message", "ProgressBar", "get_device", "get_logger",
+    "load_setup", "add_metrics_to_log", "ProgressBar", "get_device", "get_logger",
     "timeit", "make_dir", "build_model_name", "setup_parser", "log_parser"
 ]
 
@@ -147,27 +147,6 @@ def add_metrics_to_log(
     return log
 
 
-def log_batch_loss(log: dict[str, Any], precision: int = 4) -> str:
-    fmt = "{0}: {1:." + str(precision) + "f}"
-    val_logs = {
-        k: v for k, v in log.items()
-        if isinstance(v, (int, float)) and k.startswith("val")
-    }
-    val_msg = "\n" if val_logs else ""
-    val_msg += "\t".join(fmt.format(k, v) for k, v in val_logs.items() if isinstance(v, (int, float)))
-    return (
-        "\t".join(fmt.format(k, v) for k, v in log.items() if k not in val_logs and isinstance(v, (int, float))) +
-        val_msg
-    )
-
-
-def log_to_message(log: dict, precision: int = 4) -> str:
-    log_msg = log.get("log_msg", "")
-    log_msg = f"\n***\t{log_msg}\t***" if log_msg else ""
-    log_out = log_batch_loss(log, precision)
-    return f"{log_out}{log_msg}"
-
-
 class ProgressBar(object):
 
     def __init__(self, n: int, length: int = 40):
@@ -180,8 +159,28 @@ class ProgressBar(object):
         self.ticks.add(n - 1)
         self.bar(0)
 
-    def bar(self, i, message: str = ""):
-        """Assumes i ranges through [0, n-1]"""
+    def _log_to_message(self, log: dict, precision: int = 4) -> str:
+        # get log message if it exists
+        log_msg = log.get("log_msg", "")
+        log_msg = f"\n***\t{log_msg}\t***" if log_msg else ""
+
+        # deal with numerical values
+        fmt = "{0}: {1:." + str(precision) + "f}"
+        val_logs = {
+            k: v for k, v in log.items()
+            if isinstance(v, (int, float)) and k.startswith("val")
+        }
+        val_msg = "\n" if val_logs else ""
+        val_msg += "\t".join(fmt.format(k, v) for k, v in val_logs.items() if isinstance(v, (int, float)))
+        log_out = (
+            "\t".join(fmt.format(k, v) for k, v in log.items() if k not in val_logs and isinstance(v, (int, float))) +
+            val_msg
+        )
+        return f"{log_out}{log_msg}"
+
+    def bar(self, i, log: dict = {}):
+        message = "\t".join("{0}: {1:.4f}".format(k, v) for k, v in log.items() if isinstance(v, (int, float)))
+        # Assumes i ranges through [0, n-1]
         if i in self.ticks:
             b = int(np.ceil(((i + 1) / self.nf) * self.length))
             sys.stdout.write("\r[{0}{1}] {2}%\t{3}".format(
@@ -189,7 +188,8 @@ class ProgressBar(object):
             ))
             sys.stdout.flush()
 
-    def close(self, message: str = ""):
+    def close(self, message: str = "", log: dict = {}):
+        message = self._log_to_message(log, 4) + "\n" + message
         # Move the bar to 100% before closing
         self.bar(self.n - 1)
         sys.stdout.write("{0}\n\n".format(message))

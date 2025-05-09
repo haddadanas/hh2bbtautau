@@ -149,7 +149,7 @@ class ParquetDataset(Dataset):
 
     def _parse_columns(self) -> None:
         if self.columns:
-            self.columns = set(Route(x) for x in self.columns)
+            self.all_columns = set(Route(x) for x in self.columns)
         elif isinstance(self._data, ak.Array):
             self.all_columns = set(x for x in get_ak_routes(self.data))
 

@@ -114,10 +114,7 @@ def main(fit_inst: TorchFitting, training_loader, validation_loader=None, n_epoc
         training_data=training_loader,
         validation_data=validation_loader,
         epochs=n_epochs,
-        metrics=[signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy],
         use_eval_weights=True,
-        # plots=[get_ROC_Plotter()],
-        **CONFIG,
     )
     # Save the model and logs
     fit_inst.save_best_model()
@@ -160,10 +157,11 @@ if __name__ == "__main__":
         DEVICE,
         save_logs=True,
         trace_func=LOGGER.info,
-        tensorboard=False,
-        early_stopping=True,
+        # tensorboard=False,
+        # early_stopping=True,
         cleanup_on_exception=True,
-        patience=argparser.patience,
+        metrics=[signal_purity, signal_acceptance, selection_efficiency, auc_score, accuracy],
+        **CONFIG,
     )
 
     # Run the main function

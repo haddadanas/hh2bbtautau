@@ -1,27 +1,24 @@
 from __future__ import annotations
 
 __all__ = ["TorchFitting", "MLPLotting"]
-
+from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 import copy
 from functools import partial
-from typing import Callable
+from typing import Any, Callable, Iterator
 
 import torch
 from torch import Tensor
-from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss, Module
-from torch.optim import SGD
-
 import matplotlib.pyplot as plt
 
-from ml_network.src.utils import add_metrics_to_log, log_to_message, log_batch_loss, ProgressBar, get_device, make_dir
+from ml_network.src.utils import add_metrics_to_log, ProgressBar, get_device, make_dir
 from ml_network.src.torch_src import CompositeDataLoader, EvaluationDataLoader
 
 DEVICE = get_device()
 
 DEFAULT_LOSS = CrossEntropyLoss(reduction="mean")
-DEFAULT_OPTIMIZER = partial(SGD, lr=0.001, momentum=0.9)
+DEFAULT_OPTIMIZER = partial(torch.optim.Adam, lr=0.001)
 
 
 class MovingAverage:
@@ -46,23 +43,202 @@ class MovingAverage:
         return self.average
 
 
+class AbstractMeta(ABCMeta):
+    """Abstract metaclass that enforces both abstract methods and custom metaclass behavior."""
+
+    def __call__(cls, *args, **kwargs) -> Callable[[TorchFitting], "BaseFitting"]:
+        """
+        Enforces that the class is instantiated via a factory pattern.
+        Returns a callable that takes a TorchFitting object and returns an instance.
+        """
+        def create_instance(obj: TorchFitting) -> "BaseFitting":
+            if obj.__class__.__name__ != "TorchFitting":
+                raise TypeError(f"Expected a TorchFitting object, got {type(obj).__name__}")
+            return type.__call__(cls, obj=obj, *args, **kwargs)
+
+        return create_instance
+
+
+class BaseFitting(metaclass=AbstractMeta):
+    """Abstract base class for general fitting components."""
+
+    def __init__(self, obj: TorchFitting, *args, **kwargs) -> None:
+        self._fitting = obj
+        self._trace_func = obj.trace_func
+
+    def log(self) -> None:
+        """Logs a message using the provided trace function."""
+        self._trace_func(self._log())
+
+    @abstractmethod
+    def _log(self) -> str:
+        """Returns a log message."""
+        pass
+
+    @abstractmethod
+    def __call__(self, log: dict, *args, **kwargs) -> None:
+        """Executes the main functionality of the fitting component."""
+        pass
+
+    @abstractmethod
+    def __str__(self) -> str:
+        """Returns a string representation of the fitting component."""
+        pass
+
+
+class TorchBoard(BaseFitting):
+    """Tensorboard class for PyTorch models"""
+    def __init__(
+        self,
+        obj: TorchFitting,
+        save_figs: bool = True,
+    ) -> None:
+        """
+        Args:
+            path (str): Path to save the Tensorboard logs.
+            initial_epoch (int): Initial epoch for logging.
+            save_figs (bool): Whether to save figures in Tensorboard.
+            trace_func (Callable): Function for tracing logs. Default is print.
+        """
+        from torch.utils.tensorboard import SummaryWriter  # type: ignore
+
+        super(TorchBoard, self).__init__(obj)
+        self.writer: SummaryWriter = SummaryWriter(obj.path)
+        self._save_figs: bool = save_figs
+        self._current_epoch: int = 0
+        self._plots: list[MLPLotting] = obj._plots
+
+    def __call__(self, log: dict, *args, **kwargs) -> None:
+        for key, value in log.items():
+            self.writer.add_scalar(key, value, self._current_epoch)
+            if self._save_figs:
+                for plot in self._plots:
+                    self.writer.add_figure(plot.title, copy.deepcopy(plot.fig), self._current_epoch)
+        self._current_epoch += 1
+
+    def __str__(self) -> str:
+        return f"Tensorboard logs are saved to {self.writer.log_dir}"
+
+    def set_epoch(self, epoch: int) -> None:
+        """Sets the current epoch for logging."""
+        self._current_epoch = epoch
+
+    def flush(self) -> None:
+        """Flushes the Tensorboard writer."""
+        self.writer.flush()
+        self.writer.close()
+
+    def _log(self) -> str:
+        """Logs the current state of the Tensorboard writer."""
+        return f"Tensorboard logs are saved to {self.writer.log_dir}"
+
+
+class EarlyStopping(BaseFitting):
+    """Early stopping class for PyTorch models"""
+    def __init__(
+        self, obj: TorchFitting, patience: int = 7, delta: float = 0.0, mode: str = "min", metric: str = "val_loss"
+    ) -> None:
+        """
+        Args:
+            patience (int): How long to wait after last time validation loss improved.
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+            mode (str): Mode for early stopping, either 'min' for minimizing loss or 'max' for maximizing metrics.
+            metric (str): Metric to monitor for early stopping.
+        """
+        super(EarlyStopping, self).__init__(obj)
+
+        self.patience: int = patience
+        self.delta: float = delta
+        self.factor: float = 1.0 if mode == "min" else -1.0
+        if mode not in ["min", "max"]:
+            raise ValueError(f"Mode must be either 'min' or 'max', got {mode}")
+
+        self.counter: int = 0
+        self.early_stop: bool = False
+        self.score_min: float = self.factor * float("inf")
+        self.score_average: MovingAverage = MovingAverage(window_size=3, weights=[0.6, 0.3, 0.1])
+        self._best_score: float | None = self.score_average.average
+        self.best_state_dict: dict[str, Any] = copy.deepcopy(self._fitting._model.state_dict())
+        self.metric: str = metric
+        self.get_metric: Callable = lambda log: log.get(metric, float("nan"))
+
+    def __bool__(self) -> bool:
+        """Returns True if early stopping is triggered."""
+        return self.early_stop
+
+    def __call__(self, log: dict, *args, **kwargs) -> None:
+        log_msg = ""
+        score = self.factor * self.get_metric(log)
+        # Check if validation loss is nan
+        if score == float("nan"):
+            log["log_msg"] = f"No {self.metric} found / {self.metric} is NaN. Ignoring this epoch."
+            return
+
+        if self._best_score is None:
+            self._best_score = self.score_average.update(score)
+            log_msg = self._cache_checkpoint()
+        elif score < self._best_score - self.delta:
+            # Significant improvement detected
+            self._best_score = score
+            log_msg = self._cache_checkpoint()
+            self.counter = 0  # Reset counter since improvement occurred
+        else:
+            # No significant improvement
+            self.counter += 1
+            log_msg = f"EarlyStopping counter: {self.counter} out of {self.patience}"
+            if self.counter >= self.patience:
+                self.early_stop = True
+
+        log["log_msg"] = log_msg
+
+    def __str__(self) -> str:
+        return f"EarlyStopping(patience={self.patience}, delta={self.delta}, mode={self.factor}, metric={self.metric})"
+
+    @property
+    def best_score(self) -> float | None:
+        """Returns the best score."""
+        if self._best_score is None:
+            return None
+        return self.factor * self._best_score
+
+    def _cache_checkpoint(self):
+        """Saves model to a instance variable when validation loss decreases."""
+        log_msg = ""
+        if self._fitting._verbose:
+            log_msg = (
+                f"{self.metric} (moving average) decreased ({self.score_min:.6f} --> {self._best_score:.6f})."
+                "Saving model state to `self.best_state_dict` ..."
+            )
+        self.best_state_dict = copy.deepcopy(self._fitting._model.state_dict())
+        self.score_min = self._best_score if self._best_score is not None else float("inf")
+        return log_msg
+
+    def _log(self) -> str:
+        """Logs the current state of the early stopping."""
+        return f"Early stopping is set with patience {self.patience} and delta {self.delta}"
+
+
 class TorchFitting:
     """Fitting class for PyTorch models"""
 
     def __init__(
         self,
         model: Module,
+        *args,
+        optimizer: Callable = DEFAULT_OPTIMIZER,
+        save_logs: bool = True,
+        loss_func=DEFAULT_LOSS,
+        val_loss_func=DEFAULT_LOSS,
+        metrics=None,
+        plots: None | list[MLPLotting] = None,
+        early_stopping: Callable[[TorchFitting], "BaseFitting"] | None = None,
+        tensorboard: Callable[[TorchFitting], "BaseFitting"] | None = None,
         device: str = DEVICE,
         trace_func=None,
         verbose: bool = True,
-        *args,
-        save_logs: bool = True,
-        tensorboard: bool = True,
-        early_stopping: bool = False,
-        patience: int = 7,
-        delta: float = 0,
         cleanup_on_exception: bool = False,
         training_mode: bool = True,
+        **kwargs,
     ) -> None:
         """
         Args:
@@ -79,89 +255,44 @@ class TorchFitting:
             patience (int): How long to wait after last time validation loss improved.
                             Default: 7
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
+                            Default: 0.0
             **kwargs: Additional arguments.
         """
         # Instance variables
         self._model: Module = model.to(device)
         self.device: str = device
         self._save_logs: bool = save_logs
-        self._tensorboard: bool = tensorboard
         self.trace_func: Callable = print if not trace_func else trace_func
         self._verbose: bool = verbose
         self._cleanup: bool = cleanup_on_exception
 
-        # Early stopping setup
-        self.is_early_stopping: bool = early_stopping
-        self.early_stop: bool = False
-        if self.is_early_stopping:
-            self._set_early_stopping(patience=patience, delta=delta)
+        # empty func
+        self._empty_func: Callable = lambda *args, **kwargs: None
+
+        # fit components
+        self._loss_func: Callable = loss_func
+        self._val_loss_func: Callable = val_loss_func
+        self._optimizer: Callable[[Iterator], torch.optim.Optimizer] = optimizer
+        self._metrics: list[Callable] = metrics or []
+        self._plots: list[MLPLotting] = plots or []
+        self._evaluate_training: bool = bool(metrics or plots)
 
         # Training setup
         if training_mode:
             self.path: str = make_dir(f"{self._model.save_path}/{self._model.name}_logs", add_time=True)
         else:
-            self._tensorboard = False
             self._save_logs = False
             self.trace_func("Training mode is set to evaluation. No logs will be saved.")
-        if self._tensorboard:
-            self._set_tensorboard()
 
-        # TODO something to save config / Logs / Setup
+        # Early stopping setup
+        self._early_stopping: EarlyStopping | Callable = (
+            early_stopping(self) if early_stopping is not None else self._empty_func
+        )
 
-    def _set_tensorboard(self) -> None:
-        from torch.utils.tensorboard import SummaryWriter  # type: ignore
-        self.writer = SummaryWriter(self.path)
-        self.trace_func(f"Tensorboard logs are saved to {self.path}")
-
-    def _set_early_stopping(self, patience: int = 7, delta: float = 0.0) -> None:
-        self.patience: int = patience
-        self.delta: float = delta
-        self.counter: int = 0
-        self.val_loss_average: MovingAverage = MovingAverage(window_size=3, weights=[0.6, 0.3, 0.1])
-        self.best_val_loss: float | None = self.val_loss_average.average
-        self.val_loss_min: float = float("inf")
-        self.best_state_dict: dict | None = None
-        self.trace_func(f"Early stopping is set with patience {patience} and delta {delta}")
-
-    def _check_early_stopping(self, log: dict):
-        if not self.is_early_stopping:
-            return
-        log_msg = ""
-        val_loss = log.get("val_loss", float("nan"))
-        # Check if validation loss is nan
-        if val_loss == float("nan"):
-            log["log_msg"] = "No Validation loss found / Validation loss is NaN. Ignoring this epoch."
-            return
-
-        if self.best_val_loss is None:
-            self.best_val_loss = self.val_loss_average.update(val_loss)
-            log_msg = self._cache_checkpoint()
-        elif val_loss < self.best_val_loss - self.delta:
-            # Significant improvement detected
-            self.best_val_loss = val_loss
-            log_msg = self._cache_checkpoint()
-            self.counter = 0  # Reset counter since improvement occurred
-        else:
-            # No significant improvement
-            self.counter += 1
-            log_msg = f"EarlyStopping counter: {self.counter} out of {self.patience}"
-            if self.counter >= self.patience:
-                self.early_stop = True
-
-        log["log_msg"] = log_msg
-
-    def _cache_checkpoint(self):
-        """Saves model to a instance variable when validation loss decreases."""
-        log_msg = ""
-        if self._verbose:
-            log_msg = (
-                f"Validation loss (moving average) decreased ({self.val_loss_min:.6f} --> {self.best_val_loss:.6f})."
-                "Saving model state to `self.best_state_dict` ..."
-            )
-        self.best_state_dict = copy.deepcopy(self._model.state_dict())
-        self.val_loss_min = self.best_val_loss if self.best_val_loss is not None else float("inf")
-        return log_msg
+        # Tensorboard setup
+        self._tensorboard: TorchBoard | Callable = (
+            tensorboard(self) if tensorboard is not None else self._empty_func
+        )
 
     def _save_log(self, logs: list | dict, suffix: str = "logs") -> None:
         if not self._save_logs:
@@ -188,9 +319,11 @@ class TorchFitting:
         # ensure dataloader is reseted before iterating
         dataloader.reset()
 
+        # infer prediction shape
+        output_dim = list(self._model.parameters())[-1].size()
+        y_pred = torch.zeros((n,) + output_dim, device=self.device)
         # ensure model is in evaluation mode
         self._model.eval()
-
         with torch.no_grad():
             for X_embed_batch, X_num_batch, Y_batch in dataloader:
                 # Predict on batch
@@ -202,9 +335,6 @@ class TorchFitting:
                     batch_loss = loss_func(y_batch_pred, Y_batch)
                     loss += batch_loss.item()
 
-                # Infer prediction shape
-                if r == 0:
-                    y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
                 # Add to prediction tensor
                 y_pred[r: min(n, r + batch_size)] = y_batch_pred
                 r += batch_size
@@ -214,32 +344,32 @@ class TorchFitting:
 
     def _get_evaluate_func(
             self,
-            metrics: list[Callable] | None,
-            plots: list[MLPLotting] | None,
             eval_dataloader: EvaluationDataLoader,
             loss_callable: Callable | None = None,
             validation: bool = False,
             use_weights: bool = False,
     ) -> Callable:
-        def _concat_values(d: dict, weight_map: dict | None = None) -> tuple[Tensor, float]:
-            tensors = []
-            losses = []
-            weight_map = weight_map or {k: 1 for k in d.keys()}
-            for key, value in d.items():
-                if isinstance(value, tuple):
-                    tensors.append(value[0])
-                    losses.append(value[1] * weight_map.get(key))
-                else:
-                    tensors.append(value)
+        # helpful function to concatenate the values of a dictionary
+        def _concat_values(d: dict, weight_map: dict = {}) -> tuple[Tensor, float]:
+            tensors, losses = (
+                zip(*((value[0], value[1] * weight_map.get(key, 1)) for key, value in d.items()))
+                if d and isinstance(next(iter(d.values())), tuple)
+                else (list(d.values()), [])
+            )
             return torch.cat(tensors), sum(losses) / len(losses) if losses else 0.0
+
+        # define useful variables
         prefix = "val_" if validation else ""
         true_values, _ = _concat_values(eval_dataloader.get_targets())
         dataloader_dict = eval_dataloader.data_loader
         weight_map = eval_dataloader.weight_map if use_weights else {}
+        metrics = self._metrics
+        plots = self._plots
+
+        if not validation and not self._evaluate_training:
+            return self._empty_func
 
         def _evaluate(epoch, log):
-            if not (metrics or plots):
-                return
             y_pred = OrderedDict({
                 key: self._predict(loader, loss_func=loss_callable)
                 for key, loader in dataloader_dict.items()
@@ -254,24 +384,13 @@ class TorchFitting:
                     log[f"{prefix}{k}_loss"] = single_losses[k]
             if metrics:
                 add_metrics_to_log(log, metrics, y_pred, true_values, prefix=prefix)
-            if plots:
-                for plot in plots:
-                    plot.update(y_pred, true_values, mode="valid" if validation else "train", epoch=str(epoch))
+            for plot in plots:
+                plot.update(y_pred, true_values, mode="valid" if validation else "train", epoch=str(epoch))
         return _evaluate
 
     def _log_parameters(self, **kwargs):
         for key, value in kwargs.items():
             self.trace_func(f"{key}: {value}")
-
-    def save_model(self) -> None:
-        path = f"{self.path}/model.pt"
-        torch.save(self._model.state_dict(), path)
-        self.trace_func(f"Model state dictionary saved to {path}")
-
-    def save_best_model(self) -> None:
-        path = f"{self.path}/best_model.pt"
-        torch.save(self.best_state_dict, path)
-        self.trace_func(f"Best model state dictionary saved to {path}")
 
     @property
     def model(self) -> Module:
@@ -280,11 +399,24 @@ class TorchFitting:
     @property
     def best_model(self) -> Module:
         """returns the best model state."""
-        if self.is_early_stopping:
+        if isinstance(self._early_stopping, EarlyStopping):
             return_model = copy.deepcopy(self._model)
-            return_model.load_state_dict(self.best_state_dict, strict=True)
+            return_model.load_state_dict(self._early_stopping.best_state_dict, strict=True)
             return return_model
         return self._model
+
+    def save_model(self) -> None:
+        path = f"{self.path}/model.pt"
+        torch.save(self._model.state_dict(), path)
+        self.trace_func(f"Model state dictionary saved to {path}")
+
+    def save_best_model(self) -> None:
+        if not isinstance(self._early_stopping, EarlyStopping):
+            self.trace_func("Early stopping is not set. No best model to save.")
+            return
+        path = f"{self.path}/best_model.pt"
+        torch.save(self._early_stopping.best_state_dict, path)
+        self.trace_func(f"Best model state dictionary saved to {path}")
 
     def predict(self, dataloader, use_best_model: bool = False) -> Tensor | dict:
         """Generates output predictions for the input samples.
@@ -307,7 +439,12 @@ class TorchFitting:
         # ensure dataloader is reseted before iterating
         dataloader.reset()
 
+        # get the right model
         model = self.best_model if use_best_model else self._model
+
+        # Infer prediction shape
+        output_dim = list(model.parameters())[-1].size()
+        y_pred = torch.zeros((n,) + output_dim, device=self.device)
 
         # Batch prediction
         model.eval()
@@ -316,42 +453,6 @@ class TorchFitting:
                 # Predict on batch
                 y_batch_pred = model(X_embed_batch, X_num_batch)
 
-                # Infer prediction shape
-                if r == 0:
-                    y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
-                # Add to prediction tensor
-                y_pred[r: min(n, r + batch_size)] = y_batch_pred
-                r += batch_size
-        return y_pred
-
-    def predict_legacy(self, X_embed, X_num, batch_size=32):
-        """Generates output predictions for the input samples.
-
-        Computation is done in batches.
-
-        # Arguments
-            X: input data Tensor.
-            batch_size: integer.
-
-        # Returns
-            prediction Tensor.
-        """
-        from ml_network.src.utils import get_loader
-        # Build DataLoader
-        data = get_loader(inp_embed=X_embed, inp_num=X_num, batch_size=batch_size, shuffle=False, device=self.device)
-        # Batch prediction
-        self.model.eval()
-        r, n = 0, X_num.size()[0]
-        with torch.no_grad():
-            for batch_data in data:
-                # Predict on batch
-                embed_batch, num_batch = batch_data[0]
-                X_embed_batch = [Variable(embed) for embed in embed_batch]
-                X_num_batch = Variable(num_batch)
-                y_batch_pred = self.model(X_embed_batch, X_num_batch).data
-                # Infer prediction shape
-                if r == 0:
-                    y_pred = torch.zeros((n,) + y_batch_pred.size()[1:], device=self.device)
                 # Add to prediction tensor
                 y_pred[r: min(n, r + batch_size)] = y_batch_pred
                 r += batch_size
@@ -361,62 +462,63 @@ class TorchFitting:
     def fit(
         self,
         training_data: CompositeDataLoader,
-        epochs=1,
-        validation_data: EvaluationDataLoader | None = None,
-        use_eval_weights=True,
-        loss_func=DEFAULT_LOSS,
-        val_loss_func=DEFAULT_LOSS,
-        optimizer=DEFAULT_OPTIMIZER,
-        metrics=None,
-        plots: None | list[MLPLotting] = None,
+        epochs: int = 1,
         initial_epoch: int = 0,
+        validation_data: EvaluationDataLoader | None = None,
+        use_eval_weights: bool = True,
         seed: int | None = None,
         **kwargs,
-    ):
-        """Trains the model similar to Keras' .fit(...) method
+    ) -> list[OrderedDict]:
+        """
+        This method trains the PyTorch model using the provided training data and optional validation data.
+        It supports early stopping, logging, and visualization of metrics.
 
         Args:
             training_data (CompositeDataLoader): DataLoader for training data.
             epochs (int): Number of epochs to train the model.
+            initial_epoch (int, optional): Epoch at which to start training. Defaults to 0.
             validation_data (EvaluationDataLoader, optional): DataLoader for validation data. Defaults to None.
             use_eval_weights (bool, optional): Whether to use weights in the evaluation. Defaults to True.
-            loss_func (Callable, optional): Loss function for training. Defaults to DEFAULT_LOSS.
-            val_loss_func (Callable, optional): Loss function for validation. Defaults to DEFAULT_LOSS.
-            optimizer (Callable, optional): Optimizer for training. Defaults to DEFAULT_OPTIMIZER.
-            metrics (list[Callable], optional): List of metric functions to evaluate. Defaults to None.
-            plots (list[MLPLotting], optional): List of MLPLotting objects for visualizing metrics. Defaults to None.
-            initial_epoch (int, optional): Epoch at which to start training. Useful for resuming a previous training run. Defaults to 0.
             seed (int, optional): Random seed for reproducibility. Defaults to None.
-            **kwargs: Additional arguments.
+            **kwargs: Additional arguments for logging or configuration.
 
         Returns:
-            list[OrderedDict]: List of logs with training metrics for each epoch.
+            list[OrderedDict]: List of logs with training and validation metrics for each epoch.
+
+        Notes:
+            - The method supports early stopping if configured during initialization.
+            - Metrics and plots are updated after each epoch if provided.
+            - Logs and model checkpoints are saved if logging is enabled.
         """
+        # shift variables to local scope for better readability
+        logs = []
+        tensorboard = self._tensorboard
+        loss_func = self._loss_func
+        val_loss_func = self._val_loss_func
+        optimizer = self._optimizer
+
         if seed and seed >= 0:
             torch.manual_seed(seed)
-        logs = []
         verbose = self._verbose
-        tensorboard = self._tensorboard
-        # torch.autograd.detect_anomaly(True)
-
         if verbose:
             self._log_parameters(loss_func=loss_func, optimizer=optimizer, use_eval_weights=use_eval_weights, **kwargs)
+        # torch.autograd.detect_anomaly(True)
 
         # Get DataLoader
         train_dataloader = training_data.data_loader
 
         # Define a Dataloader(s) w/o sampling and shuffling for evaluation (if needed)
         # and get the needed evaluation functions for both training and validation
-        if metrics or plots:
+        if self._evaluate_training:
             train_eval_data = EvaluationDataLoader(
-                training_data.data_map,
+                training_data.data_map or {},
                 batch_size=training_data.batch_size * 2,
                 device=self.device
             )
-            eval_training = self._get_evaluate_func(metrics, plots, train_eval_data)
+            eval_training = self._get_evaluate_func(train_eval_data)
         if validation_data:
             eval_validation = self._get_evaluate_func(
-                metrics, plots, validation_data, loss_callable=val_loss_func, validation=True, use_weights=use_eval_weights,
+                validation_data, loss_callable=val_loss_func, validation=True, use_weights=use_eval_weights,
             )
 
         # Compile optimizer
@@ -448,39 +550,32 @@ class TorchFitting:
                 epoch_loss += batch_loss.item()
                 log["loss"] = float(epoch_loss) / (batch_i + 1)
                 if verbose:
-                    pb.bar(batch_i, log_batch_loss(log))
+                    pb.bar(batch_i, log)
 
             # Run metrics and plots
-            if metrics or plots:
+            if self._evaluate_training:
                 eval_training(t, log)
             if validation_data:
                 eval_validation(t, log)
 
-            if tensorboard:
-                for key, value in log.items():
-                    self.writer.add_scalar(key, value, t)
-                if plots:
-                    for plot in plots:
-                        self.writer.add_figure(plot.title, copy.deepcopy(plot.fig), t)
-            self._check_early_stopping(log)
+            # Log to Tensorboard
+            tensorboard(log)
+            self._early_stopping(log)
             logs.append(log)
             if verbose:
-                pb.close(log_to_message(log))
-            if self.early_stop:
+                pb.close(log=log)
+            if self._early_stopping:
                 self.trace_func(f"Early stopping at epoch {t + 1}")
                 break
 
         # on finish
-        if tensorboard:
-            self.writer.flush()
+        if isinstance(tensorboard, TorchBoard):
+            tensorboard.flush()
         self.trace_func("Training finished.")
         if self._save_logs:
             self._save_log(logs)
             func_config = {
                 "device": self.device,
-                "early_stopping": self.is_early_stopping,
-                "patience": self.patience,
-                "delta": self.delta,
                 "epochs": epochs,
                 "use_eval_weights": use_eval_weights,
                 "loss_func": loss_func,
