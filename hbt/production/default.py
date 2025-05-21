@@ -14,7 +14,7 @@ from columnflow.util import maybe_import
 from columnflow.columnar_util import attach_coffea_behavior, default_coffea_collections
 
 from hbt.production.weights import (
-    normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight, normalized_ps_weights,
+    normalized_pu_weight, normalized_pdf_weight, normalized_murmuf_weight,
 )
 from hbt.production.btag import normalized_btag_weights_deepjet, normalized_btag_weights_pnet
 from hbt.production.tau import tau_weights
@@ -68,7 +68,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events = self[normalized_pu_weight](events, **kwargs)
 
         # normalized parton shower weights
-        events = self[normalized_ps_weights](events, **kwargs)
+        # events = self[normalized_ps_weights](events, **kwargs)
 
         # btag weights
         events = self[normalized_btag_weights_deepjet](events, **kwargs)
@@ -105,7 +105,7 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @default.init
 def default_init(self: Producer, **kwargs) -> None:
     if self.produce_weights:
-        weight_producers = {tau_weights, electron_weights, muon_weights, trigger_weight}
+        weight_producers = {tau_weights, electron_weights, muon_weights}
         # if self.dataset_inst.has_tag("ttbar"):
         #     weight_producers.add(top_pt_weight)
         # if self.dataset_inst.has_tag("dy"):

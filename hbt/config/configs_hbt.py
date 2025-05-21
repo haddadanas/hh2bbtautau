@@ -1529,14 +1529,14 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_isr_weight": get_shifts("isr"),
-        "normalized_fsr_weight": get_shifts("fsr"),
+        # "normalized_isr_weight": get_shifts("isr"),
+        # "normalized_fsr_weight": get_shifts("fsr"),
         # TODO: enable again once we have btag cuts
         # "normalized_njet_btag_deepjet_weight": get_shifts(*(f"btag_{unc}" for unc in cfg.x.btag_unc_names)),
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
-        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
+        # "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
     })
 
     # TODO enable once selection is rerun

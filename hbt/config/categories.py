@@ -46,6 +46,10 @@ def add_categories(config: od.Config) -> None:
     _add_category(config, name="res2b", id=301, selection="cat_res2b", label="res2b")
     _add_category(config, name="boosted", id=310, selection="cat_boosted", label="boosted")
 
+    for pt in [35, 36, 37, 38, 40, 45, 50, 80]:
+        _add_category(config, name=f"tau_pt{pt}", id=400 + pt, selection=f"cat_pt{pt}", label=f"Tau pt>{pt} GeV")
+        _add_category(config, name=f"tau_pt_{pt}", id=500 + pt, selection=f"cat_pt{pt}", label=f"Tau pt>{pt} GeV")
+
     #
     # build groups
     #
@@ -100,6 +104,31 @@ def add_categories(config: od.Config) -> None:
     create_category_combinations(
         config=config,
         categories=main_categories,
+        name_fn=name_fn,
+        kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
+    )
+
+    tau_pt_categories = {
+        # channels first
+        "channel": [
+            config.get_category("tautau"),
+        ],
+        # kinematic regions in the middle (to be extended)
+        "kin": [
+            config.get_category("tau_pt35"),
+            config.get_category("tau_pt36"),
+            config.get_category("tau_pt37"),
+            config.get_category("tau_pt38"),
+            config.get_category("tau_pt40"),
+            config.get_category("tau_pt45"),
+            config.get_category("tau_pt50"),
+            config.get_category("tau_pt80"),
+        ],
+    }
+
+    create_category_combinations(
+        config=config,
+        categories=tau_pt_categories,
         name_fn=name_fn,
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
     )
