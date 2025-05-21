@@ -384,7 +384,7 @@ def add_config(
             dataset.add_tag("no_lhe_weights")
         # datasets that are allowed to contain some events with missing lhe infos
         # (known to happen for amcatnlo)
-        if dataset.name.endswith("_amcatnlo"):
+        if dataset.name.endswith("_amcatnlo") or re.match(r"^z_vbf_.*madgraph$", dataset.name):
             dataset.add_tag("partial_lhe_weights")
         if dataset_name.startswith("hh_"):
             dataset.add_tag("signal")
@@ -524,6 +524,7 @@ def add_config(
     cfg.x.dataset_groups = {
         "data": (data_group := [dataset.name for dataset in cfg.datasets if dataset.is_data]),
         "backgrounds": (backgrounds := [
+            # ! this "mindlessly" includes all non-signal MC datasets from above
             dataset.name for dataset in cfg.datasets
             if dataset.is_mc and not dataset.has_tag("signal")
         ]),
@@ -578,6 +579,22 @@ def add_config(
             "e1_pt", "e1_eta", "e1_phi", "e2_pt", "e2_eta", "e2_phi",
             "tau1_pt", "tau1_eta", "tau1_phi", "tau2_pt", "tau2_eta", "tau2_phi",
         ],
+        "continuous_inputs": (cont_inputs := [
+            f"{obj}_{var}"
+            for var in ["px", "py", "pz", "energy", "mass"]
+            for obj in ["lepton1", "lepton2", "bjet1", "bjet2", "fatjet", "htt", "hbb", "htthbb"]
+        ]),
+        "categorical_inputs": (cat_inputs := ["pair_type",
+                "decay_mode1",
+                "decay_mode2",
+                "lepton1.charge",
+                "lepton2.charge",
+                "has_fatjet",
+                "has_jet_pair",
+                "year_flag",
+        ]),
+        "ml_inputs": [*cont_inputs, *cat_inputs],
+
     }
 
     # shift groups for conveniently looping over certain shifts
@@ -903,7 +920,8 @@ def add_config(
         if year == 2022:
             e_tag = {"": "preEE", "EE": "postEE"}[campaign.x.postfix]
         elif year == 2023:
-            e_tag = {"": "preBPix", "BPix": "postBPix"}[campaign.x.postfix]
+            # note the upper-case IX
+            e_tag = {"": "preBPIX", "BPix": "postBPIX"}[campaign.x.postfix]
         else:
             assert False
         cfg.x.eec = EGammaCorrectionConfig(
@@ -1365,10 +1383,7 @@ def add_config(
                 if campaign_tag:
                     raise ValueError(f"Multiple campaign tags found: {cfg.x.campaign_tag} and {tag}")
                 campaign_tag = tag
-        cclub_eras = (
-            f"{year}"
-            f"{campaign_tag}"
-        )
+        cclub_eras = f"{year}{campaign_tag}"
     else:
         assert False
 
