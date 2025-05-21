@@ -428,8 +428,8 @@ def add_config(
 
     # default objects
     cfg.x.default_calibrator = "default"
-    cfg.x.default_selector = "tautau"
-    cfg.x.default_reducer = "tautau"
+    cfg.x.default_selector = "loose"
+    cfg.x.default_reducer = "default"
     cfg.x.default_producer = "default"
     cfg.x.default_ml_model = None
     cfg.x.default_inference_model = "default_no_shifts"
@@ -1554,13 +1554,12 @@ def add_config(
         "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
     })
 
-    # TODO enable once selection is rerun
-    # # define per-dataset event weights
-    # for dataset in cfg.datasets:
-    #     if dataset.has_tag("ttbar"):
-    #         dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
-    #     if dataset.has_tag("dy"):
-    #         dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
+    # define per-dataset event weights
+    for dataset in cfg.datasets:
+        if dataset.has_tag("ttbar"):
+            dataset.x.event_weights = {"top_pt_weight": get_shifts("top_pt")}
+        if dataset.has_tag("dy"):
+            dataset.x.event_weights = {"dy_weight": []}  # TODO: list dy weight unceratinties
 
     cfg.x.shift_groups = {
         "jec": [

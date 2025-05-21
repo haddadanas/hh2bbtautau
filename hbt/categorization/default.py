@@ -140,14 +140,10 @@ def di_bjet_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[
     return events, mask
 
 
-@categorizer(uses={"{Electron,Muon,Tau}.{mass,pt,eta,phi,charge}"})
+@categorizer(uses={"Tau.{mass,pt,eta,phi}"})
 def di_tau_mass_window(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    leptons = attach_behavior(
-        ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
-        type_name="Tau",
-    )
-
-    di_tau_mass = leptons[:, :2].sum(axis=1).mass
+    leptons = [events.Electron * 1, events.Muon * 1, events.Tau * 1]
+    di_tau_mass = ak.concatenate(leptons, axis=1)[:, :2].sum(axis=1).mass
     mask = (
         (di_tau_mass >= 15) &
         (di_tau_mass <= 130)
@@ -210,13 +206,10 @@ def cat_boosted(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array
     return events, mask
 
 
-@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass,charge}"})
+@categorizer(uses={"{Electron,Muon,Tau}.{pt,eta,phi,mass}"})
 def cat_dy(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # e/mu driven DY region: mll > 40 and met < 30 (to supress tau decays into e/mu)
-    leps = attach_behavior(
-        ak.concatenate((events.Electron, events.Muon, events.Tau), axis=1),
-        type_name="Tau",
-    )[:, :2]
+    leps = ak.concatenate([events.Electron * 1, events.Muon * 1, events.Tau * 1], axis=1)[:, :2]
     mask = (
         (leps.sum(axis=1).mass > 40) &
         (events[self.config_inst.x.met_name].pt < 30)

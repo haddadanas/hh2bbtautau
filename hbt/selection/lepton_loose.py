@@ -333,12 +333,12 @@ def loose_tau_selection(
     elif is_cross_mu:
         min_pt = 25.0 if is_2016 else 27.0
     elif is_cross_tau:
-        min_pt = 20.0
+        min_pt = 25.0
     elif is_cross_tau_vbf:
         # only existing after 2016
-        min_pt = 0.0 if is_2016 else 20.0
+        min_pt = 0.0 if is_2016 else 25.0
     elif is_cross_tau_jet:
-        min_pt = None if not is_run3 else 20.0
+        min_pt = None if not is_run3 else 25.0
 
     # base tau mask for default and qcd sideband tau
     base_mask = (
@@ -905,12 +905,12 @@ def lepton_loose_selection(
             #             _trigger_fired
             #         )
 
-        # # the correct electron mask is the control electron mask where the trigger did not fire
-        # # and the electron_mask_triggered where the trigger did fire
-        # emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_if_triggered, emu_electron_control_mask)
-        # # for events in which no single e trigger fired, consider the matching as successful
-        # e_match_mask = e_match_mask | ~e_trig_fired
-        # trig_electron_mask = emu_electron_mask & e_match_mask
+                # # the correct electron mask is the control electron mask where the trigger did not fire
+                # # and the electron_mask_triggered where the trigger did fire
+                # emu_electron_mask = ak.where(e_trig_fired, emu_electron_mask_if_triggered, emu_electron_control_mask)
+                # # for events in which no single e trigger fired, consider the matching as successful
+                # e_match_mask = e_match_mask | ~e_trig_fired
+                # trig_electron_mask = emu_electron_mask & e_match_mask
 
         #     # expect 1 electron, 1 muon, 1 veto electron, 1 veto muon, and ignore taus
         #     is_emu = (
