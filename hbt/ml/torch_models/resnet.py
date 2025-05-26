@@ -13,7 +13,7 @@ from columnflow.columnar_util import Route, EMPTY_FLOAT, EMPTY_INT
 
 from hbt.ml.torch_utils.functions import (
     get_one_hot, preprocess_multiclass_outputs,
-    WeightedCrossEntropySlice,
+    WeightedCrossEntropySlice, generate_weighted_loss,
 )
 
 torch = maybe_import("torch")
@@ -46,6 +46,8 @@ if not isinstance(torch, MockModule):
     )
     from hbt.ml.torch_utils.ignite.mixins import IgniteTrainingMixin, IgniteEarlyStoppingMixin
     from hbt.ml.torch_utils.layers import PaddingLayer, InputLayer, StandardizeLayer, ResNetBlock
+    import matplotlib.pyplot as plt
+    import shap
 
     class WeightedResNet(WeightedFeedForwardMultiCls):
         def __init__(
@@ -280,188 +282,3 @@ if not isinstance(torch, MockModule):
                 "loss": Loss(self.loss_fn),
                 "roc_auc": ROC_AUC(),
             }
-
-    class BogNet(WeightedFeedForwardMultiCls):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            # inputs
-            # categories
-
-            self.categorical_inputs = sorted({
-                "pair_type",
-                "decay_mode1",
-                "decay_mode2",
-                "lepton1.charge",
-                "lepton2.charge",
-                "has_fatjet",
-                "has_jet_pair",
-                "year_flag",
-            })
-
-            self.categorical_target_map = {
-                "hh": 0,
-                "tt": 1,
-                "dy": 2,
-            }
-
-            # continuous inputs
-            self.continous_inputs = expand_columns(
-                "lepton1.{px,py,pz,energy,mass}",
-                "lepton2.{px,py,pz,energy,mass}",
-                "bjet1.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "bjet2.{px,py,pz,energy,mass,btagDeepFlavB,btagDeepFlavCvB,btagDeepFlavCvL,hhbtag}",
-                "fatjet.{px,py,pz,energy,mass}",
-            )
-            self.inputs = set(self.categorical_inputs) | set(self.continous_inputs)
-
-            self.nodes = kwargs.get("nodes", 256)
-            self.activation_functions = kwargs.get("activation_functions", "LeakyReLu")
-            self.skip_connection_init = kwargs.get("skip_connection_init", 0)
-            self.freeze_skip_connection = kwargs.get("freeze_skip_connection", True)
-
-            # layer layout
-            self.training_epoch_length_cutoff = 2000
-            self.training_weight_cutoff = 0.05
-            self.placeholder = 15
-            self.std_layer, self.input_layer, self.model = self._build_network()
-            self.linear_relu_stack = None
-            # loss,
-            self._loss_fn = nn.CrossEntropyLoss()
-            self.validation_metrics = {
-                # "unweighted_loss": Loss(self.loss_fn),
-                "loss": WeightedLoss(self.loss_fn),
-            }
-
-            # self.cemb = CombinedEmbeddings(
-            #     self.categorical_inputs,
-            #     embedding_expected_inputs,
-            #     [10 for i in self.categorical_inputs],
-            # )
-
-        def _build_network(self):
-            std_layer = StandardizeLayer(
-                None,
-                None,
-            )
-
-            input_layer = InputLayer(
-                self.continous_inputs,
-                self.categorical_inputs,
-                embedding_dim=1,
-                expected_categorical_inputs=embedding_expected_inputs,
-                placeholder=self.placeholder,
-            )
-
-            model = nn.Sequential(
-                torch.nn.Linear(input_layer.ndim, self.nodes),
-                torch.nn.BatchNorm1d(self.nodes),
-                torch.nn.LeakyReLU(),
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                ResNetBlock(self.nodes, self.activation_functions, self.skip_connection_init, self.freeze_skip_connection), # noqa
-                torch.nn.Linear(self.nodes, len(self.categorical_target_map)),
-            )
-            return std_layer, input_layer, model
-
-        def to(self, *args, **kwargs):
-            self.std_layer = self.std_layer.to(*args, **kwargs)
-            self.input_layer = self.input_layer.to(*args, **kwargs)
-            self.model = self.model.to(*args, **kwargs)
-            return super().to(*args, **kwargs)
-
-        def train_step(self, engine, batch):
-
-            # Set the model to training mode - important for batch normalization and dropout layers
-            self.train()
-            # Compute prediction and loss
-            X, y = batch[0], batch[1]
-            self.optimizer.zero_grad()
-            pred = self(X)
-            target = y["categorical_target"].to(torch.float32)
-            if target.dim() == 1:
-                target = target.reshape(-1, 1)
-
-            loss = self.loss_fn(pred, target)
-            # Backpropagation
-            loss.backward()
-            self.optimizer.step()
-
-            return loss.item()
-
-        def setup_preprocessing(self):
-            # extract dataset std and mean from dataset
-            # extraction happens form no oversampled dataset
-            mean, std = [], []
-            for _input in self.continous_inputs:
-                input_statitics = self.dataset_statitics[_input.column]
-                mean.append(torch.from_numpy(input_statitics["mean"]))
-                std.append(torch.from_numpy(input_statitics["std"]))
-
-            mean, std = torch.concat(mean), torch.concat(std)
-            # set up standardization layer
-            self.std_layer.set_mean_std(
-                mean.float(),
-                std.float(),
-            )
-
-        def logging(self, *args, **kwargs):
-            # output histogram
-            for target, index in self.categorical_target_map.items():
-                # apply softmax to prediction
-                logit = kwargs["prediction"]
-                pred_prob = torch.softmax(logit, dim=1)
-
-                self.writer.add_histogram(
-                    f"output_prob_{target}",
-                    pred_prob[:, index],
-                    self.trainer.state.iteration,
-                )
-                self.writer.add_histogram(
-                    f"output_logit_{target}",
-                    logit[:, index],
-                    self.trainer.state.iteration,
-                )
-
-        def init_dataset_handler(self, task: law.Task, device: str = "cpu") -> None:
-            group_datasets = {
-                "ttbar": [d for d in task.datasets if d.startswith("tt_")],
-            }
-            all_datasets = getattr(task, "resolved_datasets", task.datasets)
-
-            self.dataset_handler = WeightedRgTensorParquetFileHandler(
-                task=task,
-                continuous_features=getattr(self, "continuous_features", self.inputs),
-                categorical_features=getattr(self, "categorical_features", None),
-                batch_transformations=MoveToDevice(device=device),
-                # global_transformations=PreProcessFloatValues(),
-                build_categorical_target_fn=self._build_categorical_target,
-                group_datasets=group_datasets,
-                device=device,
-                datasets=[d for d in all_datasets if any(d.startswith(x) for x in ["tt_", "hh_"])],
-            )
-            self.training_loader, (self.train_validation_loader, self.validation_loader) = self.dataset_handler.init_datasets() #noqa
-
-            # get statistics for standardization from training dataset without oversampling
-            train_valid_dataset_map = self.train_validation_loader.data_map
-            self.dataset_statitics = get_standardization_parameter(self.train_validation_loader.data_map, self.continous_inputs)
-
-
-        def init_optimizer(self, learning_rate=1e-2, weight_decay=1e-5) -> None:
-            self.optimizer = AdamW(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
-            self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer=self.optimizer, step_size=1, gamma=0.9)
-
-        def forward(self, x, *args, **kwargs):
-            from IPython import embed; embed(header="string - 890 in RESNET FORWARD ")
-            cat_inp = self._handle_input(
-                x,
-                self.categorical_inputs,
-                dtype=torch.int32,
-                empty_fill_val=self.placeholder,
-                mask_value=EMPTY_INT,
-            )
-            self.cemb = self.cemb(cat_inp)
-            con_inp = self._handle_input(x, self.continous_inputs)
-            # standardize inputs
-            con_inp = self.std_layer(con_inp)
-            x = self.input_layer(con_inp, cat_inp)
-            return self.model(x)

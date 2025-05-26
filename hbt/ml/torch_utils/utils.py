@@ -4,35 +4,38 @@ __all__ = [
     "reorganize_idx", "CustomEarlyStopping", "RelativeEarlyStopping",
 ]
 from collections import defaultdict
+from collections.abc import Iterable
 
 import law
 from columnflow.util import maybe_import, MockModule
 from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
 from columnflow.types import Any
 from copy import deepcopy
-
+from hbt.ml.torch_utils.datasets import ParquetDataset
 
 ignite = maybe_import("ignite")
 torch = maybe_import("torch")
 np = maybe_import("numpy")
-ak = maybe_import("awkward")
+ak = maybe_import("awkward")  # type: ignore
 
 embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
     "decay_mode1": [-1, 0, 1, 10, 11],  # -1 for e/mu
     "decay_mode2": [0, 1, 10, 11],
-    "lepton1.charge": [-1, 1],
-    "lepton2.charge": [-1, 1],
+    "lepton1.charge": [-1, 1, 0],
+    "lepton2.charge": [-1, 1, 0],
     "has_fatjet": [0, 1],  # whether a selected fatjet is present
     "has_jet_pair": [0, 1],  # whether two or more jets are present
     # 0: 2016APV, 1: 2016, 2: 2017, 3: 2018, 4: 2022preEE, 5: 2022postEE, 6: 2023pre, 7: 2023post
     "year_flag": [0, 1, 2, 3, 4, 5, 6, 7],
     "channel_id": [1, 2, 3],
 }
+
+
 def get_standardization_parameter(
     data_map: list[ParquetDataset],
-    columns: list[Route | str] | None = None,
-    ) -> dict[str : ak.Array]:
+    columns: Iterable[Route],
+) -> dict[str, ak.Array]:
     # open parquet files and concatenate to get statistics for whole datasets
     # beware missing values are currently ignored
     all_data = ak.concatenate(list(map(lambda x: x.data, data_map)))

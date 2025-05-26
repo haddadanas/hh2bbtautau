@@ -5,12 +5,12 @@ __all__ = [
     "FlatArrowRowGroupParquetDataset", "FlatRowgroupParquetDataset",
     "WeightedFlatRowgroupParquetDataset",
     "TensorParquetDataset", "WeightedRgTensorParquetDataset",
-    "RgTensorParquetDataset",
+    "RgTensorParquetDataset", "WeightedTensorParquetDataset",
 ]
 
-from collections.abc import Iterable, Mapping, Collection, Container
+from collections.abc import Iterable, Mapping, Collection, Container, Sequence
 
-from hbt.ml.torch_utils.datasets.mixins import PaddingMixin, RowgroupMixin, WeightMixin
+from hbt.ml.torch_utils.datasets.mixins import PaddingMixin, RowgroupMixin, RowgroupWeightMixin, WeightMixin
 
 from columnflow.util import MockModule, maybe_import, DotDict
 from columnflow.types import Any, Callable, Sequence
@@ -31,6 +31,13 @@ pq = maybe_import("pyarrow.parquet")
 ListDataset = MockModule("ListDataset")  # type: ignore
 ParquetDataset = MockModule("ParquetDataset")  # type: ignore
 FlatParquetDataset = MockModule("FlatParquetDataset")  # type: ignore
+FlatArrowRowGroupParquetDataset = MockModule("FlatArrowRowGroupParquetDataset")  # type: ignore
+FlatRowgroupParquetDataset = MockModule("FlatRowgroupParquetDataset")  # type: ignore
+WeightedFlatRowgroupParquetDataset = MockModule("WeightedFlatRowgroupParquetDataset")  # type: ignore
+TensorParquetDataset = MockModule("TensorParquetDataset")  # type: ignore
+RgTensorParquetDataset = MockModule("RgTensorParquetDataset")  # type: ignore
+WeightedRgTensorParquetDataset = MockModule("WeightedRgTensorParquetDataset")  # type: ignore
+WeightedTensorParquetDataset = MockModule("WeightedTensorParquetDataset")
 
 if not isinstance(torchdata, MockModule):
     from torch.utils.data import Dataset
@@ -63,8 +70,11 @@ if not isinstance(torchdata, MockModule):
             open_options: dict[str, Any] | None = None,
             batch_transform: Callable | None = None,
             global_transform: Callable | None = None,
+            input_data_transform: Callable | None = None,
             categorical_target_transform: Callable | None = None,
             data_type_transform: Callable | None = None,
+            data_loader_func: Callable | None = None,
+            idx: Sequence[int] | None = None,
             device: str | None = None,
         ):
             self.open_options = open_options or {}
@@ -76,7 +86,12 @@ if not isinstance(torchdata, MockModule):
             self.batch_transform = batch_transform
             self.categorical_target_transform = categorical_target_transform
             self.data_type_transform = data_type_transform
+            self.input_data_transform = input_data_transform
             self.global_transform = global_transform
+
+            # variables for data loading
+            self.data_loader_func = data_loader_func or ak.from_parquet
+            self.idx: Sequence[int] | None = idx
 
             self.input = input
             self._data: ak.Array | None = None
@@ -136,6 +151,7 @@ if not isinstance(torchdata, MockModule):
             self.categorical_target_transform = first.categorical_target_transform
             self.data_type_transform = first.data_type_transform
             self.global_transform = first.global_transform
+            self.input_data_transform = first.input_data_transform
             # make sure all datasets have the same columns
             def _get_columnset(attr):
                 foo = getattr(first, attr)
@@ -269,6 +285,7 @@ if not isinstance(torchdata, MockModule):
             for t in [
                 self.batch_transform,
                 self.global_transform,
+                self.input_data_transform,
                 self.data_type_transform,
                 self.categorical_target_transform,
             ]:
@@ -326,7 +343,10 @@ if not isinstance(torchdata, MockModule):
         def data(self) -> ak.Array:
             if self._data is None:
                 self.open_options["columns"] = [x.string_column for x in self.all_columns]
-                self._data = ak.from_parquet(self.path, **self.open_options)
+                self._data = self.data_loader_func(self.path, **self.open_options)
+
+                if self.idx:
+                    self._data = self._data[self.idx]
 
                 if self.global_transform:
                     self._data = self.global_transform(self._data)
@@ -342,6 +362,8 @@ if not isinstance(torchdata, MockModule):
         def input_data(self) -> ak.Array:
             if self._input_data is None:
                 self._input_data = self._load_data(columns_to_remove=self.target_columns)
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
@@ -358,6 +380,8 @@ if not isinstance(torchdata, MockModule):
             length: int = 0
             if self._data is not None:
                 length = len(self._data)
+            elif self.idx:
+                length = len(self.idx)
             elif self.meta_data and self.meta_data.get("col_counts", None):
                 length = sum(self.meta_data["col_counts"])
             else:
@@ -429,6 +453,8 @@ if not isinstance(torchdata, MockModule):
                     str(r): self._extract_columns(self._input_data, r)
                     for r in self.data_columns
                 }
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
@@ -492,7 +518,7 @@ if not isinstance(torchdata, MockModule):
 
             In case `cls_weights` are defined, they are appended to `input_data`, i.e. are the last values
             in the list.
-            
+
             :param continuous_features: List, tuple or set of continuous features to load
             :param categorical_features: List, tuple or set of categorical features to load
             :param args: Arguments to pass to upstream classes
@@ -555,6 +581,8 @@ if not isinstance(torchdata, MockModule):
                     cat_features = self._array_set_to_tensor(self.categorical_features)
                     cont_features = self._array_set_to_tensor(self.continuous_features)
                     self._input_data = [cat_features, cont_features]
+                if self.input_data_transform:
+                    self._input_data = self.input_data_transform(self._input_data)
                 if self.data_type_transform:
                     self._input_data = self.data_type_transform(self._input_data)
             return self._input_data
@@ -602,13 +630,10 @@ if not isinstance(torchdata, MockModule):
     class FlatRowgroupParquetDataset(RowgroupMixin, FlatParquetDataset):
         pass
 
-    class WeightedFlatRowgroupParquetDataset(WeightMixin, FlatRowgroupParquetDataset):
+    class WeightedFlatRowgroupParquetDataset(RowgroupWeightMixin, FlatRowgroupParquetDataset):
         pass
 
-    class RgTensorParquetDataset(RowgroupMixin, TensorParquetDataset):
-        pass
-
-    class WeightedRgTensorParquetDataset(WeightMixin, RowgroupMixin, TensorParquetDataset):
+    class WeightedTensorParquetDataset(WeightMixin, TensorParquetDataset):
 
         def _calculate_weights(self, indices: ak.Array) -> ak.Array:
             # calculate the weights for the given indices
@@ -625,6 +650,12 @@ if not isinstance(torchdata, MockModule):
             if self.batch_transform:
                 final_weights = self.batch_transform(final_weights)
             return final_weights
+
+    class RgTensorParquetDataset(RowgroupMixin, TensorParquetDataset):
+        pass
+
+    class WeightedRgTensorParquetDataset(RowgroupMixin, WeightedTensorParquetDataset):
+        pass
 
     class FlatArrowRowGroupParquetDataset(FlatRowgroupParquetDataset):
         def __init__(self, *args, filters: pa._compute.Expression | list[str] | None = None, **kwargs):
