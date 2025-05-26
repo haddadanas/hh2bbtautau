@@ -9,6 +9,7 @@ from hbt.ml.torch_models.binary import (
     WeightedTensorFeedForwardNetWithCatReducedEmbedding,
     WeightedTensorFeedForwardNetWithCatReducedEmbedding1F,
     WeightedTensorFeedForwardNetWithCatOutsourceTokens,
+    ANet,
 )
 from hbt.ml.torch_models.multi_class import (
     FeedForwardMultiCls,
@@ -51,3 +52,4 @@ model_clss["weighted_resnet_nodroupout"] = WeightedResnetNoDropout
 model_clss["weighted_resnet_test"] = WeightedResnetTest
 model_clss["weighted_resnet_test2"] = WeightedResnetTest2
 model_clss["bognet"] = BogNet
+model_clss["anet"] = ANet
