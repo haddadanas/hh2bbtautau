@@ -1551,7 +1551,7 @@ def add_config(
         "electron_weight": get_shifts("e"),
         "muon_weight": get_shifts("mu"),
         "tau_weight": get_shifts(*(f"tau_{unc}" for unc in cfg.x.tau_unc_names)),
-        "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
+        # "trigger_weight": get_shifts(*(f"trigger_{leg}" for leg in trigger_legs)),
     })
 
     # define per-dataset event weights
@@ -1640,7 +1640,7 @@ def add_config(
     # Network WPs
     ####################################################################################################
     cfg.x.ml_wps = [35, 36, 37, 38, 40, 45, 50, 80]
-    cfg.x.dnn_thresholds_wps = [0.2, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]
+    cfg.x.dnn_thresholds_wps = [0.2, 0.25, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]
     first_dir = lambda path: path + os.listdir(path)[0] if os.listdir(path) else path
     cfg.x.ml_tautau = DotDict.wrap({
         key: first_dir(

@@ -4,7 +4,7 @@ from functools import partial
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
-from columnflow.production.normalization import normalization_weights, stitched_normalization_weights
+from columnflow.production.normalization import normalization_weights
 from columnflow.production.processes import process_ids
 from columnflow.util import DotDict, maybe_import
 
@@ -46,20 +46,22 @@ def channel_id_mask(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        f"Electron.{var}" for var in ["pt", "eta", "dz", "dxy", "mvaIso_WP80", "mvaIso"]
+        f"Electron.{var}" for var in ["pt", "phi", "eta", "dz", "dxy", "mvaIso_WP80", "mvaIso"]
     } | {
-        f"Muon.{var}" for var in ["pt", "eta", "dz", "dxy", "tightId", "pfRelIso04_all"]
+        f"Muon.{var}" for var in ["pt", "phi", "eta", "dz", "dxy", "tightId", "pfRelIso04_all"]
     } | {
         f"Tau.{var}" for var in [
-            "pt", "eta", "dz", "dxy", "idDeepTau2018v2p5VSe", "idDeepTau2018v2p5VSmu", "idDeepTau2018v2p5VSjet",
+            "pt", "phi", "eta", "dz", "dxy", "idDeepTau2018v2p5VSe", "idDeepTau2018v2p5VSmu", "idDeepTau2018v2p5VSjet",
         ]
     } | {
         "channel_id",
     },
     produces={
-        f"l1.{var}" for var in ["pt", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso", "iso_score"]
+        f"l1.{var}" for var in ["pt", "phi", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso", "iso_score"]
     } | {
-        f"l2.{var}" for var in ["pt", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso"]
+        f"l2.{var}" for var in ["pt", "phi", "eta", "dz", "dxy", "tauVSjet", "tauVSe", "tauVSmu", "is_iso"]
+    } | {
+        "leps.delta_r",
     },
 )
 def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -97,7 +99,7 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         l2 = Route("Tau[:, 0]").apply(events, None)
         iso_tag = "mvaIso" if ch == "etau" else "pfRelIso04_all"
         is_iso_tag = "mvaIso_WP80" if ch == "etau" else "tightId"
-        for f in ["pt", "eta", "dz", "dxy"]:
+        for f in ["pt", "phi", "eta", "dz", "dxy"]:
             result[f"l1.{f}"] = ak.where(ch_mask, l1[f], result[f"l1.{f}"])
             result[f"l2.{f}"] = ak.where(ch_mask, l2[f], result[f"l2.{f}"])
         iso_events = l1[iso_tag] / ak.max(l1[iso_tag])
@@ -113,7 +115,7 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     l1 = Route("Tau[:, 0]").apply(events, None)
     l2 = Route("Tau[:, 1]").apply(events, None)
     get_tau_iso = lambda ind: Route(f"[:, {ind}]").apply(tau_is_iso, None)
-    for f in ["pt", "eta", "dz", "dxy"]:
+    for f in ["pt", "phi", "eta", "dz", "dxy"]:
         result[f"l1.{f}"] = ak.where(is_tautau, l1[f], result[f"l1.{f}"])
         result[f"l2.{f}"] = ak.where(is_tautau, l2[f], result[f"l2.{f}"])
     for f in ["jet", "e", "mu"]:
@@ -126,11 +128,11 @@ def pp_leptons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     for field in self.produces:
         events = set_ak_column_f32(events, field, result[field])
 
-    # # delta r between leptons
-    # delta_r = np.sqrt(
-    #     (events.l1.eta - events.l2.eta) ** 2 + (events.l1.phi - events.l2.phi) ** 2
-    # )
-    # events = set_ak_column_f32(events, "delta_r_leps", delta_r)
+    # delta r between leptons
+    delta_r = np.sqrt(
+        (events.l1.eta - events.l2.eta) ** 2 + (events.l1.phi - events.l2.phi) ** 2
+    )
+    events = set_ak_column_f32(events, "leps.delta_r", ak.fill_none(delta_r, EMPTY_FLOAT))
 
     return events
 
@@ -159,6 +161,8 @@ def pp_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     },
     produces={
         f"bjet{i}.{var}" for i in range(2) for var in ["pt", "phi", "eta", "mass", "hhbtag", "btagPNetB"]
+    } | {
+        "bjets.delta_r",
     },
 )
 def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -174,22 +178,7 @@ def pp_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     delta_r = np.sqrt(
         (bjet0.eta - bjet1.eta) ** 2 + (bjet0.phi - bjet1.phi) ** 2,
     )
-    events = set_ak_column_f32(events, "delta_r_bjets", delta_r)
-
-    return events
-
-
-@producer(
-    uses={"category_ids"},
-    produces={"tau_pt*"},
-)
-def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    cats = [f"tau_pt{i}" for i in self.config_inst.x.ml_wps]
-    for cat in cats:
-        cat_inst = self.config_inst.get_category(f"tautau__{cat}")
-        cat_id = cat_inst.id
-        mask = ak.any(events.category_ids == cat_id, axis=-1)
-        events = set_ak_column(events, cat, mask, value_type=np.bool_)
+    events = set_ak_column_f32(events, "bjets.delta_r", ak.fill_none(delta_r, EMPTY_FLOAT))
 
     return events
 
@@ -197,16 +186,16 @@ def tau_selection_cuts(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 @producer(
     uses={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids,
-        tau_selection_cuts, normalization_weights,
+        normalization_weights,
     },
     produces={
         pp_bjets, pp_jets, pp_leptons, pp_channel_id, hh_mass, process_ids, "n_jets", "n_bjets",
-        "n_taus", "channel_id", tau_selection_cuts, normalization_weights,
+        "n_taus", "channel_id", normalization_weights,
     },
 )
 def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # add categories
-    events = self[self.category_ids_only_tau](events)
+    # events = self[category_ids](events)
     # mc-only weights
     if self.dataset_inst.is_mc:
         events = self[normalization_weights](events, **kwargs)
@@ -215,8 +204,6 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         events["normalization_weight"] = events["normalization_weight_inclusive"]
 
     events = self[hh_mass](events)
-
-    events = self[tau_selection_cuts](events)
 
     events = self[pp_channel_id](events)
 
@@ -235,13 +222,3 @@ def preprocess(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "n_taus", n_taus)
 
     return events
-
-
-@preprocess.init
-def preprocess_init(self: Producer) -> None:
-    category_ids_only_tau = category_ids.derive("category_ids_only_tau", cls_dict={
-        "skip_category": (lambda self, category_inst: not category_inst.name.startswith("tautau__tau_pt"))
-    })
-    self.produces.add(category_ids_only_tau)
-    self.category_ids_only_tau = category_ids_only_tau
-    self.uses.add(category_ids_only_tau)

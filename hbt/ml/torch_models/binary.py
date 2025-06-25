@@ -310,13 +310,14 @@ if not isinstance(torch, MockModule):
                 "roc_auc": WeightedROC_AUC(),
             }
 
-        def init_dataset_handler(self, task: law.Task):
+        def init_dataset_handler(self, task: law.Task, *args, **kwargs):
             all_datasets = getattr(task, "resolved_datasets", task.datasets)
             group_datasets = {
                 "hh": [d for d in all_datasets if d.startswith("hh_")],
             }
-            device = self.used_device
-            self.dataset_handler = WeightedRgTensorParquetFileHandler(
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+            self.dataset_handler = WeightedTensorParquetFileHandler(
                 task=task,
                 continuous_features=getattr(self, "continuous_features", self.inputs),
                 categorical_features=getattr(self, "categorical_features", None),
@@ -643,7 +644,8 @@ if not isinstance(torch, MockModule):
             group_datasets = {
                 "ttbar": [d for d in task.datasets if d.startswith("tt_")],
             }
-            device = next(self.parameters()).device
+
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.dataset_handler = FlatArrowParquetFileHandler(
                 task=task,
                 columns=self.inputs,

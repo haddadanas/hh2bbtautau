@@ -674,6 +674,21 @@ def add_variables(config: od.Config) -> None:
         x_title="DNN Signal",
         aux={"x_transformations": "equal_distance_with_indices"},
     )
+    add_variable(
+        config,
+        name="lora_dnn_signal",
+        expression="lora_bin_dnn_1",
+        binning=(25, 0.0, 1.0),
+        x_title="DNN Signal",
+    )
+    add_variable(
+        config,
+        name="lora_dnn_signal_fine",
+        expression="lora_bin_dnn_1",
+        binning=(5000, 0.0, 1.0),
+        x_title="LoRA DNN Signal",
+        aux={"x_transformations": "equal_distance_with_indices"},
+    )
 
     add_variable(
         config,

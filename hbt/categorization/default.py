@@ -104,11 +104,25 @@ def cat_ml_selected_50(self: Categorizer, events: ak.Array, **kwargs) -> tuple[a
     return events, events.bin_dnn_1 >= self.threshold
 
 
-ml_selectoed_cats = []
-for th in [0.2, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]:
-    ml_selectoed_cats.append(
+@categorizer(uses={"bin_dnn_1"}, threshold=0.5)
+def cat_ml_rejected_50(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    return events, events.bin_dnn_1 < self.threshold
+
+
+ml_selected_cats = []
+ml_rejected_cats = []
+for th in [0.2, 0.25, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]:
+    ml_selected_cats.append(
         cat_ml_selected_50.derive(
             f"cat_ml_selected_{int(th * 100)}",
+            cls_dict={
+                "threshold": th,
+            },
+        )
+    )
+    ml_rejected_cats.append(
+        cat_ml_rejected_50.derive(
+            f"cat_ml_rejected_{int(th * 100)}",
             cls_dict={
                 "threshold": th,
             },

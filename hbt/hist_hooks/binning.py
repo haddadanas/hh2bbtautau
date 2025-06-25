@@ -346,6 +346,12 @@ def add_hooks(analysis_inst: od.Analysis) -> None:
         n_bins=10,
         constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
     )
+    analysis_inst.x.hist_hooks.flats_kl1_n20_guarded = functools.partial(
+        flat_s,
+        signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
+        n_bins=20,
+        constraint=BinningConstraint(["tt", "dy"], constrain_tt_dy),
+    )
     analysis_inst.x.hist_hooks.flats_kl1_n10_guarded5 = functools.partial(
         flat_s,
         signal_process_name="hh_ggf_hbb_htt_kl1_kt1",
