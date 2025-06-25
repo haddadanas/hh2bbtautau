@@ -85,13 +85,14 @@ def get_bad_events(self: Selector, events: ak.Array) -> ak.Array:
 
 @selector(
     uses={
-        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, jet_selection, ps_weights,
-        mc_weight, pu_weight, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids, cutflow_features,
-        attach_coffea_behavior, patch_ecalBadCalibFilter, IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
+        json_filter, met_filters, IF_RUN_3(jet_veto_map), trigger_selection, lepton_selection, jet_selection,
+        mc_weight, pu_weight, ps_weights, btag_weights_deepjet, IF_RUN_3(btag_weights_pnet), process_ids,
+        cutflow_features, attach_coffea_behavior, patch_ecalBadCalibFilter,
+        IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     produces={
-        trigger_selection, jet_selection, mc_weight, pu_weight, btag_weights_deepjet,
-        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet), ps_weights,
+        trigger_selection, lepton_selection, jet_selection, mc_weight, pu_weight, ps_weights, btag_weights_deepjet,
+        process_ids, cutflow_features, IF_RUN_3(btag_weights_pnet),
         IF_DATASET_HAS_LHE_WEIGHTS(pdf_weights, murmuf_weights),
     },
     exposed=True,
@@ -198,8 +199,10 @@ def default(
             )
 
     # create process ids
-    # if self.process_ids_dy is not None:
-    #     events = self[self.process_ids_dy](events, **kwargs)
+    # if self.process_ids_dy_amcatnlo is not None:
+    #     events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
+    # elif self.process_ids_dy_powheg is not None:
+    #     events = self[self.process_ids_dy_powheg](events, **kwargs)
     # elif self.process_ids_w_lnu is not None:
     #     events = self[self.process_ids_w_lnu](events, **kwargs)
     # else:
@@ -250,15 +253,17 @@ def default(
 @default.init
 def default_init(self: Selector, **kwargs) -> None:
     # build and store derived process id producers
-    for tag in ("dy", "w_lnu"):
+    for tag in {"dy_amcatnlo", "dy_powheg", "w_lnu"}:
         prod_name = f"process_ids_{tag}"
         setattr(self, prod_name, None)
         if not self.dataset_inst.has_tag(tag):
             continue
+        if not (stitching_cfg := self.config_inst.x(f"{tag}_stitching", None)):
+            continue
         # check if the producer was already created and saved in the config
         if (prod := self.config_inst.x(prod_name, None)) is None:
             # check if this dataset is covered by any dy id producer
-            for stitch_name, cfg in self.config_inst.x(f"{tag}_stitching").items():
+            for stitch_name, cfg in stitching_cfg.items():
                 incl_dataset_inst = cfg["inclusive_dataset"]
                 # the dataset is "covered" if its process is a subprocess of that of the dy dataset
                 if incl_dataset_inst.has_process(self.dataset_inst.processes.get_first()):
@@ -399,8 +404,10 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy is not None:
-        events = self[self.process_ids_dy](events, **kwargs)
+    if self.process_ids_dy_amcatnlo is not None:
+        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
+    elif self.process_ids_dy_powheg is not None:
+        events = self[self.process_ids_dy_powheg](events, **kwargs)
     elif self.process_ids_w_lnu is not None:
         events = self[self.process_ids_w_lnu](events, **kwargs)
     else:
