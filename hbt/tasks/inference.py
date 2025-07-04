@@ -30,7 +30,6 @@ class CreateHBTDatacards(HBTTask, CreateDatacards):
                 f"skipping hist hooks for {variable_name} as it is not a fine binning variable"
             )
             return hists
-        6 / 0
         # apply hooks in order
         for hook in self.hist_hooks:
             if hook in {None, "", law.NO_STR}:

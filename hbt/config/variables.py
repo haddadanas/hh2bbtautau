@@ -663,7 +663,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="bin_dnn_signal",
         expression="bin_dnn_1",
-        binning=(25, 0.0, 1.0),
+        binning=(20, 0.0, 1.0),
         x_title="DNN Signal",
     )
     add_variable(
@@ -678,8 +678,8 @@ def add_variables(config: od.Config) -> None:
         config,
         name="lora_dnn_signal",
         expression="lora_bin_dnn_1",
-        binning=(25, 0.0, 1.0),
-        x_title="DNN Signal",
+        binning=(20, 0.0, 1.0),
+        x_title="LoRA DNN Signal",
     )
     add_variable(
         config,

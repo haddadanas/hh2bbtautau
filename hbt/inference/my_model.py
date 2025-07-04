@@ -42,9 +42,9 @@ class ml_inference(HBTInferenceModelBase):
             config_data={
                 config_inst.name: self.category_config_spec(
                     # name of the analysis category in the config
-                    category="incl",  # m1 rejected < 0.2
+                    category="signal",
                     # name of the variable
-                    variable="bin_dnn_signal_fine",  # m1 no flat s
+                    variable="bin_dnn_signal_fine",
                     # names (or patterns) of datasets with real data in the config
                     data_datasets=["data_*"],
                 )
@@ -226,7 +226,7 @@ class ml_inference_all_lora_no_cut(ml_inference):
             config_data={
                 config_inst.name: self.category_config_spec(
                     # name of the analysis category in the config
-                    category="incl",  # m1 selected > 0.2
+                    category="signal",  # m1 selected > 0.2
                     # name of the variable
                     variable="lora_dnn_signal_fine",  # m2 variable with flat s
                     # names (or patterns) of datasets with real data in the config
@@ -271,14 +271,16 @@ class ml_inference_lora(ml_inference):
     Inference model for the HBT classification task using a LoRA model.
     This model extends the base `ml_inference` model with LoRA-specific functionality.
     """
+    threshold = 25
 
     def init_categories(self) -> None:
+        threshold = int(str(self.threshold).ljust(2, "0"))
         self.add_category(
             "bin_dnn_signal",
             config_data={
                 config_inst.name: self.category_config_spec(
                     # name of the analysis category in the config
-                    category="ml_rejected_25",  # m1 rejected < 0.2
+                    category=f"ml_rejected_{threshold}",  # m1 rejected < 0.2
                     # name of the variable
                     variable="bin_dnn_signal",  # m1 no flat s
                     # names (or patterns) of datasets with real data in the config
@@ -295,7 +297,7 @@ class ml_inference_lora(ml_inference):
             config_data={
                 config_inst.name: self.category_config_spec(
                     # name of the analysis category in the config
-                    category="ml_selected_25",  # m1 selected > 0.2
+                    category=f"ml_selected_{threshold}",  # m1 selected > 0.2
                     # name of the variable
                     variable="lora_dnn_signal_fine",  # m2 variable with flat s
                     # names (or patterns) of datasets with real data in the config
@@ -307,6 +309,18 @@ class ml_inference_lora(ml_inference):
             data_from_processes=["ttbar", "DY"],
             flow_strategy=FlowStrategy.move,
         )
+
+
+models = []
+for i in [0, 1, 2, 25, 4, 5, 6, 7]:
+    models.append(
+        ml_inference_lora.derive(
+            f"ml_inference_lora_0p{i}",
+            cls_dict={
+                "threshold": i,
+            },
+        )
+    )
 
 # @inference_model(
 #     used_category="ml_selected_50",

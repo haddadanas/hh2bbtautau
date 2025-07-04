@@ -652,7 +652,7 @@ def add_config(
                 "has_fatjet",
                 "has_jet_pair",
                 "year_flag",
-        ]),
+                                              ]),
         "ml_inputs": [*cont_inputs, *cat_inputs],
 
     }
@@ -1699,7 +1699,7 @@ def add_config(
     # Network WPs
     ####################################################################################################
     cfg.x.ml_wps = [35, 36, 37, 38, 40, 45, 50, 80]
-    cfg.x.dnn_thresholds_wps = [0.2, 0.25, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]
+    cfg.x.dnn_thresholds_wps = [0, 0.1, 0.2, 0.25, 0.3, 0.4, 0.45, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9]
     first_dir = lambda path: path + os.listdir(path)[0] if os.listdir(path) else path
     cfg.x.ml_tautau = DotDict.wrap({
         key: first_dir(
@@ -1707,6 +1707,46 @@ def add_config(
             f"ml_model_batch_norm__default__datasets_3__tau_pt_cut_{key}_logs/"
         )
         for key in cfg.x.ml_wps
+    })
+    cfg.x.ml_dnn = DotDict.wrap({
+        key: f"/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/nn_models/{val}"
+        for key, val in [
+            ("FocalLoss_1", "token_model__loose__datasets_3__seed_4321_logs/20250624_174039/"),
+            ("FocalLoss_g3", "token_model__loose__datasets_3__seed_4321__rank_10__threshold_0p25_logs/20250702_165550/"),
+            ("BCE_1", "token_model__loose__datasets_3__seed_4321_logs/20250625_184027/"),
+            ("BCE_2", "token_model__loose__datasets_3__seed_4321__rank_10_logs/20250701_125305/"),
+            ("BCE_3", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250702_123127/"),
+            ("BCE_4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25_logs/20250704_111854/"),
+            ("rank_1", "token_model__loose__datasets_3__seed_911__rank_1_logs/20250627_140554/"),
+            ("rank_3", "token_model__loose__datasets_3__seed_911__rank_3_logs/20250627_151115/"),
+            ("rank_5", "token_model__loose__datasets_3__seed_911__rank_5_logs/20250627_160915/"),
+            ("rank_10", "token_model__loose__datasets_3__seed_911__rank_10_logs/20250627_170219/"),
+            ("rank_20", "token_model__loose__datasets_3__seed_911__rank_20_logs/20250627_175306/"),
+            ("rank_50", "token_model__loose__datasets_3__seed_911__rank_50_logs/20250627_184535/"),
+            ("rank_100", "token_model__loose__datasets_3__seed_911__rank_100_logs/20250630_162816/"),
+            ("rank_1_2", "token_model__loose__datasets_3__seed_42__rank_1_logs/20250626_174451/"),
+            ("rank_3_2", "token_model__loose__datasets_3__seed_42__rank_3_logs/20250626_180202/"),
+            ("rank_5_2", "token_model__loose__datasets_3__seed_42__rank_5_logs/20250626_181632/"),
+            ("rank_10_2", "token_model__loose__datasets_3__seed_42__rank_10_logs/20250626_183102/"),
+            ("rank_20_2", "token_model__loose__datasets_3__seed_42__rank_20_logs/20250626_184530/"),
+            ("rank_50_2", "token_model__loose__datasets_3__seed_42__rank_50_logs/20250626_185943/"),
+            ("rank_100_2", "token_model__loose__datasets_3__seed_42__rank_100__threshold_0p25__lr_0.0001_logs/20250703_221003/"),
+            # threshold scan
+            ("th_0p0", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p0_logs/20250701_152325/"),
+            ("th_0p1", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p1_logs/20250701_160227/"),
+            ("th_0p25", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25_logs/20250701_165820/"),
+            ("th_0p2", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250701_161015/"),
+            ("th_0p4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p4_logs/20250701_174054/"),
+            ("th_0p5", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p5_logs/20250701_183911/"),
+            ("th_0p6", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p6_logs/20250701_193433/"),
+            ("th_0p7", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p7_logs/20250701_200600/"),
+            # seed checks
+            ("r10_s1337", "token_model__loose__datasets_3__seed_1337__rank_10__threshold_0p25__lr_0.0001_logs/20250703_184321/"),
+            ("r10_s8675309", "token_model__loose__datasets_3__seed_8675309__rank_10__threshold_0p25__lr_0.0001_logs/20250703_202506/"),
+            ("r10_s9001", "token_model__loose__datasets_3__seed_9001__rank_10__threshold_0p25__lr_0.0001_logs/20250703_193548/"),
+            ("r10_s42", "token_model__loose__datasets_3__seed_42__rank_10__threshold_0p25__lr_0.0001_logs/20250703_175236/"),
+            ("r10_s123456789", "token_model__loose__datasets_3__seed_123456789__rank_10__threshold_0p25__lr_0.0001_logs/20250703_212441/"),
+        ]
     })
 
     ################################################################################################

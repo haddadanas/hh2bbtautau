@@ -12,6 +12,9 @@ from columnflow.config_util import add_category, create_category_combinations, C
 from columnflow.types import Any
 
 
+cat_dict_mapping = dict()
+
+
 def add_categories(config: od.Config) -> None:
     """
     Adds all categories to a *config*.
@@ -65,7 +68,7 @@ def add_categories(config: od.Config) -> None:
         return {
             # just increment the category id
             # NOTE: for this to be deterministic, the order of the categories must no change!
-            "id": "+",
+            "id": cat_dict_mapping.get(name_fn(categories), "+"),
             # join all tags
             "tags": set.union(*[cat.tags for cat in categories.values() if cat]),
             # auxiliary information
@@ -95,6 +98,10 @@ def add_categories(config: od.Config) -> None:
         name_fn=name_fn,
         kwargs_fn=functools.partial(kwargs_fn, add_qcd_group=True),
     )
+
+    for cat in config.get_leaf_categories():
+        # add the category to the mapping
+        cat_dict_mapping[cat.name] = cat.id
 
     # control categories
     # control_categories = {

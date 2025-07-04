@@ -44,7 +44,7 @@ def setup_plot_styles(config: od.Config) -> None:
     # - shortened process labels
     # - changed annotation (channel) position to fit right under legend
     wide_legend = legend | {
-        "ncols": 3, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column, "cf_short_labels": True,
+        "ncols": 2, "loc": "upper left", "cf_entries_per_column": legend_entries_per_column, "cf_short_labels": False,
     }
     annotate_wide = annotate | {
         "xy": (0.035, 0.765),
@@ -78,6 +78,13 @@ def setup_plot_styles(config: od.Config) -> None:
             "legend_cfg": wide_ext_legend,
             "annotate_cfg": annotate_wide_ext,
         },
+        "dnn_log": {
+            **wide_legend_cfg,
+            "ax_cfg" : {
+                "ylim": (1e2, 1e8),
+                "yscale": "log",
+            }
+        }
     }
 
     config.x.default_custom_style_config = "wide_legend"
@@ -119,8 +126,8 @@ def stylize_processes(config: od.Config) -> None:
         if (p := config.get_process(f"hh_ggf_hbb_htt_kl{kl}_kt1", default=None)):
             # p.color1 = cfg.x.colors.dark_blue
             p.color1 = ggf_colors.get(kl, cfg.x.colors.dark_blue)
-            kappa_label = create_kappa_label(**{r"\lambda": kl, "t": "1"}, group=False)
-            p.label = rf"$HH_{{ggf}} \rightarrow bb\tau\tau$ __SCALE____SHORT____BREAK__({kappa_label})"
+            kappa_label = create_kappa_label(**{r"\lambda": kl}, group=False)
+            p.label = rf"$HH_{{ggf}} $ __SCALE____SHORT____BREAK__({kappa_label})"
 
     for kv, k2v, kl in [
         ("1", "1", "1"),
