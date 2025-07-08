@@ -16,7 +16,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         attach_coffea_behavior,
     ),
     produces={
-        "hh.*", "diTau.*", "diBJet.*",
+        "hh.*", "diLep.*", "diBJet.*",
     },
 )
 def hh_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -28,16 +28,16 @@ def hh_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # total number of objects per event
     n_bjets = ak.num(events.HHBJet, axis=1)
-    n_taus = ak.num(events.Tau, axis=1)
+    n_taus = ak.num(events.Tau, axis=1) + ak.num(events.Electron, axis=1) + ak.num(events.Muon, axis=1)
     # mask to select events with exactly 2 taus
     ditau_mask = (n_taus == 2)
     diBjet_mask = (n_bjets == 2)
     dihh_mask = ditau_mask & diBjet_mask
 
     # four-vector sum of first two elements of each object collection (possibly fewer)
-    diBJet = events.HHBJet.sum(axis=1)
-    diTau = events.Tau[:, :2].sum(axis=1)
-    hh = diBJet + diTau
+    diBJet = events.HHBJet.sum(axis=1) * 1
+    diLep = ak.concatenate((events.Muon * 1, events.Electron * 1, events.Tau * 1), axis=1)[:, :2].sum(axis=1)
+    hh = diBJet + diLep
 
     def save_interesting_properties(
         source: ak.Array,
@@ -55,12 +55,15 @@ def hh_mass(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = save_interesting_properties(events, "diBJet.mass", diBJet.mass, diBjet_mask)
     events = save_interesting_properties(events, "diBJet.eta", diBJet.eta, diBjet_mask)
     events = save_interesting_properties(events, "diBJet.pt", diBJet.pt, diBjet_mask)
-    events = save_interesting_properties(events, "diTau.mass", diTau.mass, ditau_mask)
-    events = save_interesting_properties(events, "diTau.eta", diTau.eta, ditau_mask)
-    events = save_interesting_properties(events, "diTau.pt", diTau.pt, ditau_mask)
+    events = save_interesting_properties(events, "diBJet.phi", diBJet.phi, diBjet_mask)
+    events = save_interesting_properties(events, "diLep.mass", diLep.mass, ditau_mask)
+    events = save_interesting_properties(events, "diLep.eta", diLep.eta, ditau_mask)
+    events = save_interesting_properties(events, "diLep.pt", diLep.pt, ditau_mask)
+    events = save_interesting_properties(events, "diLep.phi", diLep.phi, ditau_mask)
     events = save_interesting_properties(events, "hh.mass", hh.mass, dihh_mask)
     events = save_interesting_properties(events, "hh.eta", hh.eta, dihh_mask)
     events = save_interesting_properties(events, "hh.pt", hh.pt, dihh_mask)
+    events = save_interesting_properties(events, "hh.phi", hh.phi, dihh_mask)
 
     # return the events
-    return events
+    return events, diLep.phi
