@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+__all__ = [
+    "WeightedEpochMetric",
+    "WeightedROC_AUC",
+    "WeightedLoss",
+]
+
 import warnings
 from collections import defaultdict
 
@@ -12,14 +18,19 @@ np = maybe_import("numpy")
 from columnflow.types import Callable, Any, Sequence
 from typing import cast
 
+WeightedEpochMetric = MockModule("WeightedEpochMetric")
+WeightedROC_AUC = MockModule("WeightedROC_AUC")
+WeightedLoss = MockModule("WeightedLoss")
+
 if not isinstance(torch, MockModule):
     from ignite.metrics.epoch_metric import EpochMetric, EpochMetricWarning
-    from ignite.metrics.metric import Metric, reinit__is_reduced, sync_all_reduce
+    from ignite.metrics.metric import reinit__is_reduced, sync_all_reduce
+    from ignite.metrics.confusion_matrix import ConfusionMatrix
     from ignite.metrics.loss import Loss
     from ignite.exceptions import NotComputableError
     import ignite.distributed as idist
 
-    class WeightedEpochMetric(EpochMetric):
+    class WeightedEpochMetric(EpochMetric):  # noqa: F811
         _state_dict_all_req_keys = ("_predictions", "_targets")
 
         @reinit__is_reduced
@@ -126,7 +137,39 @@ if not isinstance(torch, MockModule):
 
         return result
 
-    class WeightedROC_AUC(WeightedEpochMetric):
+    class WeightedConfusionMatrix(ConfusionMatrix):
+        @reinit__is_reduced
+        def update(self, output: Sequence[torch.Tensor]) -> None:
+            self._check_shape(output)
+            y_pred, y = output[0].detach(), output[1].detach()
+            kwargs = dict()
+            if len(output) == 3:
+                kwargs = output[2]
+
+            weights = None
+            if "weight" in kwargs:
+                weights = kwargs["weight"]
+                if not isinstance(weights, torch.Tensor):
+                    raise ValueError("Weights must be a torch.Tensor.")
+            self._num_examples += y_pred.shape[0] if weights is None else torch.sum(weights).item()
+
+            # target is (batch_size, ...)
+            y_pred = torch.argmax(y_pred, dim=1).flatten()
+            y = y.flatten()
+
+            target_mask = (y >= 0) & (y < self.num_classes)
+            y = y[target_mask]
+            y_pred = y_pred[target_mask]
+
+            indices = self.num_classes * y + y_pred
+            m = torch.bincount(
+                indices,
+                weights=weights,
+                minlength=self.num_classes**2,
+            ).reshape(self.num_classes, self.num_classes)
+            self.confusion_matrix += m.to(self.confusion_matrix)
+
+    class WeightedROC_AUC(WeightedEpochMetric):  # noqa: F811
         def __init__(
             self,
             output_transform: Callable = lambda x: x,
@@ -157,7 +200,7 @@ if not isinstance(torch, MockModule):
                 self._result = result[self.target_class_idx]
             return self._result
 
-    class WeightedLoss(Loss):
+    class WeightedLoss(Loss):  # noqa: F811
         @reinit__is_reduced
         def reset(self) -> None:
             self._internal_sum = list()

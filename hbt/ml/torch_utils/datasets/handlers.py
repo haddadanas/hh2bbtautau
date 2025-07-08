@@ -12,7 +12,7 @@ from hbt.ml.torch_utils.datasets import (
     ParquetDataset, FlatRowgroupParquetDataset, FlatParquetDataset,
     FlatArrowRowGroupParquetDataset, WeightedFlatRowgroupParquetDataset,
     WeightedRgTensorParquetDataset, RgTensorParquetDataset,
-    WeightedTensorParquetDataset,
+    WeightedTensorParquetDataset, TensorParquetDataset,
 )
 from hbt.ml.torch_utils.map_and_collate import (
     NestedListRowgroupMapAndCollate, FlatListRowgroupMapAndCollate,
@@ -44,6 +44,7 @@ class BaseParquetFileHandler(object):
         self,
         *args,
         task: law.Task,
+        inputs: law.FileCollection | None = None,
         open_options: dict[str, Any] | None = None,
         columns: Collection[str | Route] | None = None,
         datasets: Collection[str] | None = None,
@@ -56,11 +57,13 @@ class BaseParquetFileHandler(object):
         build_categorical_target_fn: Callable | None = None,
         group_datasets: dict[str, list[str]] | None = None,
         device: str | None = None,
+        extract_dataset_paths_fn: Callable | None = None,
+        extract_probability_fn: Callable | None = None,
         **kwargs,
     ):
         self.open_options = open_options or dict()
         self.task = task
-        self.inputs = task.input()
+        self.inputs = inputs or task.input()
         self.configs = task.configs
         self.datasets = datasets or task.datasets
         self.load_parallel_cores = task.load_parallel_cores
@@ -80,8 +83,33 @@ class BaseParquetFileHandler(object):
         self.dataset_cls = FlatParquetDataset
         self.device = device
 
+        self.extract_dataset_paths: Callable = extract_dataset_paths_fn or self._default_extract_dataset_paths
+        self._extract_probability: Callable = extract_probability_fn or self._default_extract_probability
+
+        self.default_dataset_kwargs = {
+            "columns": self.columns,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+        }
+
     def _default_build_categorical_target_fn(self, dataset: str) -> int:
         return int(1) if dataset.startswith("hh") else int(0)
+
+    def create_dataset(
+        self,
+        path: str | ak.Array,
+        open_options: dict[str, Any] | None = None,
+        **dataset_kwargs
+    ):
+
+        return self.dataset_cls(
+            path,
+            open_options=open_options,
+            **dataset_kwargs,
+        )
 
     def _split_pq_dataset_per_path(
         self,
@@ -107,22 +135,13 @@ class BaseParquetFileHandler(object):
         final_options = self.open_options or dict()
         final_options.update({"row_groups": training_row_groups})
 
-        dataset_kwargs = {
-            "columns": self.columns,
-            "target": targets,
-            "batch_transform": self.batch_transformations,
-            "global_transform": self.global_transformations,
-            "input_data_transform": self.input_data_transform,
-            "categorical_target_transform": self.categorical_target_transformation,
-            "data_type_transform": self.data_type_transform,
-        }
-
         logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
 
-        training = self.dataset_cls(
+        training = self.create_dataset(
             target_path,
             open_options=final_options,
-            **dataset_kwargs,
+            target=targets,
+            **self.default_dataset_kwargs,
         )
 
         validation = None
@@ -132,10 +151,11 @@ class BaseParquetFileHandler(object):
             validation_row_groups = rowgroup_indices[max_training_group:]
             final_options.update({"row_groups": validation_row_groups})
             logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
+            validation = self.create_dataset(
                 target_path,
                 open_options=final_options,
-                **dataset_kwargs,
+                target=targets,
+                **self.default_dataset_kwargs,
             )
         return training, validation
 
@@ -157,7 +177,7 @@ class BaseParquetFileHandler(object):
             validation_ds.append(validation)
         return training_ds, validation_ds
 
-    def _extract_probability(
+    def _default_extract_probability(
         self,
         dataset: str, keyword: str = "sum_mc_weight_selected",
     ):
@@ -207,6 +227,15 @@ class BaseParquetFileHandler(object):
                 d: val / prob_sum for d, val in subspace_probs.items()
             }
 
+    def _default_extract_dataset_paths(self, inputs, dataset):
+        targets = [inputs.events[dataset][c]["collection"] for c in sorted(self.configs)]
+        return [
+            t.abspath
+            for collections in targets
+            for targets in collections.targets.values()
+            for t in targets.values()
+        ]
+
     def _init_training_validation_map(self) -> tuple[dict[str, list[ParquetDataset]], dict[str, list[ParquetDataset]]]:
         # construct datamap
         training_data_map: dict[str, list[ParquetDataset]] = dict()
@@ -214,13 +243,7 @@ class BaseParquetFileHandler(object):
 
         for dataset in sorted(self.datasets):
             # following code is used for SiblingFileCollections
-            targets = [self.inputs.events[dataset][c]["collection"] for c in sorted(self.configs)]
-            target_paths = [
-                t.abspath
-                for collections in targets
-                for targets in collections.targets.values()
-                for t in targets.values()
-            ]
+            target_paths = self.extract_dataset_paths(self.inputs, dataset)
 
             # following code is used for LocalFileTargets
             # from IPython import embed
@@ -427,34 +450,9 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
 
-    def _split_pq_dataset_per_path(
-        self,
-        target_path,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-        meta = ak.metadata_from_parquet(target_path)
-
-        total_row_groups = meta["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for '{target_path}' is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        final_options = self.open_options or dict()
-        final_options.update({"row_groups": training_row_groups})
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "categorical_features": self.categorical_features,
             "continuous_features": self.continuous_features,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
@@ -463,28 +461,6 @@ class RgTensorParquetFileHandler(BaseParquetFileHandler):
             "padd_value_float": 0,
             "padd_value_int": 15,
         }
-
-        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
-
-        training = self.dataset_cls(
-            target_path,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
-                target_path,
-                open_options=final_options,
-                **dataset_kwargs,
-            )
-        return training, validation
 
 
 class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHandler):
@@ -513,35 +489,9 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
         self.validation_map_and_collate_cls = TensorListRowgroupMapAndCollate
         self.training_sampler_cls = ListRowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
-
-    def _split_pq_dataset_per_path(
-        self,
-        target_path,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-        meta = ak.metadata_from_parquet(target_path)
-
-        total_row_groups = meta["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for '{target_path}' is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        final_options = self.open_options or dict()
-        final_options.update({"row_groups": training_row_groups})
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "categorical_features": self.categorical_features,
             "continuous_features": self.continuous_features,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
@@ -551,38 +501,28 @@ class WeightedRgTensorParquetFileHandler(WeightedFlatListRowgroupParquetFileHand
             "padd_value_int": 15,
         }
 
-        logger.info(f"Constructing training dataset for {target_path} with row_groups {training_row_groups}")
 
-        training = self.dataset_cls(
-            target_path,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset for {target_path} with row_groups {validation_row_groups}")
-            validation = self.dataset_cls(
-                target_path,
-                open_options=final_options,
-                **dataset_kwargs,
-            )
-        return training, validation
-
-class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
+class TensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dataset_cls = WeightedTensorParquetDataset
+        self.dataset_cls = TensorParquetDataset
         # self.validation_dataset_cls = WeightedFlatRowgroupParquetDataset
         self.training_map_and_collate_cls = NestedTensorMapAndCollate
         self.validation_map_and_collate_cls = TensorListMapAndCollate
         self.training_sampler_cls = torch.utils.data.RandomSampler
         self.validation_sampler_cls = ListSampler
+        self.default_dataset_kwargs = {
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "batch_transform": self.batch_transformations,
+            "global_transform": self.global_transformations,
+            "input_data_transform": self.input_data_transform,
+            "categorical_target_transform": self.categorical_target_transformation,
+            "data_type_transform": self.data_type_transform,
+            "padd_value_float": 0,
+            "padd_value_int": 15,
+        }
 
     def split_training_validation(
         self,
@@ -600,34 +540,23 @@ class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
 
         final_options = self.open_options or dict()
 
-        dataset_kwargs = {
-            "categorical_features": self.categorical_features,
-            "continuous_features": self.continuous_features,
-            "target": targets,
-            "batch_transform": self.batch_transformations,
-            "global_transform": self.global_transformations,
-            "input_data_transform": self.input_data_transform,
-            "categorical_target_transform": self.categorical_target_transformation,
-            "data_type_transform": self.data_type_transform,
-            "padd_value_float": 0,
-            "padd_value_int": 15,
-        }
-
         logger.info(f"Constructing training dataset with {max_training_idx} events")
 
-        training = self.dataset_cls(
+        training = self.create_dataset(
             target_paths,
-            open_options=final_options,
             idx=training_idx,
-            **dataset_kwargs,
+            target=targets,
+            open_options=final_options,
+            **self.default_dataset_kwargs,
         )
         validation_idx = total_indices[max_training_idx:]
         logger.info(f"Constructing validation dataset with {total_rows - max_training_idx} events")
-        validation = self.dataset_cls(
+        validation = self.create_dataset(
             target_paths,
-            open_options=final_options,
             idx=validation_idx,
-            **dataset_kwargs,
+            target=targets,
+            open_options=final_options,
+            **self.default_dataset_kwargs,
         )
         return training, validation
 
@@ -686,6 +615,17 @@ class WeightedTensorParquetFileHandler(WeightedRgTensorParquetFileHandler):
     #         collate_fn=torch.cat,
     #     )
 
+
+class WeightedTensorParquetFileHandler(TensorParquetFileHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dataset_cls = WeightedTensorParquetDataset
+        self.training_map_and_collate_cls = NestedTensorMapAndCollate
+        self.validation_map_and_collate_cls = TensorListMapAndCollate
+        self.training_sampler_cls = torch.utils.data.RandomSampler
+        self.validation_sampler_cls = ListSampler
+
+
 class FlatArrowParquetFileHandler(BaseParquetFileHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -695,58 +635,15 @@ class FlatArrowParquetFileHandler(BaseParquetFileHandler):
         self.training_sampler_cls = RowgroupSampler
         self.validation_sampler_cls = ListRowgroupSampler
 
-    def split_training_validation(
-        self,
-        target_paths,
-        ratio=0.7,
-        targets: Collection[str | int | Route] | str | Route | int | None = None,
-    ):
-
-        dataset_kwargs = {
+        self.default_dataset_kwargs = {
             "columns": self.columns,
-            "target": targets,
             "batch_transform": self.batch_transformations,
             "global_transform": self.global_transformations,
             "input_data_transform": self.input_data_transform,
             "categorical_target_transform": self.categorical_target_transformation,
             "data_type_transform": self.data_type_transform,
         }
-        final_options = self.open_options or dict()
-
-        training = self.dataset_cls(
-            target_paths,
-            open_options=final_options,
-            **dataset_kwargs,
-        )
-
-        total_row_groups = training.meta_data["num_row_groups"]
-        rowgroup_indices_func = torch.randperm if self.preshuffle else np.arange
-        rowgroup_indices: list[int] = rowgroup_indices_func(total_row_groups).tolist()
-        max_training_group = int(total_row_groups * ratio)
-        training_row_groups = None
-        if max_training_group == 0:
-            logger.warning(
-                "Could not split into training and validation data"
-                f" number of row groups for training is  {total_row_groups}",
-            )
-        else:
-            training_row_groups = rowgroup_indices[:max_training_group]
-
-        training._allowed_rowgroups = set(training_row_groups)
-        logger.info(f"Constructing training dataset with row_groups {training_row_groups}")
-
-        validation = None
-        if training_row_groups is None:
-            validation = training
-        else:
-            validation_row_groups = rowgroup_indices[max_training_group:]
-            final_options.update({"row_groups": validation_row_groups})
-            logger.info(f"Constructing validation dataset with row_groups {validation_row_groups}")
-            validation = deepcopy(training)
-            validation._allowed_rowgroups = set(validation_row_groups)
-        return training, validation
-
-
+    
 class DatasetHandlerMixin:
     parameters: dict[str, torch.Tensor]
     dataset_handler: BaseParquetFileHandler

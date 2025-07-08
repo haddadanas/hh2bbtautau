@@ -1,4 +1,9 @@
 from __future__ import annotations
+
+__all__ = [
+    "IgniteTrainingMixin",
+    "IgniteEarlyStoppingMixin",
+]
 import abc
 
 from functools import partial
@@ -10,6 +15,9 @@ from hbt.ml.torch_utils.utils import CustomEarlyStopping as EarlyStopping
 
 ignite = maybe_import("ignite")
 
+IgniteTrainingMixin = MockModule("IgniteTrainingMixin")
+IgniteEarlyStoppingMixin = MockModule("IgniteEarlyStoppingMixin")
+
 if not isinstance(ignite, MockModule):
     from ignite.engine import Engine, Events
     from ignite.metrics import Metric
@@ -17,6 +25,7 @@ if not isinstance(ignite, MockModule):
     from torch.utils.tensorboard import SummaryWriter
     import torchdata.nodes as tn
     import numpy as np
+    import hbt.ml.torch_utils.plotting as plotting
 
     class IgniteMixinBase:
         def __init__(self, *args, **kwargs):
@@ -29,11 +38,12 @@ if not isinstance(ignite, MockModule):
             self.run_name = getattr(self, "run_name", None)
             self.writer = getattr(self, "writer", None)
 
-    class IgniteTrainingMixin(DatasetHandlerMixin, IgniteMixinBase):
+    class IgniteTrainingMixin(DatasetHandlerMixin, IgniteMixinBase):  # noqa: F811
         trainer: Engine
         train_evaluator: Engine
         val_evaluator: Engine
         validation_metrics: dict[str, Metric]
+        validation_nonscalar_metrics: dict[str, Metric]
         writer: SummaryWriter | None
         run_name: str
         logger: object
@@ -46,6 +56,8 @@ if not isinstance(ignite, MockModule):
             self.max_val_epoch_length = None
             self.training_logger_interval = 20
             self.training_printout_interval = 100
+            self.validation_nonscalar_metrics = getattr(self, "validation_nonscalar_metrics", dict())
+            self.validation_metrics = getattr(self, "validation_metrics", dict())
 
         @abc.abstractmethod
         def train_step(self, engine: Engine, batch: tuple) -> tuple:
@@ -70,6 +82,20 @@ if not isinstance(ignite, MockModule):
             self.val_evaluator = Engine(self.validation_step)
 
             self.init_metrics()
+
+            # store the outputs of the evaluators separately for visualization
+            self.epoch_outputs = StoreEpochOutput()
+            self.epoch_outputs.attach(self.train_evaluator, "training_outputs")
+            self.epoch_outputs.attach(self.val_evaluator, "validation_outputs")
+
+            self.val_evaluator.add_event_handler(
+                Events.EPOCH_COMPLETED,
+                partial(self.log_plots, mode="validation", trainer_engine=self.trainer),
+            )
+            self.train_evaluator.add_event_handler(
+                Events.EPOCH_COMPLETED,
+                partial(self.log_plots, mode="training", trainer_engine=self.trainer),
+            )
 
             self.trainer.add_event_handler(
                 Events.ITERATION_COMPLETED(every=self.training_logger_interval),
@@ -124,7 +150,54 @@ if not isinstance(ignite, MockModule):
         def _log_timing(self, engine, round_precision: int = 3) -> None:
             time_per_epoch = engine.state.times[Events.EPOCH_COMPLETED.name] / engine.state.epoch_length
             self.logger.info(
-                f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.{round_precision}f} s/iteration"
+                f"Timing of Epoch [{engine.state.epoch}]: {time_per_epoch:0.{round_precision}f} s/iteration",
+            )
+
+        def log_plots(self, engine, mode=None, trainer_engine=None) -> None:
+            """Override this method to gather metrics from the training or validation step."""
+            # prepare the data for plotting
+            iteration, epoch = None, None
+            if trainer_engine:
+                iteration, epoch = trainer_engine.state.iteration, trainer_engine.state.epoch
+
+            data = self.epoch_outputs.data
+            pred, y, weights = data["predictions"], data["targets"], data["weights"]
+            pred, y, weights = pred.to("cpu"), y.to("cpu"), weights.to("cpu")
+
+            pred_probablity = torch.nn.functional.softmax(pred, dim=-1)
+
+            # nn predictions
+            fig_nn_pred, ax_nn_pred = plotting.network_predictions(
+                y_true=y,
+                y_pred=pred_probablity,
+                target_map=self.categorical_target_map,
+                xlabel="score",
+                ylabel="frequency",
+                title=f"epoch: {epoch}, iterations: {iteration}",
+            )
+
+            self.writer.add_figure(
+                f"Prediction {mode}",
+                fig_nn_pred,
+                epoch,
+            )
+
+            # confusion matrix
+            y_ind = torch.argmax(y, dim=-1).reshape(-1, 1)
+            pred_ind = torch.argmax(pred_probablity, dim=-1).reshape(-1, 1)
+            weight = weights[y.to(bool)]
+
+            fig_confusion, ax_confusion, confusion_matrix = plotting.confusion_matrix(
+                y_true=y_ind,
+                y_pred=pred_ind,
+                target_map=self.categorical_target_map,
+                sample_weight=weight,
+                title=f"epoch: {epoch}, iterations: {iteration}",
+            )
+            self.writer.add_figure(
+                f"Confusion Matrix {mode}",
+                fig_confusion,
+                epoch,
             )
 
         def init_metrics(self) -> None:
@@ -133,7 +206,13 @@ if not isinstance(ignite, MockModule):
             for name, metric in self.validation_metrics.items():
                 metric.attach(self.train_evaluator, name)
 
+            for name, metric in self.validation_nonscalar_metrics.items():
+                metric.attach(self.train_evaluator, name)
+
             for name, metric in self.validation_metrics.items():
+                metric.attach(self.val_evaluator, name)
+
+            for name, metric in self.validation_nonscalar_metrics.items():
                 metric.attach(self.val_evaluator, name)
 
         def log_graph(self, engine):
@@ -173,6 +252,10 @@ if not isinstance(ignite, MockModule):
 
         def _log_attributes(self, metrics, trainer, mode="training"):
             for name, value in metrics.items():
+                if name in self.validation_nonscalar_metrics:
+                    # for non-scalar metrics, skip for now
+                    continue
+
                 self.writer.add_scalars(
                     f"{self.run_name}_{name}",
                     {mode: value},
@@ -220,7 +303,7 @@ if not isinstance(ignite, MockModule):
             if self.writer:
                 self.writer.close()
 
-    class IgniteEarlyStoppingMixin(IgniteMixinBase):
+    class IgniteEarlyStoppingMixin(IgniteMixinBase):  # noqa: F811
         early_stopping_patience: int
         early_stopping_min_epochs: int
         early_stopping_min_diff: float
@@ -257,3 +340,25 @@ if not isinstance(ignite, MockModule):
             )
             # Note: the handler is attached to an *Evaluator* (runs one epoch on validation dataset).
             self.val_evaluator.add_event_handler(Events.COMPLETED, handler)
+
+    class StoreEpochOutput(ignite.handlers.stores.EpochOutputStore):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.data = {"predictions": [], "targets": [], "weights": []}
+
+        def reset(self):
+            self.data = {"predictions": [], "targets": [], "weights": []}
+
+        def update(self, engine):
+            pred, y, kwargs = engine.state.output
+            self.data["predictions"].append(pred)
+            self.data["targets"].append(y)
+            if weights := kwargs.get("weights") is not None:
+                self.data["weights"].append(weights)
+
+        def store(self, engine):
+            """Store the output of the epoch."""
+            self.data["predictions"] = torch.concat(self.data["predictions"], dim=0)
+            self.data["targets"] = torch.concat(self.data["targets"], dim=0)
+            self.data["weights"] = torch.concat(self.data["weights"], dim=0) if self.data["weights"] else torch.ones_like(self.data["predictions"]) # noqa
+            setattr(engine.state, self.name, self.data)

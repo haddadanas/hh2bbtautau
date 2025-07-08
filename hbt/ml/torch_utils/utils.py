@@ -9,7 +9,7 @@ from collections.abc import Iterable
 import law
 from columnflow.util import maybe_import, MockModule
 from columnflow.columnar_util import Route, EMPTY_INT, EMPTY_FLOAT
-from columnflow.types import Any
+from columnflow.types import Any, Callable
 from copy import deepcopy
 from hbt.ml.torch_utils.datasets import ParquetDataset
 
@@ -17,6 +17,9 @@ ignite = maybe_import("ignite")
 torch = maybe_import("torch")
 np = maybe_import("numpy")
 ak = maybe_import("awkward")  # type: ignore
+onnx = maybe_import("onnx")
+rt = maybe_import("onnxruntime")
+
 
 embedding_expected_inputs = {
     "pair_type": [0, 1, 2],  # see mapping below
@@ -32,13 +35,150 @@ embedding_expected_inputs = {
 }
 
 
+def export_ensemble_onnx(
+    ensemble_wrapper,
+    categoricat_tensor: torch.Tensor,
+    continous_tensor: torch.Tensor,
+    save_dir: str,
+    opset_version: int = None,
+) -> str:
+    """
+    Wrapper to export an ensemble model to onnx format. Does the same as export_onnx, but
+    iterates over all models in the ensemble_wrapper and freezes them before exporting.
+
+    Args:
+        ensemble_wrapper (MLEnsembleWrapper): _description_
+        categoricat_tensor (torch.tensor): tensor representing categorical features
+        continous_tensor (torch.tensor): tensor representing categorical features
+        save_dir (str): directory where the onnx model will be saved.
+        opset_version (int, optional): version of the used operation sets. Defaults to None.
+
+    Returns:
+        str: The path of the saved onnx ensemble model.
+    """
+    for model in ensemble_wrapper.models:
+        model.eval()
+        for param in model.parameters():
+            param.requires_grad = False
+
+    export_onnx(
+        ensemble_wrapper,
+        categoricat_tensor,
+        continous_tensor,
+        save_dir,
+        opset_version=opset_version,
+    )
+
+
+def export_onnx(
+    model: torch.nn.Module,
+    categoricat_tensor: torch.Tensor,
+    continous_tensor: torch.Tensor,
+    save_dir: str,
+    opset_version: int = None,
+) -> str:
+    """
+    Function to export a loaded pytorch *model* to onnx format saved in *save_dir*.
+    To successfully export the model, the input tensors *categoricat_tensor* and *continous_tensor* must be provided.
+    For backwards compatibility, an opset_version can be enforced.
+    A table about which opsets are available can be found here: https://onnxruntime.ai/docs/reference/compatibility.html
+    Some operations are only available in newer opsets, or change behavior inbetween version.
+    A list of all operations and their versions is given at: https://onnx.ai/onnx/operators/
+
+    Args:
+        model (torch.nn.model): loaded Pytorch model, ready to perform inference.
+        categoricat_tensor (torch.tensor): tensor representing categorical features
+        continous_tensor (torch.tensor): tensor representing categorical features
+        save_dir (str): directory where the onnx model will be saved.
+        opset_version (int, optional): version of the used operation sets. Defaults to None.
+
+    Returns:
+        str: The path of the saved onnx model.
+    """
+
+    logger = law.logger.get_logger(__name__)
+
+    onnx_version = onnx.__version__
+    runtime_version = rt.__version__
+    torch_version = torch.__version__
+
+    save_path = f"{save_dir}-onnx_{onnx_version}-rt_{runtime_version}-torch{torch_version}.onnx"
+
+    # prepare export
+    num_cat_features = categoricat_tensor.shape[-1]
+    num_cont_features = continous_tensor.shape[-1]
+
+    # cast to proper format, numpy and float32
+    categoricat_tensor = categoricat_tensor.numpy().astype(np.float32).reshape(-1, num_cat_features)
+    continous_tensor = continous_tensor.numpy().astype(np.float32).reshape(-1, num_cont_features)
+
+    # double bracket is necessary since onnx, and our model unpacks the input tuple
+    input_feed = ((categoricat_tensor, continous_tensor),)
+
+    torch.onnx.export(
+        model,
+        input_feed,
+        save_path,
+        input_names=["cat", "cont"],
+        output_names=["output"],
+        # if opset is none highest available will be used
+
+        opset_version=opset_version,
+        do_constant_folding=True,
+        dynamic_axes={
+            # enable dynamic batch sizes
+            "cat": {0: "batch_size"},
+            "cont": {0: "batch_size"},
+            "output": {0: "batch_size"},
+        },
+    )
+
+    logger.info(f"Succefully exported onnx model to {save_path}")
+    return save_path
+
+
+def test_run_onnx(
+    model_path: str,
+    categorical_array: np.ndarray,
+    continous_array: np.ndarray,
+) -> np.ndarray:
+    """
+    Function to run a test inference on a given *model_path*.
+    The *categorical_array* and *continous_array* are expected to be given as numpy arrays.
+
+    Args:
+        model_path (str): Model path to onnx model
+        categorical_array (np.ndarray): Array of categorical features
+        continous_array (np.ndarray): Array of continous features
+
+    Returns:
+        np.ndarray: Prediction of the model
+    """
+    sess = rt.InferenceSession(model_path, providers=rt.get_available_providers())
+    first_node = sess.get_inputs()[0]
+    second_node = sess.get_inputs()[1]
+
+    # setup data
+    input_feed = {
+        first_node.name: categorical_array.reshape(-1, first_node.shape).astype(np.float32),
+        second_node.name: continous_array.reshape(-1, second_node.shape).astype(np.float32),
+    }
+
+    output_name = [output.name for output in sess.get_outputs()]
+
+    onnx_predition = sess.run(output_name, input_feed)
+    return onnx_predition
+
+
 def get_standardization_parameter(
     data_map: list[ParquetDataset],
-    columns: Iterable[Route],
+    columns: Iterable[Route | str],
 ) -> dict[str, ak.Array]:
     # open parquet files and concatenate to get statistics for whole datasets
     # beware missing values are currently ignored
     all_data = ak.concatenate(list(map(lambda x: x.data, data_map)))
+    # make sure columns are Routes
+    columns = list(map(Route, columns))
 
     statistics = {}
     for _route in columns:
@@ -105,12 +245,14 @@ def reorganize_idx(batch):
         return reorganize_list_idx(batch)
 
 
+CustomEarlyStopping = MockModule("CustomEarlyStopping")  # type: ignore
+
 if not isinstance(ignite, MockModule):
     from ignite.handlers import EarlyStopping
     from ignite.engine import Engine
     import torch
 
-    class CustomEarlyStopping(EarlyStopping):
+    class CustomEarlyStopping(EarlyStopping):  # noqa: F811
         def __init__(
             self,
             *args,
@@ -122,20 +264,24 @@ if not isinstance(ignite, MockModule):
             self.best_model: dict[str, Any] | None = None
             self.min_epochs: int = min_epochs
             self.model = model or self.trainer._process_function.keywords["model"]
+            self.epoch = 0
 
         def __call__(self, engine: Engine) -> None:
             score = self.score_function(engine)
+            self.epoch += 1
 
             if self.best_score is None:
+                self.logger.debug(f"{self.__class__.__name__}: Initializing best score with {score}")
                 self.best_score = score
             elif score <= self.best_score + self.min_delta:
                 if not self.cumulative_delta and score > self.best_score:
                     self.best_score = score
                 self.counter += 1
-                self.logger.debug("EarlyStopping: %i / %i" % (self.counter, self.patience))
-                if engine.state.epoch > self.min_epochs and self.counter >= self.patience:
+                self.logger.info("EarlyStopping: %i / %i" % (self.counter, self.patience))
+
+                if self.epoch > self.min_epochs and self.counter >= self.patience:
                     self.logger.info("EarlyStopping: Stop training")
-                    best_epoch = engine.state.epoch - self.patience
+                    best_epoch = self.epoch - self.patience
                     self.logger.info(f"Resetting model to epoch {getattr(self.trainer, 'best_epoch', best_epoch)}")
                     if self.best_model is not None:
                         self.model.load_state_dict(self.best_model)
@@ -143,6 +289,8 @@ if not isinstance(ignite, MockModule):
                         self.logger.warning("No best model found, skipping load")
                     self.trainer.terminate()
             else:
+                self.logger.debug(f"{self.__class__.__name__}: Previous best score {self.best_score}, {self.min_delta=}")
+                self.logger.debug(f"{self.__class__.__name__}: setting best score to {score}")
                 self.best_score = score
                 self.counter = 0
                 self.best_model = deepcopy(self.model.state_dict())
@@ -189,6 +337,7 @@ if not isinstance(ignite, MockModule):
 
 if not any(isinstance(module, MockModule) for module in (torch, np)):
     import torch.nn as nn
+    from torch import Tensor
 
     def LookUpTable(array: torch.Tensor, EMPTY=EMPTY_INT, placeholder: int = 15):
         """Maps multiple categories given in *array* into a sparse vectoriced lookuptable.
@@ -236,12 +385,12 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
         def __init__(self, translation: torch.Tensor, minimum: torch.Tensor):
             """
             This translaytion layer tokenizes categorical features into a sparse representation.
-            The input tensor is expected to be a 2D tensor with shape (N, M) where N is the number of events and M is the number of features.
+            The input tensor is a 2D tensor with shape (N, M) where N is the number of events and M of features.
             The output tensor will have shape (N, K) where K is the number of unique categories across all features.
 
             Args:
                 translation (torch.tensor): Sparse representation of the categories, created by LookUpTable.
-                minimum (torch.tensor): Array of minimum values for each feature. This is necessary to shift the input tensor to the valid index space.
+                minimum (torch.tensor): Array of minimas used to shift the input tensor into the valid index space.
             """
             super().__init__()
             self.map = translation
@@ -309,3 +458,33 @@ if not any(isinstance(module, MockModule) for module in (torch, np)):
                 print(f"Input: {input[ind]}")
                 print(f"Expected: {expected[ind]}")
                 print(f"Tokenized: {token[ind]}")
+
+    class MLEnsembleWrapper(nn.Module):
+        def __init__(self, models: Iterable[nn.Module] | nn.Module, final_activation: Callable | str = "softmax"):
+            """
+            This wrapper allows to use a model that expects a sparse representation of categorical features.
+            The input tensor is a 2D tensor with shape (N, M) where N is the number of events and M of features.
+            The output tensor will have shape (N, K) where K is the number of unique categories across all features.
+
+            Args:
+                model Iterable[nn.Module] | nn.Module: Model or models that need to be evaluated.
+            """
+            super().__init__()
+
+            self.models: Iterable[nn.Module] = models if isinstance(models, Iterable) else [models]
+            self.final_activation: Callable
+            if callable(final_activation):
+                self.final_activation = final_activation
+            elif isinstance(final_activation, str) and hasattr(nn.functional, final_activation):
+                self.final_activation = getattr(nn.functional, final_activation)
+            else:
+                raise ValueError(f"Invalid final activation function: {final_activation}")
+
+        def forward(self, x):
+            outputs: list[Tensor] = []
+            for model in self.models:
+                outputs.append(self.final_activation(model(*x)))
+
+            # collect outputs in tensor for easier handling
+            output_tensor = torch.cat([o[..., None] for o in outputs], axis=-1)
+            return torch.mean(output_tensor, axis=-1), torch.std(output_tensor, axis=-1)
