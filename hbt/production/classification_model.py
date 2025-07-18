@@ -37,20 +37,25 @@ def ml_classify(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # get the data ready for the evaluation
     ml_events = self[preprocess](events, **kwargs)
     feature_bases = set(r.fields[0] for r in self.needed_features)
+    fold_index = ml_events.fold_index.to_numpy()
     for f in ml_events.fields:
         if f in feature_bases:
             continue
         ml_events = remove_ak_column(ml_events, f)
-    dataset = self.data_cls(ml_events)
-
+    (x_cat, x_cont) = self.data_cls(ml_events).input_data
+    y_pred = np.zeros((len(events), 2), dtype=np.float32)
+    y_pred_lora = np.zeros((len(events), 2), dtype=np.float32)
     # predict the data
-    y_pred = self.model(*dataset.input_data)
-    y_pred_lora = self.lora_model(*dataset.input_data)
+    for fold, model in self.models.items():
+        fold_mask = np.asarray(fold_index == fold).nonzero()[0]
+        y_pred[fold_mask] = model(x_cat[fold_mask], x_cont[fold_mask]).cpu().numpy()
+        lora_model = self.lora_models[fold]
+        y_pred_lora[fold_mask] = lora_model(x_cat[fold_mask], x_cont[fold_mask]).cpu().numpy()
 
     # add the prediction to the events
-    for i in range(y_pred.size(1)):
-        events = set_ak_column(events, f"{self.node_name}_{i}", y_pred[:, i].contiguous().cpu().numpy())
-        events = set_ak_column(events, f"lora_{self.node_name}_{i}", y_pred_lora[:, i].contiguous().cpu().numpy())
+    for i in range(2):
+        events = set_ak_column(events, f"{self.node_name}_{i}", np.ascontiguousarray(y_pred[:, i]))
+        events = set_ak_column(events, f"lora_{self.node_name}_{i}", np.ascontiguousarray(y_pred_lora[:, i]))
 
     return events
 
@@ -70,62 +75,71 @@ def ml_classify_setup(self: Producer, task, reqs: dict, inputs: dict, reader_tar
     # turn off gradient computation
     torch.autograd.set_grad_enabled(False)
 
-    # load the model configuration
-    with open(f"{self.model_path}/setup_config.pkl", "rb") as f:
-        ml_config = pickle.load(f)
-    model_cfg = ml_config["model_cfg_run"]
-    model_cfg["means"] = torch.tensor(model_cfg["means"], device=self.device)
-    model_cfg["stds"] = torch.tensor(model_cfg["stds"], device=self.device)
-    # load the model to the predict function
-    print(f"using model: {self.model_path}")
-    model = ANet("model", **model_cfg).to(self.device).eval()
-    model.load_state_dict(torch.load(f"{self.model_path}/best_model.pt", map_location=self.device))
-    model.eval()
-    lora_model = ANet("model", **model_cfg).to(self.device)
-    lora_model.init_lora(**ml_config["lora_cfg"]["lora_config"])
-    lora_model.load_state_dict(torch.load(f"{self.model_path}/best_lora_model.pt", map_location=self.device))
-    lora_model.enable_disable_lora(True)
-    lora_model.eval()
-    self.model = model
-    self.lora_model = lora_model
-    # f_names.remove("channel_id")
+    self.models = {}
+    self.lora_models = {}
+    for fold in range(4):
+        fold_path = f"{self.model_path}/fold_{fold}/"
+        # load the model configuration
+        with open(f"{fold_path}/setup_config.pkl", "rb") as f:
+            ml_config = pickle.load(f)
+        assert ml_config["handler_cfg"]["kfold"] == fold, (
+            "K-fold mismatch in model configuration. Path fold does not match the model configuration.",
+        )
+        model_cfg = ml_config["model_cfg_run"]
+        model_cfg["means"] = torch.tensor(model_cfg["means"], device=self.device)
+        model_cfg["stds"] = torch.tensor(model_cfg["stds"], device=self.device)
+        # load the model to the predict function
+        print(f"using model: {fold_path}")
+        model = ANet(**model_cfg).to(self.device).eval()
+        model.load_state_dict(torch.load(f"{fold_path}/best_model.pt", map_location=self.device))
+        model.to(self.device)
+        model.eval()
+        lora_model = ANet(**model_cfg).to(self.device)
+        lora_model.init_lora(**ml_config["lora_cfg"]["lora_config"])
+        lora_model.load_state_dict(torch.load(f"{fold_path}/best_lora_model.pt", map_location=self.device))
+        lora_model.enable_disable_lora(True)
+        lora_model.to(self.device)
+        lora_model.eval()
 
-    # create the dataset
-    self.needed_features = model.categorical_features + model.continuous_features
-    dataset_dict = {
-        "target": int(self.dataset_inst.has_tag("signal")),
-        "device": self.device,
-        "pad_flags": True,
-        "continuous_features": ml_config["handler_cfg"]["continuous_features"],
-        "categorical_features": ml_config["handler_cfg"]["categorical_features"],
-        "input_data_transform": RemoveEmptyValues(padding_values=ml_config["padding_values"]),
-    }
-    self.data_cls = partial(TensorParquetDataset, **dataset_dict)
+        # cross-check the features
+        static_input = (
+            torch.ones((1, len(model.categorical_features)), device=self.device).long(),
+            torch.zeros((1, len(model.continuous_features)), device=self.device).float()
+        )
+        assert torch.allclose(
+            model(*static_input), torch.tensor(ml_config["best_static_input"]).to(self.device), atol=1e-5
+        ), "Model static input does not match the expected values. Model loading might have failed."
+        assert torch.allclose(
+            lora_model(*static_input), torch.tensor(ml_config["best_static_input_lora"]).to(self.device), atol=1e-5
+        ), "LoRA model static input does not match the expected values. Model loading might have failed."
 
-    # cross-check the features
-    static_input = (
-        torch.ones((1, len(model.categorical_features)), device=self.device).long(),
-        torch.zeros((1, len(model.continuous_features)), device=self.device).float()
-    )
-    assert torch.allclose(
-        model(*static_input), torch.tensor(ml_config["best_static_input"]).to(self.device), atol=1e-5
-    ), "Model static input does not match the expected values. Model loading might have failed."
-    assert torch.allclose(
-        lora_model(*static_input), torch.tensor(ml_config["best_static_input_lora"]).to(self.device), atol=1e-5
-    ), "LoRA model static input does not match the expected values. Model loading might have failed."
+        # add the model to the config
+        self.models[fold] = model
+        self.lora_models[fold] = lora_model
+
+        if fold == 0:
+            # create the dataset
+            self.needed_features = model.categorical_features + model.continuous_features
+            dataset_dict = {
+                "target": int(self.dataset_inst.has_tag("signal")),
+                "device": self.device,
+                "pad_flags": True,
+                "continuous_features": ml_config["handler_cfg"]["continuous_features"],
+                "categorical_features": ml_config["handler_cfg"]["categorical_features"],
+                "input_data_transform": RemoveEmptyValues(padding_values=ml_config["padding_values"]),
+            }
+            self.data_cls = partial(TensorParquetDataset, **dataset_dict)
+
 
 
 @ml_classify.teardown
 def ml_classify_teardown(self: Producer, **kwargs) -> None:
     # remove the model from the device
     torch.cuda.empty_cache()
-    if hasattr(self, "model"):
-        del self.model
-    if hasattr(self, "lora_model"):
-        del self.lora_model
-    # remove the model from the config
-    if hasattr(self, "ml_config"):
-        del self.ml_config
+    if hasattr(self, "models"):
+        del self.models
+    if hasattr(self, "lora_models"):
+        del self.lora_models
     gc.collect()
 
 
@@ -199,11 +213,10 @@ def ml_producer_init(self: Producer) -> None:
 
 ml_producers = []
 for name in (
-    ["FocalLoss_1", "FocalLoss_g3", "BCE_1", "BCE_2", "BCE_3"] +
-    [f"rank_{i}" for i in [1, 3, 5, 10, 20, 50, 100]] +
-    [f"rank_{i}_2" for i in [1, 3, 5, 10, 20, 50, 100]] +
-    [f"th_0p{i}" for i in [0, 1, 2, 25, 4, 5, 6, 7]] +
-    [f"r10_s{i}" for i in [42, 1337, 8675309, 9001, 123456789]]
+    ["FL", "FL_lowLLR", "BCE", "FL_BCE", "FL_g0", "TRUE_BCE"] +
+    [f"th_0p{i}" for i in range(10)] +
+    [f"FL_s{i}" for i in [42, 911]] +
+    [f"rank_{i}" for i in [1, 3, 5, 7, 10, 20, 50, 100, 500]]
 ):
     ml_producer_instance = ml_producer.derive(
         name.lower(),

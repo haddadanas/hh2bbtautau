@@ -43,3 +43,4 @@ data
 .vscode
 .python-version
 .__afs*
+ml_network/**

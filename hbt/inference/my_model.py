@@ -312,7 +312,7 @@ class ml_inference_lora(ml_inference):
 
 
 models = []
-for i in [0, 1, 2, 25, 4, 5, 6, 7]:
+for i in [0, 1, 2, 25, 3, 4, 5, 6, 7, 8, 9]:
     models.append(
         ml_inference_lora.derive(
             f"ml_inference_lora_0p{i}",

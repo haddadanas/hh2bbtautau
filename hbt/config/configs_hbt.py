@@ -1708,44 +1708,81 @@ def add_config(
         )
         for key in cfg.x.ml_wps
     })
+    # cfg.x.ml_dnn = DotDict.wrap({
+    #     key: f"/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/nn_models/{val}"
+    #     for key, val in [
+    #         ("FocalLoss_1", "token_model__loose__datasets_3__seed_4321_logs/20250624_174039/"),
+    #         ("FocalLoss_g3", "token_model__loose__datasets_3__seed_4321__rank_10__threshold_0p25_logs/20250702_165550/"),
+    #         ("BCE_1", "token_model__loose__datasets_3__seed_4321_logs/20250625_184027/"),
+    #         ("BCE_2", "token_model__loose__datasets_3__seed_4321__rank_10_logs/20250701_125305/"),
+    #         ("BCE_3", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250702_123127/"),
+    #         ("BCE_4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25__lr_5e-05_logs/20250704_111854/"),
+    #         ("rank_1", "token_model__loose__datasets_3__seed_911__rank_1_logs/20250627_140554/"),
+    #         ("rank_3", "token_model__loose__datasets_3__seed_911__rank_3_logs/20250627_151115/"),
+    #         ("rank_5", "token_model__loose__datasets_3__seed_911__rank_5_logs/20250627_160915/"),
+    #         ("rank_10", "token_model__loose__datasets_3__seed_911__rank_10_logs/20250627_170219/"),
+    #         ("rank_20", "token_model__loose__datasets_3__seed_911__rank_20_logs/20250627_175306/"),
+    #         ("rank_50", "token_model__loose__datasets_3__seed_911__rank_50_logs/20250627_184535/"),
+    #         ("rank_100", "token_model__loose__datasets_3__seed_911__rank_100_logs/20250630_162816/"),
+    #         ("rank_1_2", "token_model__loose__datasets_3__seed_42__rank_1_logs/20250626_174451/"),
+    #         ("rank_3_2", "token_model__loose__datasets_3__seed_42__rank_3_logs/20250626_180202/"),
+    #         ("rank_5_2", "token_model__loose__datasets_3__seed_42__rank_5_logs/20250626_181632/"),
+    #         ("rank_10_2", "token_model__loose__datasets_3__seed_42__rank_10_logs/20250626_183102/"),
+    #         ("rank_20_2", "token_model__loose__datasets_3__seed_42__rank_20_logs/20250626_184530/"),
+    #         ("rank_50_2", "token_model__loose__datasets_3__seed_42__rank_50_logs/20250626_185943/"),
+    #         ("rank_100_2", "token_model__loose__datasets_3__seed_42__rank_100__threshold_0p25__lr_0.0001_logs/20250703_221003/"),
+    #         # threshold scan
+    #         ("th_0p0", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p0_logs/20250701_152325/"),
+    #         ("th_0p1", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p1_logs/20250701_160227/"),
+    #         ("th_0p25", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25_logs/20250701_165820/"),
+    #         ("th_0p2", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250701_161015/"),
+    #         ("th_0p4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p4_logs/20250701_174054/"),
+    #         ("th_0p5", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p5_logs/20250701_183911/"),
+    #         ("th_0p6", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p6_logs/20250701_193433/"),
+    #         ("th_0p7", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p7_logs/20250701_200600/"),
+    #         # seed checks
+    #         ("r10_s1337", "token_model__loose__datasets_3__seed_1337__rank_10__threshold_0p25__lr_0.0001_logs/20250703_184321/"),
+    #         ("r10_s8675309", "token_model__loose__datasets_3__seed_8675309__rank_10__threshold_0p25__lr_0.0001_logs/20250703_202506/"),
+    #         ("r10_s9001", "token_model__loose__datasets_3__seed_9001__rank_10__threshold_0p25__lr_0.0001_logs/20250703_193548/"),
+    #         ("r10_s42", "token_model__loose__datasets_3__seed_42__rank_10__threshold_0p25__lr_0.0001_logs/20250703_175236/"),
+    #         ("r10_s123456789", "token_model__loose__datasets_3__seed_123456789__rank_10__threshold_0p25__lr_0.0001_logs/20250703_212441/"),
+    #     ]
+    # })
+
     cfg.x.ml_dnn = DotDict.wrap({
-        key: f"/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/nn_models/{val}"
+        key: f"/afs/desy.de/user/h/haddadan/hh2bbtautau/ml_network/models/nn_models_kfold/{val}"
         for key, val in [
-            ("FocalLoss_1", "token_model__loose__datasets_3__seed_4321_logs/20250624_174039/"),
-            ("FocalLoss_g3", "token_model__loose__datasets_3__seed_4321__rank_10__threshold_0p25_logs/20250702_165550/"),
-            ("BCE_1", "token_model__loose__datasets_3__seed_4321_logs/20250625_184027/"),
-            ("BCE_2", "token_model__loose__datasets_3__seed_4321__rank_10_logs/20250701_125305/"),
-            ("BCE_3", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250702_123127/"),
-            ("BCE_4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25_logs/20250704_111854/"),
-            ("rank_1", "token_model__loose__datasets_3__seed_911__rank_1_logs/20250627_140554/"),
-            ("rank_3", "token_model__loose__datasets_3__seed_911__rank_3_logs/20250627_151115/"),
-            ("rank_5", "token_model__loose__datasets_3__seed_911__rank_5_logs/20250627_160915/"),
-            ("rank_10", "token_model__loose__datasets_3__seed_911__rank_10_logs/20250627_170219/"),
-            ("rank_20", "token_model__loose__datasets_3__seed_911__rank_20_logs/20250627_175306/"),
-            ("rank_50", "token_model__loose__datasets_3__seed_911__rank_50_logs/20250627_184535/"),
-            ("rank_100", "token_model__loose__datasets_3__seed_911__rank_100_logs/20250630_162816/"),
-            ("rank_1_2", "token_model__loose__datasets_3__seed_42__rank_1_logs/20250626_174451/"),
-            ("rank_3_2", "token_model__loose__datasets_3__seed_42__rank_3_logs/20250626_180202/"),
-            ("rank_5_2", "token_model__loose__datasets_3__seed_42__rank_5_logs/20250626_181632/"),
-            ("rank_10_2", "token_model__loose__datasets_3__seed_42__rank_10_logs/20250626_183102/"),
-            ("rank_20_2", "token_model__loose__datasets_3__seed_42__rank_20_logs/20250626_184530/"),
-            ("rank_50_2", "token_model__loose__datasets_3__seed_42__rank_50_logs/20250626_185943/"),
-            ("rank_100_2", "token_model__loose__datasets_3__seed_42__rank_100__threshold_0p25__lr_0.0001_logs/20250703_221003/"),
-            # threshold scan
-            ("th_0p0", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p0_logs/20250701_152325/"),
-            ("th_0p1", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p1_logs/20250701_160227/"),
-            ("th_0p25", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p25_logs/20250701_165820/"),
-            ("th_0p2", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p2_logs/20250701_161015/"),
-            ("th_0p4", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p4_logs/20250701_174054/"),
-            ("th_0p5", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p5_logs/20250701_183911/"),
-            ("th_0p6", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p6_logs/20250701_193433/"),
-            ("th_0p7", "token_model__loose__datasets_3__seed_7814__rank_10__threshold_0p7_logs/20250701_200600/"),
-            # seed checks
-            ("r10_s1337", "token_model__loose__datasets_3__seed_1337__rank_10__threshold_0p25__lr_0.0001_logs/20250703_184321/"),
-            ("r10_s8675309", "token_model__loose__datasets_3__seed_8675309__rank_10__threshold_0p25__lr_0.0001_logs/20250703_202506/"),
-            ("r10_s9001", "token_model__loose__datasets_3__seed_9001__rank_10__threshold_0p25__lr_0.0001_logs/20250703_193548/"),
-            ("r10_s42", "token_model__loose__datasets_3__seed_42__rank_10__threshold_0p25__lr_0.0001_logs/20250703_175236/"),
-            ("r10_s123456789", "token_model__loose__datasets_3__seed_123456789__rank_10__threshold_0p25__lr_0.0001_logs/20250703_212441/"),
+            ("FL", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_0.01/"),
+            ("FL_lowLLR", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_0.01__llr_0.0001"),
+            ("BCE", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_5em05__bce/"),
+            # Threshold Scan
+            ("th_0p0", "20250709__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.0/"),
+            ("th_0p1", "20250709__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.1/"),
+            ("th_0p2", "20250709__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.2/"),
+            ("th_0p3", "20250709__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.3/"),
+            ("th_0p4", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.4/"),
+            ("th_0p5", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.5/"),
+            ("th_0p6", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.6/"),
+            ("th_0p7", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.7/"),
+            ("th_0p8", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.8/"),
+            ("th_0p9", "20250710__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.9/"),
+            # rank scan
+            ("rank_1", "20250714__rank_scan_seed_151__lr_0.01__rank_1__threshold_0.5/"),
+            ("rank_3", "20250714__rank_scan_seed_151__lr_0.01__rank_3__threshold_0.5/"),
+            ("rank_5", "20250714__rank_scan_seed_151__lr_0.01__rank_5__threshold_0.5/"),
+            ("rank_7", "20250714__rank_scan_seed_151__lr_0.01__rank_7__threshold_0.5/"),
+            ("rank_10", "20250715__rank_scan_seed_151__lr_0.01__rank_10__threshold_0.5/"),
+            ("rank_20", "20250715__rank_scan_seed_151__lr_0.01__rank_20__threshold_0.5/"),
+            ("rank_50", "20250715__rank_scan_seed_151__lr_0.01__rank_50__threshold_0.5/"),
+            ("rank_100", "20250715__rank_scan_seed_151__lr_0.01__rank_100__threshold_0.5/"),
+            ("rank_500", "20250715__rank_scan_seed_151__lr_0.01__rank_500__threshold_0.5/"),
+            # seed scans
+            ("FL_s42", "20250709__model_seed_42__lr_0.01__rank_10__threshold_0.3"),
+            ("FL_s911", "20250709__model_seed_911__lr_0.01__rank_10__threshold_0.3"),
+            # Loss switching test
+            ("FL_BCE", "20250710__bce_test_seed_151__lr_0p001__rank_10__threshold_0p3"),
+            ("FL_g0", "20250711__fl_g0_am1_seed_151__lr_5e-05__rank_10__threshold_0.3"),
+            ("TRUE_BCE", "20250711__bce_binary_seed_151__lr_5e-05__rank_10__threshold_0.3"),
         ]
     })
 
