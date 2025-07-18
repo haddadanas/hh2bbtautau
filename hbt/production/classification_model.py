@@ -216,7 +216,8 @@ for name in (
     ["FL", "FL_lowLLR", "BCE", "FL_BCE", "FL_g0", "TRUE_BCE"] +
     [f"th_0p{i}" for i in range(10)] +
     [f"FL_s{i}" for i in [42, 911]] +
-    [f"rank_{i}" for i in [1, 3, 5, 7, 10, 20, 50, 100, 500]]
+    [f"rank_{i}" for i in [1, 3, 5, 7, 10, 20, 50, 100, 500]] +
+    [f"rank_{i}_0p3" for i in [1, 5, 10, 50, 100]]
 ):
     ml_producer_instance = ml_producer.derive(
         name.lower(),

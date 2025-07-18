@@ -206,14 +206,14 @@ def add_config(
 
         # hh vbf
         # 2022: private produced datasets
-        *if_era(year=2022, values=[
-            "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
-            "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
-            "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
-        ]),
+        # *if_era(year=2022, values=[
+        #     "hh_vbf_hbb_htt_kv1_k2v1_kl1_prv_madgraph",
+        #     "hh_vbf_hbb_htt_kv1_k2v0_kl1_prv_madgraph",
+        #     "hh_vbf_hbb_htt_kvm0p962_k2v0p959_klm1p43_prv_madgraph",
+        #     "hh_vbf_hbb_htt_kvm1p21_k2v1p94_klm0p94_prv_madgraph",
+        #     "hh_vbf_hbb_htt_kvm1p6_k2v2p72_klm1p36_prv_madgraph",
+        #     "hh_vbf_hbb_htt_kvm1p83_k2v3p57_klm3p39_prv_madgraph",
+        # ]),
         # 2023: central datasets
         *if_era(year=2023, values=[
             # default basis
@@ -1809,6 +1809,12 @@ def add_config(
             ("rank_50", "20250715__rank_scan_seed_151__lr_0.01__rank_50__threshold_0.5/"),
             ("rank_100", "20250715__rank_scan_seed_151__lr_0.01__rank_100__threshold_0.5/"),
             ("rank_500", "20250715__rank_scan_seed_151__lr_0.01__rank_500__threshold_0.5/"),
+            # rank scan
+            ("rank_1_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_1__threshold_0.3/"),
+            ("rank_10_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_10__threshold_0.3/"),
+            ("rank_50_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_50__threshold_0.3/"),
+            ("rank_100_0p3", "20250718__rank_scan_0p3_seed_151__lr_0.01__rank_100__threshold_0.3/"),
+            ("rank_5_0p3", "20250718__rank_scan_0p3_seed_151__lr_0.01__rank_5__threshold_0.3/"),
             # seed scans
             ("FL_s42", "20250709__model_seed_42__lr_0.01__rank_10__threshold_0.3"),
             ("FL_s911", "20250709__model_seed_911__lr_0.01__rank_10__threshold_0.3"),
