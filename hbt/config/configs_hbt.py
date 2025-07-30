@@ -686,6 +686,7 @@ def add_config(
         "none": ["json"],
         "default": ["json", "trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
         "no_jet": ["json", "trigger", "met_filter", "jet_veto_map", "lepton"],
+        "my": ["trigger", "met_filter", "jet_veto_map", "lepton", "jet2"],
     }
     cfg.x.default_selector_steps = "all"
 
@@ -1811,16 +1812,18 @@ def add_config(
             ("rank_500", "20250715__rank_scan_seed_151__lr_0.01__rank_500__threshold_0.5/"),
             # rank scan
             ("rank_1_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_1__threshold_0.3/"),
+            ("rank_5_0p3", "20250718__rank_scan_0p3_seed_151__lr_0.01__rank_5__threshold_0.3/"),
             ("rank_10_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_10__threshold_0.3/"),
             ("rank_50_0p3", "20250717__rank_scan_0p3_seed_151__lr_0.01__rank_50__threshold_0.3/"),
             ("rank_100_0p3", "20250718__rank_scan_0p3_seed_151__lr_0.01__rank_100__threshold_0.3/"),
-            ("rank_5_0p3", "20250718__rank_scan_0p3_seed_151__lr_0.01__rank_5__threshold_0.3/"),
+            ("rank_500_0p3", "20250720__rank_scan_0p3_seed_151__lr_0.01__rank_500__threshold_0.3"),
             # seed scans
             ("FL_s42", "20250709__model_seed_42__lr_0.01__rank_10__threshold_0.3"),
             ("FL_s911", "20250709__model_seed_911__lr_0.01__rank_10__threshold_0.3"),
             # Loss switching test
-            ("FL_BCE", "20250710__bce_test_seed_151__lr_0p001__rank_10__threshold_0p3"),
+            ("FL_BCE", "20250710__bce_test_seed_151__lr_0p001__rank_10__threshold_0p3"),  # Focal dann BCE nach dem Schedular step
             ("FL_g0", "20250711__fl_g0_am1_seed_151__lr_5e-05__rank_10__threshold_0.3"),
+            ("FL_g0_2", "20250729__fl_g0_am1_seed_5__lr_5e-05__rank_10__threshold_0.3"),
             ("TRUE_BCE", "20250711__bce_binary_seed_151__lr_5e-05__rank_10__threshold_0.3"),
         ]
     })
