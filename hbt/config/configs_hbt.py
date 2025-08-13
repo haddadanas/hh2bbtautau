@@ -1825,6 +1825,10 @@ def add_config(
             ("FL_g0", "20250711__fl_g0_am1_seed_151__lr_5e-05__rank_10__threshold_0.3"),
             ("FL_g0_2", "20250729__fl_g0_am1_seed_5__lr_5e-05__rank_10__threshold_0.3"),
             ("TRUE_BCE", "20250711__bce_binary_seed_151__lr_5e-05__rank_10__threshold_0.3"),
+            # gamma scan
+            ("FL_g1", "20250807__fl_g1_seed_151__lr_0.001__rank_10__threshold_0.3"),
+            ("FL_g5", "20250807__fl_g5_seed_151__lr_0.001__rank_10__threshold_0.3"),
+            ("FL_g10", "20250807__fl_g10_seed_151__lr_0.001__rank_10__threshold_0.3"),
         ]
     })
 
