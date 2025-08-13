@@ -389,14 +389,7 @@ def empty_call(
             )
 
     # create process ids
-    if self.process_ids_dy_amcatnlo is not None:
-        events = self[self.process_ids_dy_amcatnlo](events, **kwargs)
-    elif self.process_ids_dy_powheg is not None:
-        events = self[self.process_ids_dy_powheg](events, **kwargs)
-    elif self.process_ids_w_lnu is not None:
-        events = self[self.process_ids_w_lnu](events, **kwargs)
-    else:
-        events = self[process_ids](events, **kwargs)
+    events = self[process_ids](events, **kwargs)
 
     # fake lepton selection results
     events = set_ak_column(events, "channel_id", np.zeros(len(events), dtype=np.uint8))
@@ -470,6 +463,9 @@ def increment_stats(
     keys_for_stats = []
     keys_for_hists = []
 
+    # helper to cast to float64
+    f64 = lambda a: ak.values_astype(a, np.float64)
+
     def add(key, sel, weight=None, for_stats=False, for_hists=True):
         stats_map[key] = sel if weight is None else (weight, sel)
         if for_stats and key not in keys_for_stats:
@@ -536,7 +532,7 @@ def increment_stats(
         if "sum_mc_weight_per_process" not in stats:
             stats["sum_mc_weight_per_process"] = defaultdict(float)
         for proc_id in np.unique(events.process_id):
-            proc_weights = events.mc_weight[events.process_id == proc_id]
+            proc_weights = f64(events.mc_weight[events.process_id == proc_id])
             stats["num_events_per_process"][str(proc_id)] += float(len(proc_weights))
             stats["sum_mc_weight_per_process"][str(proc_id)] += float(ak.sum(proc_weights))
 
@@ -559,6 +555,6 @@ def increment_stats(
             fill_hist(hists[key], fill_data, last_edge_inclusive=True)
 
         if key in keys_for_stats:
-            stats[key] += float(ak.sum(sel if is_num else weight[sel]))
+            stats[key] += float(ak.sum(f64(sel if is_num else weight[sel])))
 
     return events, results

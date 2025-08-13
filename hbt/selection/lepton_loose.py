@@ -150,7 +150,7 @@ def loose_electron_selection(
             )
 
         # control mask for the electron selection
-        control_mask = default_mask & (events.Electron.pt > 24)
+        control_mask = default_mask & (events.Electron.pt > 24.0)
         analysis_mask = default_mask & (events.Electron.pt > min_pt)
 
     # veto electron mask (must be trigger independent!)
@@ -707,12 +707,19 @@ def lepton_loose_selection(
                 False,
             )
 
+            # check if the leading (most isolated) tau is isolated
+            leading_tau_isolated = ak.fill_none(
+                ak.firsts(tau_iso_mask[tau_sorting_indices[ch_base_tau_mask[tau_sorting_indices]]], axis=1),
+                False,
+            )
+
             # expect 0 veto electrons, 0 veto muons and at least two taus of which one is isolated
             is_tautau = (
                 trigger_fired &
                 (ak.sum(electron_veto_mask, axis=1) == 0) &
                 (ak.sum(muon_veto_mask, axis=1) == 0) &
-                leading_taus_matched
+                leading_taus_matched &
+                leading_tau_isolated
             )
 
             # get selected, sorted taus to obtain quantities
@@ -1026,6 +1033,15 @@ def lepton_loose_selection(
             # save the leading taus for the duration of the selection
             # exactly 1 for etau/mutau and exactly 2 for tautau
             "leading_taus": leading_taus,
+
+            # save the leading e/mu's for the duration of the selection
+            "leading_e_mu": ak.concatenate(
+                [
+                    events.Electron[sel_electron_indices] * 1,
+                    events.Muon[sel_muon_indices] * 1,
+                ],
+                axis=1,
+            )[:, :2],
         },
     )
 
