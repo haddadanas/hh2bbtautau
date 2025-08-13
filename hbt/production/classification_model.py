@@ -128,6 +128,7 @@ def ml_classify_setup(self: Producer, task, reqs: dict, inputs: dict, reader_tar
                 "categorical_features": ml_config["handler_cfg"]["categorical_features"],
                 "input_data_transform": RemoveEmptyValues(padding_values=ml_config["padding_values"]),
             }
+            TensorParquetDataset.padded_objects = ml_config["padded_objects"]
             self.data_cls = partial(TensorParquetDataset, **dataset_dict)
 
 
