@@ -9,6 +9,7 @@ import gc
 from columnflow.production import Producer, producer
 from columnflow.production.categories import category_ids
 from columnflow.production.normalization import normalization_weights
+from columnflow.production.processes import process_ids
 from columnflow.util import dev_sandbox, maybe_import
 from columnflow.columnar_util import set_ak_column, remove_ak_column
 from law.util import InsertableDict
@@ -152,7 +153,7 @@ def ml_classify_init(self: Producer) -> None:
 
 @producer(
     uses={
-        default, normalization_weights, category_ids,
+        default, normalization_weights, category_ids, process_ids
     },
     produces={
         default, normalization_weights, category_ids,
@@ -160,8 +161,11 @@ def ml_classify_init(self: Producer) -> None:
     model_name=None,
 )
 def ml_producer(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # overwrite the process ids in case of dy
+    if self.dataset_inst.has_tag("dy"):
+        events = self[process_ids](events, **kwargs)
 
-    # preprocess the data
+    # preprocess the datax
     events = self[normalization_weights](events, **kwargs)
 
     if "normalization_weight_inclusive" in events.fields:
@@ -196,6 +200,7 @@ def ml_producer_pre_init(self: Producer) -> None:
 
 @ml_producer.init
 def ml_producer_init(self: Producer) -> None:
+    from IPython import embed; embed(header="Debugger in classification_model.py at l.203")
     if self.model_name is None:
         self.classify = ml_classify
         return
@@ -214,7 +219,7 @@ def ml_producer_init(self: Producer) -> None:
 
 ml_producers = []
 for name in (
-    ["FL", "FL_lowLLR", "BCE", "FL_BCE", "FL_g0_2", "TRUE_BCE"] +
+    ["FL", "FL_lowLLR", "BCE", "FL_BCE", "FL_g0_2", "TRUE_BCE", "Weighted", "Weighted_FL", "FL_lowLR", "bigger", "better_ce", "better_fl"] +
     [f"th_0p{i}" for i in range(10)] +
     [f"FL_s{i}" for i in [42, 911]] +
     [f"FL_g{i}" for i in [0, 1, 5, 10]] +

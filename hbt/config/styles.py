@@ -21,7 +21,7 @@ def setup_plot_styles(config: od.Config) -> None:
     """
     # general settings
     config.x.default_general_settings = {
-        "cms_label": "wip", "whitespace_fraction": 0.31,
+        "cms_label": "simpw", "whitespace_fraction": 0.31,
     }
 
     # default component configs

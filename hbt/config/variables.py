@@ -794,7 +794,7 @@ def add_variables(config: od.Config) -> None:
         config,
         name="bin_dnn_signal",
         expression="bin_dnn_1",
-        binning=(20, 0.0, 1.0),
+        binning=(10, 0.0, 1.0),
         x_title="DNN Signal",
     )
     add_variable(
@@ -803,7 +803,7 @@ def add_variables(config: od.Config) -> None:
         expression="bin_dnn_1",
         binning=(5000, 0.0, 1.0),
         x_title="DNN Signal",
-        aux={"x_transformations": "equal_distance_with_indices"},
+        aux={"x_transformations": "equal_distance_with_edges"},
     )
     add_variable(
         config,

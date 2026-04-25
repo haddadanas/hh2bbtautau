@@ -1788,6 +1788,7 @@ def add_config(
         for key, val in [
             ("FL", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_0.01/"),
             ("FL_lowLLR", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_0.01__llr_0.0001"),
+            ("FL_lowLR", "20250820__focal_new_seed_151__lr_0.001__rank_10__threshold_0.3"),
             ("BCE", "token_model__loose__datasets_3__seed_151__rank_10__threshold_0p3__lr_5em05__bce/"),
             # Threshold Scan
             ("th_0p0", "20250709__thresold_scan_seed_151__lr_0.01__rank_10__threshold_0.0/"),
@@ -1829,6 +1830,12 @@ def add_config(
             ("FL_g1", "20250807__fl_g1_seed_151__lr_0.001__rank_10__threshold_0.3"),
             ("FL_g5", "20250807__fl_g5_seed_151__lr_0.001__rank_10__threshold_0.3"),
             ("FL_g10", "20250807__fl_g10_seed_151__lr_0.001__rank_10__threshold_0.3"),
+            # Weighted
+            ("Weighted", "20250818__weight_by_ml_seed_151__lr_5e-05__rank_10__threshold_0.3"),
+            ("Weighted_FL", "20250820__weight_by_ml_focal_seed_151__lr_0.001__rank_10__threshold_0.3"),
+            ("bigger", "20250821__focal_bigger_model_seed_151__lr_0.01__rank_10__threshold_0.3"),
+            ("better_ce", "20250824__ce_lora_best_seed_151__lr_0.01__rank_10__threshold_0.5"),
+            ("better_fl", "20250824__focal_lora_best_seed_151__lr_0.01__rank_10__threshold_0.5"),
         ]
     })
 
